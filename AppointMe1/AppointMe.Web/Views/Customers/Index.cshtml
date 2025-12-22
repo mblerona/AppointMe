@@ -1,0 +1,190 @@
+﻿@model IEnumerable<AppointMe.Domain.DTO.CustomerDTO>
+@{
+    ViewData["Title"] = "Customers";
+}
+
+<style>
+    .search-bar {
+        max-width: 420px;
+    }
+
+    .search-input {
+        border-radius: 999px;
+        padding-left: 36px;
+        height: 38px;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .btn-pill {
+        height: 38px;
+        width: 38px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        color:gray;
+    }
+    .btn-xxs {
+        padding: 4px 6px;
+        font-size: 0.75rem;
+        line-height: 1;
+        border-radius: 8px;
+    }
+
+        .btn-xxs i {
+            font-size: 0.9rem;
+        }
+
+    
+    .table-card {
+        border-collapse: separate;
+        border-spacing: 0 10px; 
+    }
+
+        .table-card tbody tr {
+            background: #fff;
+            box-shadow: 0 8px 20px rgba(0,0,0,.05);
+            border-radius: 14px;
+            transition: transform .15s ease, box-shadow .15s ease;
+        }
+
+            .table-card tbody tr:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 12px 28px rgba(0,0,0,.08);
+            }
+
+        .table-card td {
+            padding: 14px 16px;
+            border-top: none;
+        }
+
+            .table-card td:first-child {
+                border-top-left-radius: 14px;
+                border-bottom-left-radius: 14px;
+            }
+
+            .table-card td:last-child {
+                border-top-right-radius: 14px;
+                border-bottom-right-radius: 14px;
+            }
+
+    .customer-name {
+        font-weight: 600;
+    }
+
+    .muted {
+        color: #6c757d;
+        font-size: .85rem;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Customers</h2>
+    <a class="btn btn-primary" asp-action="Create">
+        <i class="bi bi-plus-circle"></i> New Customer
+    </a>
+</div>
+<br /> <br />
+<form method="get" class="d-flex align-items-center gap-2 mb-3">
+
+    <div class="position-relative search-bar">
+        <i class="bi bi-search search-icon"></i>
+        <input class="form-control search-input"
+               name="searchTerm"
+               value="@ViewData["SearchTerm"]"
+               placeholder="Search customers…" />
+    </div>
+
+    <button class="btn btn-outline-primary btn-pill"
+            type="submit"
+            title="Search">
+        <i class="bi bi-arrow-right"></i>
+    </button>
+
+    <a class="btn btn-outline-danger btn-pill"
+       asp-action="Index"
+       title="Clear">
+        <i class="bi bi-x"></i>
+    </a>
+
+</form>
+
+<table class="table table-hover align-middle table-card  text-center  table-bordered ">
+    <thead class="text-muted small text-center table-bordered">
+        <tr class=" text-center table-bordered">
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>State</th>
+            <th style="width: 220px;">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var c in Model)
+        {
+            <tr>
+                <td>
+                    <div class="customer-name">
+                        @c.FirstName @c.LastName
+                    </div>
+                    <div class="muted">
+                        #@c.CustomerNumber
+                    </div>
+                </td>
+
+                <td>
+                    <div>@c.Email</div>
+                </td>
+
+                <td>
+                    <div>@c.PhoneNumber</div>
+                </td>
+
+                <td>
+                    <div>@c.State</div>
+                </td>
+
+                <td class="text-end">
+                    <div class="d-inline-flex gap-1">
+                        <a class="btn btn-xxs btn-outline-primary"
+                           asp-action="Details"
+                           asp-route-id="@c.Id"
+                           title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+
+                        <a class="btn btn-xxs btn-outline-warning"
+                           asp-action="Edit"
+                           asp-route-id="@c.Id"
+                           title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+
+                        <a class="btn btn-xxs btn-outline-danger"
+                           asp-action="Delete"
+                           asp-route-id="@c.Id"
+                           title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info mt-3">
+        No customers found.
+    </div>
+}

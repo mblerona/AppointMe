@@ -1,0 +1,13 @@
+Domain Migrations + Database
+
+Add-Migration AddCityAndCustomerNumber -Context AppointMe.Repository.Data.ApplicationDbContext -Project AppointMe.Repository -StartupProject AppointMe.Web
+Update-Database -Context AppointMe.Repository.Data.ApplicationDbContext -Project AppointMe.Repository -StartupProject AppointMe.Web
+
+
+Identity Migrations +  Database
+
+Add-Migration IdentitySomething -Context AppointMe.Web.Areas.Identity.Data.ApplicationDbContext -Project AppointMe.Web -StartupProject AppointMe.Web
+Update-Database -Context AppointMe.Web.Areas.Identity.Data.ApplicationDbContext -Project AppointMe.Web -StartupProject AppointMe.Web
+
+
+dotnet aspnet-codegenerator identity -p .\AppointMe.Web\AppointMe.Web.csproj -dc ApplicationDbContext --files "Account.Login"

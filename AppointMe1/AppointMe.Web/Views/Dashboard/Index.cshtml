@@ -1,0 +1,296 @@
+﻿@model AppointMe.Web.ViewModels.DashboardVm
+@{
+    ViewData["Title"] = "Dashboard";
+    string Active(string val) => (Model.Range == val) ? "active" : "";
+}
+
+<!-- Bootstrap Icons (needed for the small icons like your screenshot) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+    .header-left {
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* center horizontally */
+        text-align: center; /* center text */
+        gap: 10px;
+    }
+
+    .biz-logo {
+        height: 200px;
+        width: auto;
+        border-radius: 16px;
+        border: 1px solid #e5e5e5;
+        padding: 10px;
+        background: white;
+    }
+
+    .header-date {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+    }
+    .dash-wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .stat-card {
+        border: 1px solid #eee;
+        border-radius: 16px;
+    }
+
+    .stat-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pill {
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: .85rem;
+        font-weight: 600;
+    }
+
+    .pill-scheduled {
+        background: #f1f3f5;
+        color: #343a40;
+    }
+
+    .pill-completed {
+        background: #e6fcf5;
+        color: #087f5b;
+    }
+
+    .pill-cancelled {
+        background: #fff5f5;
+        color: #c92a2a;
+    }
+
+    .pill-noshow {
+        background: #fff9db;
+        color: #8a6d00;
+    }
+
+    .table-card {
+        border: 1px solid #eee;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .tabs-like .btn {
+        border-radius: 999px;
+    }
+</style>
+
+<div class="dash-wrap py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-center align-items-center mb-4 position-relative">
+        <div class="header-left text-center" >
+            @if (!string.IsNullOrWhiteSpace(Model.LogoUrl))
+            {
+                <img src="@Model.LogoUrl" alt="Business logo" class="biz-logo" />
+            }
+     
+            <div class="fw-bold" style="font-size:2.2rem; line-height:1.1;">
+                @Model.BusinessName
+            </div>
+
+            <div class="text-muted" style="font-size:2.2rem; line-height:1.1;">
+                Dashboard overview
+            </div>
+        </div>
+
+       
+    </div>
+
+    <div class="header-date text-muted">
+        <i class="bi bi-clock"></i>
+        <span>@DateTime.Now.ToString("ddd, MMM d")</span>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-3">
+            <div class="stat-card p-3 bg-white h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="text-muted fw-semibold">Total Appointments</div>
+                    <div class="stat-icon" style="background:#f3f0ff;">
+                        <i class="bi bi-calendar-event" style="font-size:1.2rem;"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="fw-bold" style="font-size:2.2rem; line-height:1;">@Model.TotalAppointments</div>
+                    <div class="text-muted">All time</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-3">
+            <div class="stat-card p-3 bg-white h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="text-muted fw-semibold">Scheduled</div>
+                    <div class="stat-icon" style="background:#e7f5ff;">
+                        <i class="bi bi-clock" style="font-size:1.2rem;"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="fw-bold" style="font-size:2.2rem; line-height:1;">@Model.ScheduledAppointments</div>
+                    <div class="text-muted">All time</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-3">
+            <div class="stat-card p-3 bg-white h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="text-muted fw-semibold">Completed</div>
+                    <div class="stat-icon" style="background:#ebfbee;">
+                        <i class="bi bi-check-circle" style="font-size:1.2rem;"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="fw-bold" style="font-size:2.2rem; line-height:1;">@Model.CompletedAppointments</div>
+                    <div class="text-muted">Successfully finished</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-3">
+            <div class="stat-card p-3 bg-white h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="text-muted fw-semibold">Customers</div>
+                    <div class="stat-icon" style="background:#fff4e6;">
+                        <i class="bi bi-people" style="font-size:1.2rem;"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="fw-bold" style="font-size:2.2rem; line-height:1;">@Model.CustomersCount</div>
+                    <div class="text-muted">Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search + filters -->
+    <form method="get" class="mb-3">
+        <input type="hidden" name="range" value="@Model.Range" />
+
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-lg-7">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input class="form-control" name="search" value="@Model.Search"
+                           placeholder="Search by name, order number, phone, or state..." />
+                </div>
+            </div>
+
+            <div class="col-6 col-lg-3">
+                <select class="form-select" name="status">
+                    <option value="all" selected="@(Model.Status=="all")">All Status</option>
+                    <option value="Scheduled" selected="@(Model.Status=="Scheduled")">Scheduled</option>
+                    <option value="Completed" selected="@(Model.Status=="Completed")">Completed</option>
+                    <option value="Cancelled" selected="@(Model.Status=="Cancelled")">Cancelled</option>
+                    <option value="NoShow" selected="@(Model.Status=="NoShow")">NoShow</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-lg-2 d-grid">
+                <button class="btn btn-primary" type="submit">Apply</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Range tabs -->
+    <div class="tabs-like mb-3 d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-secondary @Active("all")" href="@Url.Action("Index", new { range="all", status=Model.Status, search=Model.Search })">All Time</a>
+        <a class="btn btn-outline-secondary @Active("today")" href="@Url.Action("Index", new { range="today", status=Model.Status, search=Model.Search })">Today</a>
+        <a class="btn btn-outline-secondary @Active("week")" href="@Url.Action("Index", new { range="week", status=Model.Status, search=Model.Search })">This Week</a>
+        <a class="btn btn-outline-secondary @Active("month")" href="@Url.Action("Index", new { range="month", status=Model.Status, search=Model.Search })">This Month</a>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card bg-white">
+        <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+            <div class="fw-semibold">Appointments</div>
+            <div class="text-muted small">Showing latest @Model.Rows.Count</div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:220px;">Customer</th>
+                        <th style="min-width:140px;">Order Number</th>
+                        <th style="min-width:180px;">Date & Time</th>
+                        <th style="min-width:260px;">Contact</th>
+                        <th style="min-width:140px;">Location</th>
+                        <th style="min-width:130px;">Status</th>
+                        <th style="width:1%;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Rows.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5">No appointments found for this filter.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var a in Model.Rows)
+                        {
+                            string pillClass = a.Status.ToLower() switch
+                            {
+                                "scheduled" => "pill pill-scheduled",
+                                "completed" => "pill pill-completed",
+                                "cancelled" => "pill pill-cancelled",
+                                "noshow" => "pill pill-noshow",
+                                _ => "pill pill-scheduled"
+                            };
+
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">@a.CustomerName</div>
+                                    <div class="text-muted small">@a.Description</div>
+                                </td>
+                                <td>
+                                    <span class="badge text-bg-light" style="font-size:.95rem;">@a.OrderNumber</span>
+                                </td>
+                                <td>
+                                    @a.AppointmentDate.ToString("MMM dd, yyyy 'at' hh:mm tt")
+                                </td>
+                                <td class="small">
+                                    <div><i class="bi bi-envelope me-2"></i>@a.Email</div>
+                                    <div><i class="bi bi-telephone me-2"></i>@a.Phone1</div>
+                                    @if (!string.IsNullOrWhiteSpace(a.Phone2))
+                                    {
+                                        <div><i class="bi bi-telephone me-2"></i>@a.Phone2</div>
+                                    }
+                                </td>
+                                <td>
+                                    <i class="bi bi-geo-alt me-2"></i>@a.Location
+                                </td>
+                                <td>
+                                    <span class="@pillClass">@a.Status.ToLower()</span>
+                                </td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-secondary" asp-controller="Appointments" asp-action="Details" asp-route-id="@a.Id">
+                                        View
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>

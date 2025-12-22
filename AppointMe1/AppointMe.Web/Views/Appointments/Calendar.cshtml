@@ -1,0 +1,368 @@
+﻿@{
+    ViewData["Title"] = "Calendar";
+}
+
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+    .calendar-wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    .card-soft {
+        border: 1px solid rgba(0,0,0,.06);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,.06);
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .card-head {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(0,0,0,.06);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .title {
+        font-weight: 900;
+        margin: 0;
+        letter-spacing: .2px;
+    }
+
+    .subtle {
+        color: #6c757d;
+        font-weight: 600;
+        font-size: .9rem;
+    }
+
+    .btn-pill {
+        border-radius: 999px;
+        font-weight: 800;
+        padding: 9px 14px;
+    }
+
+    #calendar {
+        padding: 14px;
+    }
+
+    /* ===== Modern FullCalendar Skin ===== */
+    .fc {
+        font-family: inherit;
+        font-size: .95rem;
+    }
+
+        .fc .fc-button {
+            border-radius: 999px !important;
+            border: 1px solid rgba(0,0,0,.10) !important;
+            background: #fff !important;
+            color: #212529 !important;
+            font-weight: 800 !important;
+            padding: 8px 12px !important;
+            box-shadow: none !important;
+        }
+
+        .fc .fc-button-primary:not(:disabled).fc-button-active,
+        .fc .fc-button-primary:not(:disabled):active {
+            background: rgba(13,110,253,.12) !important;
+            border-color: rgba(13,110,253,.28) !important;
+            color: #0d6efd !important;
+        }
+
+        .fc .fc-toolbar-title {
+            font-size: 1.15rem !important;
+            font-weight: 900 !important;
+            letter-spacing: .2px;
+        }
+
+    .fc-theme-standard td,
+    .fc-theme-standard th {
+        border-color: rgba(0,0,0,.06) !important;
+    }
+
+    .fc-theme-standard .fc-scrollgrid {
+        border-color: rgba(0,0,0,.06) !important;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .fc .fc-day-today {
+        background: rgba(13,110,253,.06) !important;
+    }
+
+    /* Top day header */
+    .fc .fc-col-header-cell {
+        background: rgba(13,110,253,.06) !important;
+        padding: 10px 6px !important;
+    }
+
+    .fc .fc-col-header-cell-cushion {
+        color: #0b1f3a !important;
+        font-weight: 900 !important;
+        text-decoration: none !important;
+        font-size: .92rem !important;
+        letter-spacing: .2px;
+        padding: 6px 0 !important;
+        display: inline-block;
+    }
+
+    /* ===========================
+           APPOINTMENTS (BLUE)
+           =========================== */
+    .fc .fc-event:not(.holiday-event) {
+        background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 999px !important;
+        padding: 3px 8px !important;
+        box-shadow: 0 2px 6px rgba(13,110,253,.35), inset 0 0 0 1px rgba(255,255,255,.25) !important;
+        cursor: pointer;
+        transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    }
+
+        .fc .fc-event:not(.holiday-event):hover {
+            filter: brightness(.88) saturate(1.15) !important;
+            box-shadow: 0 10px 22px rgba(13,110,253,.65), inset 0 0 0 1px rgba(255,255,255,.28) !important;
+            transform: translateY(-1px);
+        }
+
+        .fc .fc-event:not(.holiday-event) .fc-event-title {
+            font-weight: 900 !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+    /* ===========================
+           HOLIDAYS (DARK GREEN PILL)
+           =========================== */
+    .fc .holiday-event {
+        background: #0a5c36 !important; 
+        border: none !important;
+        border-radius: 999px !important;
+        box-shadow: none !important;
+        cursor: default !important;
+    }
+
+       
+        .fc .holiday-event .fc-event-main {
+            color: #fff !important;
+            padding: 5px 10px !important;
+            text-align: center !important;
+            line-height: 1.1 !important;
+            font-weight: 900 !important;
+            white-space: normal !important;
+        }
+
+        .fc .holiday-event .holiday-title {
+            display: block;
+            font-size: .78rem;
+            font-weight: 900;
+        }
+
+        .fc .holiday-event .holiday-name {
+            display: block;
+            font-size: .72rem;
+            font-weight: 800;
+            opacity: .95;
+            margin-top: 2px;
+            max-width: 240px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+    @@media (max-width: 768px) {
+        #calendar {
+            padding: 10px;
+        }
+
+        .fc .fc-toolbar {
+            gap: 10px;
+        }
+
+        .fc .fc-toolbar-title {
+            font-size: 1.05rem !important;
+        }
+
+        .fc .fc-col-header-cell-cushion {
+            font-size: .88rem !important;
+        }
+
+        .fc .holiday-event .holiday-name {
+            max-width: 150px;
+        }
+    }
+</style>
+
+<div class="calendar-wrap py-4">
+    <div class="card-soft">
+        <div class="card-head">
+            <div>
+                <h2 class="title">Calendar</h2>
+                <div class="subtle">Weekly schedule view (click an appointment to open details).</div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary btn-pill" asp-action="Index">
+                    <i class="bi bi-arrow-left"></i> Back to list
+                </a>
+            </div>
+        </div>
+
+        <div id="calendar"></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const calendarEl = document.getElementById('calendar');
+
+      
+        const holidayCache = new Map();
+
+        function getHolidayName(ext) {
+            if (!ext) return "";
+            const localName = (ext.localName ? String(ext.localName) : "").trim();
+            const holidayName = (ext.holidayName ? String(ext.holidayName) : "").trim();
+            return localName || holidayName || "";
+        }
+
+        async function fetchHolidaysForYear(year) {
+            if (holidayCache.has(year)) return holidayCache.get(year);
+
+            const url = '@Url.Action("CalendarHolidays", "Appointments")' + '?year=' + year;
+            const res = await fetch(url, { headers: { "Accept": "application/json" } });
+            if (!res.ok) {
+                holidayCache.set(year, []);
+                return [];
+            }
+
+            const data = await res.json();
+
+            
+            const normalized = (data || []).map(ev => {
+                const ext = ev.extendedProps || {};
+                const name = getHolidayName(ext);
+
+             
+                const start = ev.start;
+                const end = ev.end || start;
+
+                return {
+                    start: start,
+                    end: end,
+                    allDay: true,
+                    title: "Public holiday",
+                    classNames: ["holiday-event"],
+                    editable: false,
+                    durationEditable: false,
+                    display: "auto",
+                    extendedProps: {
+                        isHoliday: true,
+                        holidayName: ext.holidayName || "",
+                        localName: ext.localName || "",
+                        nameToShow: name
+                    }
+                };
+            });
+
+            holidayCache.set(year, normalized);
+            return normalized;
+        }
+
+        async function holidaysEventSource(fetchInfo, successCallback, failureCallback) {
+            try {
+              
+                const years = new Set([fetchInfo.start.getFullYear(), fetchInfo.end.getFullYear()]);
+                let all = [];
+                for (const y of years) {
+                    const list = await fetchHolidaysForYear(y);
+                    all = all.concat(list);
+                }
+                successCallback(all);
+            } catch (err) {
+                failureCallback(err);
+            }
+        }
+
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'timeGridWeek',
+            height: 'auto',
+            nowIndicator: true,
+
+           
+            allDaySlot: true,
+
+            firstDay: 1,
+
+            slotMinTime: "@(ViewBag.WorkStart ?? "09:00:00")",
+            slotMaxTime: "@(ViewBag.WorkEnd ?? "17:00:00")",
+            hiddenDays: @Html.Raw(ViewBag.HiddenDays ?? "[]"),
+
+            slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+            },
+
+            eventSources: [
+                { url: '@Url.Action("CalendarEvents", "Appointments")' },
+                { events: holidaysEventSource }
+            ],
+
+            eventClick: function (info) {
+              
+                if (info.event.extendedProps && info.event.extendedProps.isHoliday) {
+                    info.jsEvent.preventDefault();
+                    return;
+                }
+
+                if (info.event.url) {
+                    window.location = info.event.url;
+                    info.jsEvent.preventDefault();
+                }
+            },
+
+          
+            eventContent: function (arg) {
+                const isHoliday = arg.event.extendedProps && arg.event.extendedProps.isHoliday;
+                if (!isHoliday) return true;
+
+                const name = (arg.event.extendedProps.nameToShow || "").trim();
+
+                const wrap = document.createElement('div');
+                const t = document.createElement('span');
+                t.className = 'holiday-title';
+                t.textContent = 'Public holiday';
+
+                const n = document.createElement('span');
+                n.className = 'holiday-name';
+                n.textContent = name || '';
+
+                wrap.appendChild(t);
+                if (name) wrap.appendChild(n);
+
+               
+                arg.el?.setAttribute('title', name ? `Public holiday — ${name}` : 'Public holiday');
+
+                return { domNodes: [wrap] };
+            },
+
+            eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false }
+        });
+
+        calendar.render();
+    });
+</script>
+    

@@ -1,0 +1,167 @@
+﻿@model AppointMe.Web.ViewModels.BusinessSettingsVm
+
+@{
+    ViewData["Title"] = "Business Settings";
+}
+
+<h2>Business Settings</h2>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
+
+<form asp-action="Business" method="post" enctype="multipart/form-data">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+    <!-- BASIC INFO -->
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="Phone" class="form-label"></label>
+            <input asp-for="Phone" class="form-control" />
+            <span asp-validation-for="Phone" class="text-danger"></span>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Address" class="form-label"></label>
+        <input asp-for="Address" class="form-control" />
+    </div>
+
+    <!-- LOGO -->
+    <div class="mb-3">
+        <label class="form-label">Logo</label>
+
+        @if (!string.IsNullOrWhiteSpace(Model.LogoUrl))
+        {
+            <div class="mb-2">
+                <img src="@Model.LogoUrl"
+                     alt="Logo"
+                     style="height:60px; width:auto; border:1px solid #ddd; border-radius:8px; padding:6px;" />
+            </div>
+        }
+
+        <input type="file"
+               name="logoFile"
+               class="form-control"
+               accept="image/png,image/jpeg,image/webp" />
+        <div class="form-text">PNG / JPG / WEBP, up to 2MB.</div>
+    </div>
+
+    <!-- COLORS -->
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Navbar color</label>
+            <div class="d-flex align-items-center gap-2">
+                <input asp-for="PrimaryColor"
+                       type="color"
+                       class="form-control form-control-color"
+                       style="width:64px; height:40px;" />
+                <input asp-for="PrimaryColor" class="form-control" readonly />
+            </div>
+            <span asp-validation-for="PrimaryColor" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Background color</label>
+            <div class="d-flex align-items-center gap-2">
+                <input asp-for="SecondaryColor"
+                       type="color"
+                       class="form-control form-control-color"
+                       style="width:64px; height:40px;" />
+                <input asp-for="SecondaryColor" class="form-control" readonly />
+            </div>
+            <span asp-validation-for="SecondaryColor" class="text-danger"></span>
+        </div>
+    </div>
+    <hr class="my-4" />
+    <h5 class="mb-3">Working hours</h5>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Start</label>
+            <input asp-for="WorkDayStart" type="time" class="form-control" />
+            <span asp-validation-for="WorkDayStart" class="text-danger"></span>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <label class="form-label">End</label>
+            <input asp-for="WorkDayEnd" type="time" class="form-control" />
+            <span asp-validation-for="WorkDayEnd" class="text-danger"></span>
+        </div>
+    </div>
+
+    <div class="mb-2 fw-semibold">Open days</div>
+    <div class="d-flex flex-wrap gap-3">
+        <div class="form-check"><input asp-for="OpenMon" class="form-check-input" /><label class="form-check-label">Mon</label></div>
+        <div class="form-check"><input asp-for="OpenTue" class="form-check-input" /><label class="form-check-label">Tue</label></div>
+        <div class="form-check"><input asp-for="OpenWed" class="form-check-input" /><label class="form-check-label">Wed</label></div>
+        <div class="form-check"><input asp-for="OpenThu" class="form-check-input" /><label class="form-check-label">Thu</label></div>
+        <div class="form-check"><input asp-for="OpenFri" class="form-check-input" /><label class="form-check-label">Fri</label></div>
+        <div class="form-check"><input asp-for="OpenSat" class="form-check-input" /><label class="form-check-label">Sat</label></div>
+        <div class="form-check"><input asp-for="OpenSun" class="form-check-input" /><label class="form-check-label">Sun</label></div>
+    </div>
+
+    <!-- FEATURES -->
+    <hr class="my-4" />
+    <h5 class="mb-3">Features</h5>
+
+    <div class="form-check form-switch mb-3">
+        <input asp-for="EnableServices"
+               class="form-check-input"
+               type="checkbox"
+               role="switch"
+               id="EnableServicesSwitch" />
+        <label class="form-check-label" for="EnableServicesSwitch">
+            Enable Services & Pricing
+        </label>
+        <div class="form-text">
+            When enabled, you can define services with prices and assign them to appointments.
+        </div>
+    </div>
+
+    @* Invoices only make sense if services are enabled *@
+    @if (Model.EnableServices)
+    {
+        <div class="form-check form-switch mb-3">
+            <input asp-for="EnableInvoices"
+                   class="form-check-input"
+                   type="checkbox"
+                   role="switch"
+                   id="EnableInvoicesSwitch" />
+            <label class="form-check-label" for="EnableInvoicesSwitch">
+                Enable Invoices
+            </label>
+            <div class="form-text">
+                Generate invoices from appointments (only appointments with services).
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-light border">
+            <div class="small text-muted">
+                <i class="bi bi-info-circle"></i>
+                Enable <strong>Services & Pricing</strong> to unlock invoicing.
+            </div>
+        </div>
+    }
+
+    <button class="btn btn-primary" type="submit">Save</button>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

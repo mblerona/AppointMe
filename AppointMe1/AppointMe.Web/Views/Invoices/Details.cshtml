@@ -1,0 +1,463 @@
+﻿@model AppointMe.Domain.DTO.InvoiceDTO
+@{
+    ViewData["Title"] = "Invoice";
+
+    string F(decimal v) => v.ToString("0.00");
+    bool hasDiscount = Model.Discount != 0;
+    bool hasTax = Model.Tax != 0;
+}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+    .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+    }
+
+    .page-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    .soft-card {
+        border: 1px solid rgba(0,0,0,.06);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,.06);
+        background: #fff;
+    }
+
+    .section-title {
+        font-size: .85rem;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        color: #6c757d;
+        font-weight: 800;
+    }
+
+    /* Print-like invoice sheet */
+    .invoice-sheet {
+        padding: 28px;
+    }
+
+  .inv-top { 
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.inv-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160px;
+}
+
+.invoice-logo {
+  max-height: 64px;
+  max-width: 160px;
+  object-fit: contain;
+}
+
+/* MOBILE */
+@@media (max-width: 768px) {
+  .inv-top {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .inv-meta {
+    text-align: center;
+    min-width: unset;
+  }
+
+}
+
+    .inv-brand h2 {
+        margin: 0;
+        font-weight: 900;
+        letter-spacing: .2px;
+    }
+
+    .inv-meta {
+        text-align: right;
+        min-width: 260px;
+    }
+
+        .inv-meta .inv-no {
+            font-weight: 900;
+            font-size: 1.05rem;
+        }
+
+    .kv-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 16px 0 18px;
+    }
+
+    .kv {
+        border: 1px solid rgba(0,0,0,.06);
+        border-radius: 14px;
+        padding: 12px 14px;
+        background: rgba(108,117,125,.05);
+    }
+
+        .kv .k {
+            font-size: .75rem;
+            text-transform: uppercase;
+            color: #6c757d;
+            font-weight: 800;
+        }
+
+        .kv .v {
+            font-weight: 900;
+            word-break: break-word;
+        }
+
+    .lines {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,.08);
+        border-radius: 14px;
+    }
+
+        .lines thead th {
+            background: rgba(13,110,253,.06);
+            border-bottom: 1px solid rgba(0,0,0,.08);
+            padding: 12px 12px;
+            font-size: .82rem;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+            color: #495057;
+            font-weight: 900;
+        }
+
+        .lines tbody td {
+            padding: 12px 12px;
+            border-bottom: 1px dashed rgba(0,0,0,.12);
+            vertical-align: top;
+            font-weight: 600;
+        }
+
+        .lines tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+    .muted {
+        color: #6c757d;
+        font-weight: 700;
+        font-size: .85rem;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-weight: 900;
+        font-size: .82rem;
+        border: 1px solid rgba(0,0,0,.06);
+        background: rgba(108,117,125,.10);
+        color: #495057;
+        white-space: nowrap;
+    }
+
+    .totals {
+        margin-top: 16px;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .totals-box {
+        width: 360px;
+        border: 1px solid rgba(0,0,0,.08);
+        border-radius: 14px;
+        padding: 12px 14px;
+        background: #fff;
+    }
+
+    .tot-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-weight: 800;
+    }
+
+        .tot-row.total {
+            border-top: 1px solid rgba(0,0,0,.10);
+            margin-top: 8px;
+            padding-top: 10px;
+            font-size: 1.05rem;
+            font-weight: 900;
+        }
+
+    /* Bottom actions area (NOT printed) */
+    .actions-card {
+        padding: 16px;
+    }
+
+    .btn-pill {
+        border-radius: 999px;
+        font-weight: 800;
+        padding: 10px 14px;
+    }
+
+    /* PRINT */
+    @@media print {
+        body {
+            background: #fff !important;
+        }
+
+        .no-print {
+            display: none !important;
+        }
+
+        .soft-card {
+            box-shadow: none !important;
+            border: none !important;
+        }
+
+        .invoice-sheet {
+            padding: 0;
+        }
+
+        .wrap {
+            max-width: 100% !important;
+            margin: 0 !important;
+        }
+
+        a[href]:after {
+            content: "" !important;
+        }
+
+        .inv-top {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 16px;
+        }
+
+        .inv-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .invoice-logo {
+            max-height: 64px;
+            max-width: 160px;
+            object-fit: contain;
+        }
+    }
+</style>
+
+<div class="wrap py-4">
+
+    <!-- Header -->
+    <div class="page-head no-print">
+        <div>
+            <div class="section-title mb-1">Invoice Preview</div>
+            <h2 class="fw-bold mb-0">Invoice</h2>
+            <div class="text-muted small">This is how it will look when printed.</div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-pill"
+               asp-controller="Appointments"
+               asp-action="Details"
+               asp-route-id="@Model.AppointmentId">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <!-- INVOICE SHEET -->
+    <div class="soft-card">
+        <div class="invoice-sheet">
+
+          @*  <div class="inv-top">
+                <div class="inv-brand">
+                    <div class="section-title">From</div>
+                    <h2>@(string.IsNullOrWhiteSpace(Model.BusinessName) ? "AppointMe" : Model.BusinessName)</h2>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.BusinessAddress))
+                    {
+                        <div class="muted"><i class="bi bi-geo-alt"></i> @Model.BusinessAddress</div>
+                    }
+                </div>
+
+                <div class="inv-meta">
+                    <div class="section-title">Invoice</div>
+                    <div class="inv-no">@Model.InvoiceNumber</div>
+                    <div class="muted">Issued: @Model.IssuedAt.ToString("dd MMM yyyy")</div>
+
+                    <div class="muted">
+                        Status:
+                        <span class="status-pill">@Model.Status</span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.OrderNumber))
+                    {
+                        <div class="muted">Order #: @Model.OrderNumber</div>
+                    }
+
+                    <div class="muted">Appointment: @Model.AppointmentDate.ToString("dd MMM yyyy HH:mm")</div>
+                </div>
+            </div>*@
+
+            @*CHANGED HERE *@
+            <div class="inv-top align-items-center">
+
+                <!-- LEFT: FROM -->
+                <div class="inv-brand">
+                    <div class="section-title">From</div>
+                    <h2>@Model.BusinessName</h2>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.BusinessAddress))
+                    {
+                        <div class="muted">
+                            <i class="bi bi-geo-alt"></i> @Model.BusinessAddress
+                        </div>
+                    }
+                </div>
+
+                <!-- CENTER: LOGO -->
+                @if (!string.IsNullOrWhiteSpace(Model.BusinessLogoUrl))
+                {
+                    <div class="inv-logo text-center">
+                        <img src="@Model.BusinessLogoUrl"
+                             alt="Business logo"
+                             class="invoice-logo" />
+                    </div>
+                }
+
+                <!-- RIGHT: INVOICE META -->
+                <div class="inv-meta">
+                    <div class="section-title">Invoice</div>
+                    <div class="inv-no">@Model.InvoiceNumber</div>
+                    <div class="muted">Issued: @Model.IssuedAt.ToString("dd MMM yyyy")</div>
+                    <div class="muted">Status: <span class="status-pill">@Model.Status</span></div>
+                </div>
+
+            </div>
+            @*CHANGED HERE *@
+            <div class="kv-grid">
+                <div class="kv">
+                    <div class="k"><i class="bi bi-person"></i> Bill To</div>
+                    <div class="v">@Model.CustomerName</div>
+                    @if (!string.IsNullOrWhiteSpace(Model.CustomerEmail))
+                    {
+                        <div class="muted"><i class="bi bi-envelope"></i> @Model.CustomerEmail</div>
+                    }
+                </div>
+
+                <div class="kv">
+                    <div class="k"><i class="bi bi-info-circle"></i> Summary</div>
+                    <div class="muted">Items: @(Model.Lines?.Count ?? 0)</div>
+                    <div class="muted">Subtotal: @F(Model.Subtotal) ден</div>
+                </div>
+            </div>
+
+            <table class="lines">
+                <thead>
+                    <tr>
+                        <th style="width:55%">Item</th>
+                        <th style="width:15%" class="text-end">Qty</th>
+                        <th style="width:15%" class="text-end">Unit</th>
+                        <th style="width:15%" class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Lines != null && Model.Lines.Any())
+                    {
+                        foreach (var l in Model.Lines)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">@l.Name</div>
+                                    @if (!string.IsNullOrWhiteSpace(l.Category))
+                                    {
+                                        <div class="muted">@l.Category</div>
+                                    }
+                                </td>
+                                <td class="text-end">@l.Qty</td>
+                                <td class="text-end">@F(l.UnitPrice) ден</td>
+                                <td class="text-end fw-bold">@F(l.LineTotal) ден</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">No invoice lines.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="totals">
+                <div class="totals-box">
+                    <div class="tot-row">
+                        <span class="muted">Subtotal</span>
+                        <span>@F(Model.Subtotal) ден</span>
+                    </div>
+
+                    @if (hasDiscount)
+                    {
+                        <div class="tot-row">
+                            <span class="muted">Discount</span>
+                            <span>- @F(Model.Discount) ден</span>
+                        </div>
+                    }
+
+                    @if (hasTax)
+                    {
+                        <div class="tot-row">
+                            <span class="muted">Tax</span>
+                            <span>@F(Model.Tax) ден</span>
+                        </div>
+                    }
+
+                    <div class="tot-row total">
+                        <span>Total</span>
+                        <span>@F(Model.Total) ден</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ACTIONS (buttons below invoice preview) -->
+    <div class="soft-card mt-3 no-print">
+        <div class="actions-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <div class="section-title mb-1">Actions</div>
+                    <div class="text-muted small">Print the invoice or send it to the customer.</div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-pill" type="button" onclick="window.print()">
+                        <i class="bi bi-printer"></i> Print
+                    </button>
+
+                 
+                    <button class="btn btn-outline-primary btn-pill" type="button" disabled title="Coming next: Email integration">
+                        <i class="bi bi-envelope"></i> Send by Email
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

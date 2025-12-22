@@ -1,0 +1,34 @@
+# Build results
+bin/
+obj/
+**/bin/
+**/obj/
+
+# VS / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local app settings (secrets)
+appsettings.Development.json
+appsettings.*.Development.json
+
+# EF / DB local files (if you ever have them)
+*.db
+*.db-journal
+
+# Node (if any)
+node_modules/
+
+# Publish output
+publish/

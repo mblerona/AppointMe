@@ -1,0 +1,111 @@
+﻿@model AppointMe.Domain.DomainModels.ServiceOffering
+
+@{
+    ViewData["Title"] = "Delete Service";
+}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+    .page-wrap {
+        max-width: 720px;
+        margin: 0 auto;
+    }
+
+    .card-soft {
+        border: 1px solid rgba(0,0,0,.06);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,.06);
+        background: #fff;
+    }
+
+    .section-title {
+        font-size: .95rem;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        color: #6c757d;
+    }
+
+    .danger-box {
+        border-left: 4px solid #dc3545;
+        background: #fff5f5;
+        border-radius: 12px;
+        padding: 16px;
+    }
+
+    .price {
+        font-variant-numeric: tabular-nums;
+    }
+</style>
+
+<div class="page-wrap py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <div class="section-title mb-1">Services</div>
+            <h2 class="fw-bold mb-0 text-danger">
+                <i class="bi bi-trash me-2"></i>Delete Service
+            </h2>
+        </div>
+
+        <a class="btn btn-outline-secondary" asp-action="Index">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="card card-soft">
+        <div class="card-body p-4">
+
+            <!-- Warning -->
+            <div class="danger-box mb-4">
+                <div class="d-flex gap-2 align-items-start">
+                    <i class="bi bi-exclamation-triangle-fill text-danger fs-4"></i>
+                    <div>
+                        <div class="fw-semibold">Are you sure you want to delete this service?</div>
+                        <div class="text-muted small">
+                            This action is permanent. Existing appointments will keep their booked price.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service summary -->
+            <dl class="row mb-4">
+                <dt class="col-sm-4 text-muted">Name</dt>
+                <dd class="col-sm-8 fw-semibold">@Model.Name</dd>
+
+                <dt class="col-sm-4 text-muted">Price</dt>
+                <dd class="col-sm-8 price">@Model.Price.ToString("0.00") ден</dd>
+
+                <dt class="col-sm-4 text-muted">Status</dt>
+                <dd class="col-sm-8">
+                    @if (Model.IsActive)
+                    {
+                        <span class="badge rounded-pill text-bg-success">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge rounded-pill text-bg-secondary">Inactive</span>
+                    }
+                </dd>
+            </dl>
+
+            <!-- Actions -->
+            <form asp-action="Delete" method="post" class="d-flex justify-content-end gap-2">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
+
+                <a class="btn btn-outline-secondary" asp-action="Index">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
+
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-trash"></i> Delete permanently
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+</div>

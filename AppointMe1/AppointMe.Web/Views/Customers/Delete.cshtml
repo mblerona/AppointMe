@@ -1,0 +1,92 @@
+﻿@model AppointMe.Domain.DTO.CustomerDTO
+@{
+    ViewData["Title"] = "Delete Customer";
+}
+
+<style>
+    .danger-card {
+        max-width: 520px;
+        margin: 40px auto;
+        border-radius: 16px;
+        box-shadow: 0 12px 30px rgba(0,0,0,.08);
+    }
+
+    .danger-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: rgba(220,53,69,.1);
+        color: #dc3545;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        margin-bottom: 12px;
+    }
+
+    .meta-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f1f1;
+    }
+
+        .meta-row:last-child {
+            border-bottom: none;
+        }
+
+    .meta-label {
+        color: #6c757d;
+        font-weight: 600;
+    }
+
+    .meta-value {
+        font-weight: 600;
+        color: #212529;
+    }
+</style>
+
+<div class="card danger-card">
+    <div class="card-body p-4 text-center">
+
+        <div class="danger-icon mx-auto">
+            <i class="bi bi-exclamation-triangle"></i>
+        </div>
+
+        <h4 class="fw-bold mt-2">Delete Customer</h4>
+        <p class="text-muted mb-4">
+            This action cannot be undone.
+        </p>
+
+        <div class="alert alert-warning text-start">
+            Are you sure you want to permanently delete
+            <strong>@Model.FirstName @Model.LastName</strong>?
+        </div>
+
+        <div class="text-start mb-4">
+            <div class="meta-row">
+                <div class="meta-label">Email</div>
+                <div class="meta-value">@Model.Email</div>
+            </div>
+            <div class="meta-row">
+                <div class="meta-label">Phone</div>
+                <div class="meta-value">@Model.PhoneNumber</div>
+            </div>
+        </div>
+
+        <form asp-action="Delete" method="post" class="d-flex gap-2 justify-content-center">
+            <input type="hidden" name="id" value="@Model.Id" />
+
+            <button class="btn btn-danger px-4" type="submit">
+                <i class="bi bi-trash"></i> Delete
+            </button>
+
+            <a class="btn btn-outline-secondary px-4"
+               asp-action="Details"
+               asp-route-id="@Model.Id">
+                Cancel
+            </a>
+        </form>
+
+    </div>
+</div>

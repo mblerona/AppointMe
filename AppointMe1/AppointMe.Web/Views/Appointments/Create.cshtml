@@ -1,0 +1,380 @@
+﻿@model AppointMe.Domain.DTO.CreateAppointmentDTO
+@using Microsoft.AspNetCore.Identity
+@using AppointMe.Domain.Identity
+@using AppointMe.Repository.Data
+@inject UserManager<AppointMeAppUser> UserManager
+@inject ApplicationDbContext Db
+
+@{
+    ViewData["Title"] = "Create Appointment";
+
+    var enableServices = false;
+    if (User?.Identity?.IsAuthenticated == true)
+    {
+        var u = await UserManager.GetUserAsync(User);
+        if (u?.TenantId != null && u.TenantId != Guid.Empty)
+        {
+            var biz = await Db.Businesses.FindAsync(u.TenantId.Value);
+            enableServices = biz?.EnableServices == true;
+        }
+    }
+}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+    .edit-wrap {
+        max-width: 920px;
+        margin: 0 auto;
+    }
+
+    .card-soft {
+        border: 1px solid rgba(0,0,0,.06);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,.06);
+        background: #fff;
+    }
+
+    .section-title {
+        font-size: .95rem;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        color: #6c757d;
+    }
+
+    .form-control, .form-select, .btn {
+        border-radius: 12px;
+    }
+
+    .input-hint {
+        font-size: .85rem;
+        color: #6c757d;
+    }
+
+    .service-box {
+        border: 1px solid rgba(0,0,0,.08);
+        border-radius: 14px;
+        padding: 12px;
+        background: #fff;
+        max-height: 280px;
+        overflow: auto;
+    }
+
+    .service-item {
+        border-radius: 12px;
+        padding: 10px 12px;
+        border: 1px solid rgba(0,0,0,.06);
+        transition: transform .12s ease, box-shadow .12s ease;
+    }
+
+        .service-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(0,0,0,.06);
+        }
+
+    .service-name {
+        font-weight: 600;
+    }
+
+    .service-meta {
+        font-size: .85rem;
+        color: #6c757d;
+    }
+</style>
+
+<div class="edit-wrap py-4">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <div class="section-title mb-1">Appointments</div>
+            <h2 class="fw-bold mb-0">
+                <i class="bi bi-calendar-plus me-2"></i>Create Appointment
+            </h2>
+        </div>
+
+        <a class="btn btn-outline-secondary" asp-action="Index">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="card card-soft">
+        <div class="card-body p-4">
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-danger d-flex gap-2">
+                    <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+                    <div asp-validation-summary="All" class="mb-0"></div>
+                </div>
+            }
+
+            <!-- Holiday alert -->
+            <div id="holidayAlert" class="alert alert-danger d-none align-items-start gap-2">
+                <i class="bi bi-calendar-x-fill mt-1"></i>
+                <div>
+                    <div class="fw-bold">Public holiday</div>
+                    <div id="holidayAlertText"></div>
+                </div>
+            </div>
+
+            <form asp-action="Create" method="post" id="createForm">
+                @Html.AntiForgeryToken()
+
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-person me-1"></i> Customer
+                        </label>
+                        <select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers">
+                            <option value="">-- select customer --</option>
+                        </select>
+                        <span asp-validation-for="CustomerId" class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="OrderNumber" class="form-label fw-semibold">
+                            <i class="bi bi-receipt me-1"></i> Order Number
+                        </label>
+                        <input asp-for="OrderNumber" class="form-control" autocomplete="off" />
+                        <span asp-validation-for="OrderNumber" class="text-danger"></span>
+                        <div class="input-hint mt-1">Must be unique inside this business.</div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="AppointmentDate" class="form-label fw-semibold">
+                            <i class="bi bi-clock me-1"></i> Date & Time
+                        </label>
+                        <input asp-for="AppointmentDate" id="apptDate" type="datetime-local" class="form-control" />
+                        <span asp-validation-for="AppointmentDate" class="text-danger"></span>
+                        <div class="input-hint mt-1">Only future times inside business hours are allowed.</div>
+                    </div>
+
+                    @if (enableServices)
+                    {
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-bag-check me-1"></i> Services
+                            </label>
+
+                            <div class="service-box">
+                                @{
+                                    var items = ViewBag.Services as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                                    ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+                                }
+
+                                @if (!items.Any())
+                                {
+                                    <div class="text-muted">No services available.</div>
+                                }
+                                else
+                                {
+                                    <div class="d-grid gap-2">
+                                        @foreach (var s in items)
+                                        {
+                                            var isChecked = Model.ServiceOfferingIds != null && Model.ServiceOfferingIds.Any(id => id.ToString() == s.Value);
+
+                                            <label class="service-item d-flex align-items-start gap-2">
+                                                <input class="form-check-input mt-1"
+                                                       type="checkbox"
+                                                       name="ServiceOfferingIds"
+                                                       value="@s.Value"
+                                                @(isChecked ? "checked" : "") />
+
+                                                <div class="flex-grow-1">
+                                                    <div class="service-name">@s.Text</div>
+                                                    <div class="service-meta">Select to include in the appointment.</div>
+                                                </div>
+                                            </label>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="input-hint mt-2">
+                                Tip: You can select multiple services.
+                            </div>
+                        </div>
+                    }
+
+                    <div class="col-12">
+                        <label asp-for="Description" class="form-label fw-semibold">
+                            <i class="bi bi-card-text me-1"></i> Description
+                        </label>
+                        <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+                        <span asp-validation-for="Description" class="text-danger"></span>
+                    </div>
+
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="d-flex flex-wrap justify-content-end gap-2">
+                    <a class="btn btn-outline-secondary" asp-action="Index">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                    <button class="btn btn-primary" type="submit" id="submitBtn">
+                        <i class="bi bi-check2-circle"></i> Create
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const input = document.getElementById('apptDate');
+            const submitBtn = document.getElementById('submitBtn');
+            const holidayAlert = document.getElementById('holidayAlert');
+            const holidayAlertText = document.getElementById('holidayAlertText');
+
+            if (!input) return;
+
+            const workStart = "@(ViewBag.WorkStart ?? "09:00")"; 
+            const workEnd = "@(ViewBag.WorkEnd ?? "17:00")";      
+            const hiddenDays = @Html.Raw(ViewBag.HiddenDays ?? "[]"); 
+
+          
+            const holidaysCache = new Map();
+
+            function pad(n) { return (n < 10 ? "0" : "") + n; }
+            function ymd(d) {
+                return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+            }
+            function toLocalDatetimeValue(d) {
+                return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+                    "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+            }
+
+            async function ensureHolidays(year) {
+                if (holidaysCache.has(year)) return;
+
+                const url = '@Url.Action("CalendarHolidays", "Appointments")' + '?year=' + year;
+
+                try {
+                    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+                    if (!res.ok) {
+                        holidaysCache.set(year, new Map());
+                        return;
+                    }
+
+                    const list = await res.json();
+                    const map = new Map();
+
+                    
+                    list.forEach(ev => {
+                        const dateStr = ev.start;
+                        if (!dateStr) return;
+
+                        const ext = ev.extendedProps || {};
+                        const name =
+                            (ext.localName && String(ext.localName).trim())
+                                ? String(ext.localName).trim()
+                                : (ext.holidayName ? String(ext.holidayName).trim() : "");
+
+                        if (name) map.set(dateStr, name);
+                        else map.set(dateStr, "Public holiday");
+                    });
+
+                    holidaysCache.set(year, map);
+                } catch (e) {
+                    holidaysCache.set(year, new Map());
+                }
+            }
+
+            function setHolidayUI(isHoliday, name) {
+                if (isHoliday) {
+                    holidayAlert.classList.remove('d-none');
+                    holidayAlert.classList.add('d-flex');
+                    holidayAlertText.textContent = name ? name : "";
+                    input.setCustomValidity(name ? `Public holiday: ${name}` : "Public holiday");
+                    if (submitBtn) submitBtn.disabled = true;
+                } else {
+                    holidayAlert.classList.add('d-none');
+                    holidayAlert.classList.remove('d-flex');
+                    holidayAlertText.textContent = "";
+                    input.setCustomValidity("");
+                    if (submitBtn) submitBtn.disabled = false;
+                }
+            }
+
+            async function validateHolidayForInput() {
+                if (!input.value) {
+                    setHolidayUI(false, "");
+                    return;
+                }
+
+                const dt = new Date(input.value);
+                const year = dt.getFullYear();
+                await ensureHolidays(year);
+
+                const key = ymd(dt);
+                const map = holidaysCache.get(year) || new Map();
+                const name = map.get(key);
+
+                setHolidayUI(!!name, name || "");
+            }
+
+            function clampToBusinessRules(value) {
+                if (!value) return value;
+                const dt = new Date(value);
+
+                
+                while (hiddenDays.includes(dt.getDay())) {
+                    dt.setDate(dt.getDate() + 1);
+                    const [h, m] = workStart.split(":").map(Number);
+                    dt.setHours(h, m, 0, 0);
+                }
+
+              
+                const [wsH, wsM] = workStart.split(":").map(Number);
+                const [weH, weM] = workEnd.split(":").map(Number);
+                const ws = wsH * 60 + wsM;
+                const we = weH * 60 + weM;
+
+                const t = dt.getHours() * 60 + dt.getMinutes();
+                if (t < ws) dt.setHours(wsH, wsM, 0, 0);
+                if (t > we) dt.setHours(weH, weM, 0, 0);
+
+                const now = new Date();
+                if (dt < now) {
+                    dt.setTime(now.getTime());
+                    const t2 = dt.getHours() * 60 + dt.getMinutes();
+                    if (t2 < ws) dt.setHours(wsH, wsM, 0, 0);
+                    if (t2 > we) {
+                        dt.setDate(dt.getDate() + 1);
+                        dt.setHours(wsH, wsM, 0, 0);
+                    }
+                }
+
+                return toLocalDatetimeValue(dt);
+            }
+
+          
+            input.min = toLocalDatetimeValue(new Date());
+
+            
+            if (!input.value) {
+                input.value = clampToBusinessRules(toLocalDatetimeValue(new Date()));
+            } else {
+                input.value = clampToBusinessRules(input.value);
+            }
+
+         
+            validateHolidayForInput();
+
+            input.addEventListener("change", async function () {
+                input.value = clampToBusinessRules(input.value);
+                await validateHolidayForInput();
+            });
+
+            input.addEventListener("blur", async function () {
+                await validateHolidayForInput();
+            });
+
+        })();
+    </script>
+}
