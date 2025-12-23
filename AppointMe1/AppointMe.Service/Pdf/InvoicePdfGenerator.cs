@@ -36,7 +36,7 @@ namespace AppointMe.Service.Pdf
                 }
                 catch
                 {
-                    logoBytes = null; // ignore completely
+                    logoBytes = null; 
                 }
             }
 
