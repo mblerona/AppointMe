@@ -113,6 +113,25 @@
         <div class="form-check"><input asp-for="OpenSat" class="form-check-input" /><label class="form-check-label">Sat</label></div>
         <div class="form-check"><input asp-for="OpenSun" class="form-check-input" /><label class="form-check-label">Sun</label></div>
     </div>
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="DefaultSlotMinutes" class="form-label">Appointment slot duration</label>
+
+            <select asp-for="DefaultSlotMinutes" class="form-select">
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="20">20 minutes</option>
+                <option value="30">30 minutes (default)</option>
+                <option value="45">45 minutes</option>
+                <option value="60">60 minutes</option>
+            </select>
+
+            <span asp-validation-for="DefaultSlotMinutes" class="text-danger"></span>
+            <div class="form-text">
+                Appointments must start exactly on this interval (e.g. 09:00, 09:15, 09:20, 09:30 , 09:45, 10:00 ).
+            </div>
+        </div>
+    </div>
 
     <!-- FEATURES -->
     <hr class="my-4" />
