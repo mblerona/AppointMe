@@ -403,7 +403,7 @@ namespace AppointMe.Web.Controllers
 
             var y = year ?? DateTime.Now.Year;
 
-            // get full holiday objects (with names)
+           
             var list = await _holidaysService.GetHolidaysAsync(y, "MK");
 
             var events = list.Select(h => new

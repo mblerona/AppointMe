@@ -2,8 +2,11 @@
 using AppointMe.Domain.DTO;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
+using AppointMe.Service.Email;
 using AppointMe.Service.Interface;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
+
 
 namespace AppointMe.Service.Implementation
 {
@@ -14,19 +17,22 @@ namespace AppointMe.Service.Implementation
         private readonly IServiceOfferingRepository _serviceOfferingRepository;
         private readonly IHolidayService _holidayService;
         private readonly ApplicationDbContext _db;
+        private readonly IEmailService _emailService;
 
         public AppointmentService(
             IAppointmentRepository appointmentRepository,
             ICustomerRepository customerRepository,
             IServiceOfferingRepository serviceOfferingRepository,
             IHolidayService holidayService,
-            ApplicationDbContext db)
+            ApplicationDbContext db,
+            IEmailService emailService)
         {
             _appointmentRepository = appointmentRepository;
             _customerRepository = customerRepository;
             _serviceOfferingRepository = serviceOfferingRepository;
             _holidayService = holidayService;
             _db = db;
+            _emailService = emailService;
         }
 
         public async Task<AppointmentDTO> GetAppointmentByIdAsync(Guid id, Guid tenantId)
@@ -113,8 +119,34 @@ namespace AppointMe.Service.Implementation
                 });
             }
 
+          
             await _appointmentRepository.AddAsync(appointment);
             await _appointmentRepository.SaveChangesAsync();
+
+            Debug.WriteLine("=== CREATE APPOINTMENT EMAIL DEBUG ===");
+            Debug.WriteLine($"NotifyByEmail (dto): {dto.NotifyByEmail}");
+            Debug.WriteLine($"Customer.Email: {customer.Email}");
+            if (dto.NotifyByEmail && !string.IsNullOrWhiteSpace(customer.Email))
+            {
+                Debug.WriteLine("Email checkbox is TRUE and customer email exists -> attempting send...");
+
+                var msg = new EmailMessage
+                {
+                    MailTo = customer.Email,
+                    Subject = $"{business.Name} appointment",
+                    Content = BuildAppointmentEmailContent(customer, business, appointment)
+                };
+
+                try
+                {
+                    await _emailService.SendEmailAsync(msg);
+                }
+                catch(Exception ex)
+                {
+                    Debug.WriteLine("EMAIL SEND FAILED:");
+                    Debug.WriteLine(ex.ToString());
+                }
+            }
 
             return MapToAppointmentDto(appointment);
         }
@@ -200,6 +232,29 @@ namespace AppointMe.Service.Implementation
         }
 
         // =========================
+        // EMAIL CONTENT HELPERS
+        // =========================
+        private static string BuildAppointmentEmailContent(Customer customer, Business business, Appointment appointment)
+        {
+            var customerName = $"{customer.FirstName} {customer.LastName}".Trim();
+            if (string.IsNullOrWhiteSpace(customerName))
+                customerName = "there";
+
+            var businessName = string.IsNullOrWhiteSpace(business.Name) ? "our business" : business.Name;
+
+            return
+                $@"Greetings {customerName},
+
+Your appointment at {businessName} was successfully created.
+ See you on {appointment.AppointmentDate:dddd, dd MMM yyyy} at {appointment.AppointmentDate:HH:mm}.
+
+Thank you for choosing {businessName}.
+
+ Best regards,
+                {businessName}";
+                        }
+
+        // =========================
         // BUSINESS RULES + HOLIDAYS
         // =========================
         private async Task<Business> GetBusinessOrThrow(Guid tenantId)
@@ -232,8 +287,6 @@ namespace AppointMe.Service.Implementation
 
             // 5) must NOT be a public holiday (MK)
             var y = appointmentDate.Year;
-
-          
             var holidays = await _holidayService.GetHolidaysAsync(y, "MK");
 
             var dateOnly = DateOnly.FromDateTime(appointmentDate);

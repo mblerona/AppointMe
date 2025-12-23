@@ -72,14 +72,14 @@
    
     var hasServices = Model.Services != null && Model.Services.Any();
 
-    // show invoice button ONLY when: services on + invoices on + appointment actually has services
+   
     var canInvoice = enableInvoices && hasServices;
 
    
     var safeDescription = string.IsNullOrWhiteSpace(Model.Description) ? "—" : Model.Description;
     var safeCustomer = string.IsNullOrWhiteSpace(Model.CustomerName) ? "—" : Model.CustomerName;
 
-    // date parts
+ 
     var dDay = Model.AppointmentDate.ToString("dd");
     var dMon = Model.AppointmentDate.ToString("MMM");
     var dDow = Model.AppointmentDate.ToString("dddd");

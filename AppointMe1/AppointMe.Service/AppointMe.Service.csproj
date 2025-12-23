@@ -11,4 +11,9 @@
     <ProjectReference Include="..\AppointMe.Repository\AppointMe.Repository.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.14.1" />
+    <PackageReference Include="QuestPDF" Version="2025.12.0" />
+  </ItemGroup>
+
 </Project>

@@ -260,6 +260,14 @@
     }
 </style>
 
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success no-print">
+        @TempData["SuccessMessage"]
+    </div>
+}
+
 <div class="wrap py-4">
 
     <!-- Header -->
@@ -452,9 +460,22 @@
                     </button>
 
                  
-                    <button class="btn btn-outline-primary btn-pill" type="button" disabled title="Coming next: Email integration">
+                   @*  <button class="btn btn-outline-primary btn-pill" type="button" disabled title="Coming next: Email integration">
                         <i class="bi bi-envelope"></i> Send by Email
-                    </button>
+                    </button> *@
+
+                    <form asp-controller="Invoices"
+                          asp-action="SendPdfByEmail"
+                          asp-route-id="@Model.Id"
+                          method="post"
+                          class="d-inline">
+                        @Html.AntiForgeryToken()
+
+                        <button class="btn btn-outline-primary btn-pill" type="submit"
+                                title="Send invoice PDF to customer email">
+                            <i class="bi bi-envelope"></i> Send by Email (PDF)
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

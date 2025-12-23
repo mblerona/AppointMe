@@ -22,5 +22,7 @@ namespace AppointMe.Domain.DTO
         public string ?Description { get; set; }
 
         public List<Guid> ServiceOfferingIds { get; set; } = new();
+        public bool NotifyByEmail { get; set; }
+    
     }
 }
