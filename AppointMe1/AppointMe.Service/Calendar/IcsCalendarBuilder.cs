@@ -18,17 +18,16 @@ namespace AppointMe.Service.Calendar
            string? orderNumber,
            string? notes)
         {
-            // ICS uses CRLF line endings
+           
             const string CRLF = "\r\n";
 
-            // Unique ID helps calendar apps avoid duplicate events
+            
             var uid = $"{appointmentId}@appointme";
 
-            // DTSTAMP should be UTC
+            
             var dtStampUtc = DateTime.UtcNow;
 
-            // Important: DTSTART/DTEND as "floating local time" (no Z, no timezone)
-            // Because your input comes from datetime-local and is already local.
+            
             var dtStart = FormatIcsLocal(startLocal);
             var dtEnd = FormatIcsLocal(endLocal);
             var dtStamp = FormatIcsUtc(dtStampUtc);
@@ -36,7 +35,7 @@ namespace AppointMe.Service.Calendar
             var summary = $"Appointment at {businessName}";
             var location = businessAddress ?? "";
 
-            // Description can include useful info (keep it readable)
+           
             var descLines = new List<string>
             {
                 $"Customer: {customerFullName}"
@@ -77,15 +76,15 @@ namespace AppointMe.Service.Calendar
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
 
-        // Floating local time (no timezone suffix)
+      
         private static string FormatIcsLocal(DateTime dt)
             => dt.ToString("yyyyMMdd'T'HHmmss");
 
-        // UTC time (Z)
+        
         private static string FormatIcsUtc(DateTime dtUtc)
             => dtUtc.ToString("yyyyMMdd'T'HHmmss'Z'");
 
-        // Escape commas, semicolons, backslashes, and newlines per iCalendar text rules
+      
         private static string EscapeText(string s)
         {
             return s
