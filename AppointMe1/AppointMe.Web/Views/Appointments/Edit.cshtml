@@ -136,6 +136,12 @@
                         <span asp-validation-for="Status" class="text-danger"></span>
                     </div>
 
+                    <div class="col-md-6">
+                        <label asp-for="OrderNumber" class="form-label fw-semibold">Order Number</label>
+                        <input asp-for="OrderNumber" class="form-control" />
+                        <span asp-validation-for="OrderNumber" class="text-danger"></span>
+                    </div>
+
                     @if (enableServices)
                     {
                         <div class="col-12">

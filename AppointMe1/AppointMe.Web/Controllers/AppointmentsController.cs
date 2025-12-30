@@ -6,13 +6,11 @@ using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
-using AppointMe.Repository.Implementation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.EntityFrameworkCore;
 
 namespace AppointMe.Web.Controllers
@@ -25,18 +23,18 @@ namespace AppointMe.Web.Controllers
         private readonly IHolidayService _holidaysService;
 
         public AppointmentsController(
-     IAppointmentService appointmentService,
-     ICustomerService customerService,
-     IServiceOfferingRepository serviceOfferingRepository,
-     IHolidayService holidaysService,                
-     UserManager<AppointMeAppUser> userManager,
-     ApplicationDbContext db)
-     : base(userManager, db)
+            IAppointmentService appointmentService,
+            ICustomerService customerService,
+            IServiceOfferingRepository serviceOfferingRepository,
+            IHolidayService holidaysService,
+            UserManager<AppointMeAppUser> userManager,
+            ApplicationDbContext db)
+            : base(userManager, db)
         {
             _appointmentService = appointmentService;
             _customerService = customerService;
             _serviceOfferingRepository = serviceOfferingRepository;
-            _holidaysService = holidaysService;           
+            _holidaysService = holidaysService;
         }
 
         private async Task PopulateCustomersSelectListAsync(Guid tenantId, Guid? selectedCustomerId = null)
@@ -146,8 +144,13 @@ namespace AppointMe.Web.Controllers
                 model.CustomerId = customerId.Value;
 
             var biz = await _db.Businesses.AsNoTracking().FirstAsync(b => b.Id == tenantId);
+
             ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm");
             ViewBag.WorkEnd = biz.WorkDayEnd.ToString(@"hh\:mm");
+            ViewBag.HiddenDays = System.Text.Json.JsonSerializer.Serialize(BuildHiddenDays(biz));
+
+            // Slot minutes passed to the view so the JS can snap correctly
+            ViewBag.SlotMinutes = biz.DefaultSlotMinutes <= 0 ? 30 : biz.DefaultSlotMinutes;
 
             return View(model);
         }
@@ -161,10 +164,21 @@ namespace AppointMe.Web.Controllers
 
             var tenantId = await GetTenantIdAsync();
 
+            // Always repopulate tenant config when returning the view
+            async Task LoadTenantConfig()
+            {
+                var biz = await _db.Businesses.AsNoTracking().FirstAsync(b => b.Id == tenantId);
+                ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm");
+                ViewBag.WorkEnd = biz.WorkDayEnd.ToString(@"hh\:mm");
+                ViewBag.HiddenDays = System.Text.Json.JsonSerializer.Serialize(BuildHiddenDays(biz));
+                ViewBag.SlotMinutes = biz.DefaultSlotMinutes <= 0 ? 30 : biz.DefaultSlotMinutes;
+            }
+
             if (!ModelState.IsValid)
             {
                 await PopulateCustomersSelectListAsync(tenantId, dto.CustomerId);
                 await PopulateServicesMultiSelectAsync(tenantId, dto.ServiceOfferingIds);
+                await LoadTenantConfig();
                 return View(dto);
             }
 
@@ -180,10 +194,7 @@ namespace AppointMe.Web.Controllers
 
                 await PopulateCustomersSelectListAsync(tenantId, dto.CustomerId);
                 await PopulateServicesMultiSelectAsync(tenantId, dto.ServiceOfferingIds);
-
-                var biz = await _db.Businesses.AsNoTracking().FirstAsync(b => b.Id == tenantId);
-                ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm");
-                ViewBag.WorkEnd = biz.WorkDayEnd.ToString(@"hh\:mm");
+                await LoadTenantConfig();
 
                 return View(dto);
             }
@@ -199,6 +210,8 @@ namespace AppointMe.Web.Controllers
             var biz = await _db.Businesses.AsNoTracking().FirstAsync(b => b.Id == tenantId);
             ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm");
             ViewBag.WorkEnd = biz.WorkDayEnd.ToString(@"hh\:mm");
+            ViewBag.HiddenDays = System.Text.Json.JsonSerializer.Serialize(BuildHiddenDays(biz));
+            ViewBag.SlotMinutes = biz.DefaultSlotMinutes <= 0 ? 30 : biz.DefaultSlotMinutes;
 
             try
             {
@@ -210,14 +223,15 @@ namespace AppointMe.Web.Controllers
 
                 var updateDto = new UpdateAppointmentDTO
                 {
+                    OrderNumber = appointment.OrderNumber,
                     AppointmentDate = appointment.AppointmentDate,
                     Description = appointment.Description,
-                    Status = parsedStatus
+                    Status = parsedStatus,
+                    ServiceOfferingIds = appointment.Services?.Select(x => x.ServiceId).ToList() ?? new List<Guid>()
                 };
 
                 ViewData["AppointmentId"] = id;
                 PopulateStatusSelectList(parsedStatus);
-
                 await PopulateServicesMultiSelectAsync(tenantId, updateDto.ServiceOfferingIds);
 
                 return View(updateDto);
@@ -237,23 +251,27 @@ namespace AppointMe.Web.Controllers
 
             var tenantId = await GetTenantIdAsync();
 
+            async Task LoadTenantConfig()
+            {
+                var biz = await _db.Businesses.AsNoTracking().FirstAsync(b => b.Id == tenantId);
+                ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm");
+                ViewBag.WorkEnd = biz.WorkDayEnd.ToString(@"hh\:mm");
+                ViewBag.HiddenDays = System.Text.Json.JsonSerializer.Serialize(BuildHiddenDays(biz));
+                ViewBag.SlotMinutes = biz.DefaultSlotMinutes <= 0 ? 30 : biz.DefaultSlotMinutes;
+            }
+
             if (!ModelState.IsValid)
             {
                 ViewData["AppointmentId"] = id;
                 PopulateStatusSelectList(dto.Status);
                 await PopulateServicesMultiSelectAsync(tenantId, dto.ServiceOfferingIds);
-
-                var biz = await _db.Businesses.AsNoTracking().FirstAsync(b => b.Id == tenantId);
-                ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm");
-                ViewBag.WorkEnd = biz.WorkDayEnd.ToString(@"hh\:mm");
-
+                await LoadTenantConfig();
                 return View(dto);
             }
 
             try
             {
                 await _appointmentService.UpdateAppointmentAsync(id, dto, tenantId);
-
                 TempData["SuccessMessage"] = "Appointment updated successfully!";
                 return RedirectToAction(nameof(Details), new { id });
             }
@@ -264,10 +282,7 @@ namespace AppointMe.Web.Controllers
                 ViewData["AppointmentId"] = id;
                 PopulateStatusSelectList(dto.Status);
                 await PopulateServicesMultiSelectAsync(tenantId, dto.ServiceOfferingIds);
-
-                var biz = await _db.Businesses.AsNoTracking().FirstAsync(b => b.Id == tenantId);
-                ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm");
-                ViewBag.WorkEnd = biz.WorkDayEnd.ToString(@"hh\:mm");
+                await LoadTenantConfig();
 
                 return View(dto);
             }
@@ -322,7 +337,6 @@ namespace AppointMe.Web.Controllers
 
             ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm\:ss");
             ViewBag.WorkEnd = biz.WorkDayEnd.ToString(@"hh\:mm\:ss");
-
             ViewBag.HiddenDays = System.Text.Json.JsonSerializer.Serialize(BuildHiddenDays(biz));
 
             return View();
@@ -337,7 +351,13 @@ namespace AppointMe.Web.Controllers
             var tenantId = await GetTenantIdAsync();
             var appts = await _appointmentService.GetAllAppointmentsAsync(tenantId);
 
-            var events = appts.Select(a => new
+            //  Remove Completed + Cancelled from calendar
+            var filtered = appts.Where(a =>
+                !string.Equals(a.Status, AppointmentStatus.Completed.ToString(), StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(a.Status, AppointmentStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase)
+            );
+
+            var events = filtered.Select(a => new
             {
                 id = a.Id,
                 title = $"{a.CustomerName} • {a.OrderNumber}",
@@ -402,8 +422,6 @@ namespace AppointMe.Web.Controllers
             if (redirect != null) return redirect;
 
             var y = year ?? DateTime.Now.Year;
-
-           
             var list = await _holidaysService.GetHolidaysAsync(y, "MK");
 
             var events = list.Select(h => new
@@ -423,6 +441,6 @@ namespace AppointMe.Web.Controllers
 
             return Json(events);
         }
-
     }
 }
+

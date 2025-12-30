@@ -51,6 +51,8 @@
 
     var isLightNavbar = IsLightColor(navbarColor);
     var navTextColor = isLightNavbar ? "#000000" : "#ffffff";
+    var isLightBg = IsLightColor(bgColor);
+    var pageTextColor = isLightBg ? "#000000" : "#ffffff";
 
     // pill background + border adapt to navbar brightness
     var pillBg = isLightNavbar ? "rgba(0,0,0,.08)" : "rgba(255,255,255,.14)";
@@ -75,6 +77,7 @@
             --biz-navbar: @navbarColor;
             --biz-bg: @bgColor;
             --biz-nav-text: @navTextColor;
+            --biz-text: @pageTextColor;
 
             --pill-bg: @pillBg;
             --pill-border: @pillBorder;
@@ -115,7 +118,7 @@
             padding: 2px;
         }
 
-        /* Pill nav like your example */
+
         .pill-nav {
             display: inline-flex;
             gap: 6px;
@@ -145,7 +148,7 @@
             opacity: 1;
         }
 
-        /* Right side icon buttons */
+
         .icon-btn {
             width: 40px;
             height: 40px;
@@ -163,7 +166,7 @@
             background: var(--pill-hover-bg);
         }
 
-        /* Toggler icon (Bootstrap default is black; this makes it visible on dark) */
+      
         .navbar-toggler {
             border-color: var(--pill-border);
         }
@@ -172,7 +175,7 @@
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255,255,255,0.9)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
         }
 
-        /* If navbar is light, use dark toggler icon */
+        
         @if (isLightNavbar)
         {
         <text>
@@ -190,6 +193,21 @@
                 white-space: nowrap;
             }
         }
+
+h1, h2, h3, h4, h5, h6,
+p, label, .form-label, .form-text,
+span, small, .text-muted {
+    color: var(--biz-text) !important;
+}
+
+
+.text-muted, .form-text {
+    opacity: .85;
+}
+.card, .card-soft {
+    background: #fff !important;
+    color: #212529 !important;
+}
     </style>
 </head>
 

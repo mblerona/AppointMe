@@ -21,7 +21,6 @@ namespace AppointMe.Service.Calendar
            
             const string CRLF = "\r\n";
 
-            
             var uid = $"{appointmentId}@appointme";
 
             

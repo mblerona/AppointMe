@@ -145,7 +145,11 @@
                         <label asp-for="AppointmentDate" class="form-label fw-semibold">
                             <i class="bi bi-clock me-1"></i> Date & Time
                         </label>
-                        <input asp-for="AppointmentDate" id="apptDate" type="datetime-local" class="form-control" />
+                        <input asp-for="AppointmentDate"
+                               id="apptDate"
+                               type="datetime-local"
+                               step="300"
+                               class="form-control" />
                         <span asp-validation-for="AppointmentDate" class="text-danger"></span>
                         <div class="input-hint mt-1">Only future times inside business hours are allowed.</div>
                     </div>
@@ -204,6 +208,7 @@
                         <textarea asp-for="Description" class="form-control" rows="4"></textarea>
                         <span asp-validation-for="Description" class="text-danger"></span>
                     </div>
+
                     <div class="form-check">
                         <input class="form-check-input" asp-for="NotifyByEmail" />
                         <label class="form-check-label" asp-for="NotifyByEmail">Send email confirmation</label>
@@ -237,11 +242,12 @@
 
             if (!input) return;
 
-            const workStart = "@(ViewBag.WorkStart ?? "09:00")"; 
-            const workEnd = "@(ViewBag.WorkEnd ?? "17:00")";      
-            const hiddenDays = @Html.Raw(ViewBag.HiddenDays ?? "[]"); 
+            const workStart = "@(ViewBag.WorkStart ?? "09:00")";
+            const workEnd = "@(ViewBag.WorkEnd ?? "17:00")";
+            const hiddenDays = @Html.Raw(ViewBag.HiddenDays ?? "[]");
 
-          
+            const STEP_MINUTES = 5; // step="300" => 5 minutes
+
             const holidaysCache = new Map();
 
             function pad(n) { return (n < 10 ? "0" : "") + n; }
@@ -251,6 +257,20 @@
             function toLocalDatetimeValue(d) {
                 return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
                     "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+            }
+
+            // round UP to the next 5-minute boundary and zero seconds
+            function roundUpToStep(d, stepMinutes) {
+                const dt = new Date(d);
+                dt.setSeconds(0, 0);
+
+                const mins = dt.getMinutes();
+                const remainder = mins % stepMinutes;
+
+                if (remainder !== 0) {
+                    dt.setMinutes(mins + (stepMinutes - remainder));
+                }
+                return dt;
             }
 
             async function ensureHolidays(year) {
@@ -268,7 +288,6 @@
                     const list = await res.json();
                     const map = new Map();
 
-                    
                     list.forEach(ev => {
                         const dateStr = ev.start;
                         if (!dateStr) return;
@@ -279,8 +298,7 @@
                                 ? String(ext.localName).trim()
                                 : (ext.holidayName ? String(ext.holidayName).trim() : "");
 
-                        if (name) map.set(dateStr, name);
-                        else map.set(dateStr, "Public holiday");
+                        map.set(dateStr, name || "Public holiday");
                     });
 
                     holidaysCache.set(year, map);
@@ -325,15 +343,15 @@
             function clampToBusinessRules(value) {
                 if (!value) return value;
                 const dt = new Date(value);
+                dt.setSeconds(0, 0);
 
-                
+                // skip closed days
                 while (hiddenDays.includes(dt.getDay())) {
                     dt.setDate(dt.getDate() + 1);
                     const [h, m] = workStart.split(":").map(Number);
                     dt.setHours(h, m, 0, 0);
                 }
 
-              
                 const [wsH, wsM] = workStart.split(":").map(Number);
                 const [weH, weM] = workEnd.split(":").map(Number);
                 const ws = wsH * 60 + wsM;
@@ -343,9 +361,12 @@
                 if (t < ws) dt.setHours(wsH, wsM, 0, 0);
                 if (t > we) dt.setHours(weH, weM, 0, 0);
 
+               
                 const now = new Date();
-                if (dt < now) {
-                    dt.setTime(now.getTime());
+                const nowRounded = roundUpToStep(now, STEP_MINUTES);
+
+                if (dt < nowRounded) {
+                    dt.setTime(nowRounded.getTime());
                     const t2 = dt.getHours() * 60 + dt.getMinutes();
                     if (t2 < ws) dt.setHours(wsH, wsM, 0, 0);
                     if (t2 > we) {
@@ -354,20 +375,22 @@
                     }
                 }
 
-                return toLocalDatetimeValue(dt);
+                
+                const aligned = roundUpToStep(dt, STEP_MINUTES);
+                return toLocalDatetimeValue(aligned);
             }
 
-          
-            input.min = toLocalDatetimeValue(new Date());
+            //  min must also be aligned to step
+            const minAligned = roundUpToStep(new Date(), STEP_MINUTES);
+            input.min = toLocalDatetimeValue(minAligned);
 
-            
+            // initialize value
             if (!input.value) {
-                input.value = clampToBusinessRules(toLocalDatetimeValue(new Date()));
+                input.value = clampToBusinessRules(toLocalDatetimeValue(minAligned));
             } else {
                 input.value = clampToBusinessRules(input.value);
             }
 
-         
             validateHolidayForInput();
 
             input.addEventListener("change", async function () {

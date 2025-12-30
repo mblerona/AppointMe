@@ -13,7 +13,6 @@ namespace AppointMe.Repository.Implementation
     {
         public AppointmentRepository(ApplicationDbContext context) : base(context) { }
 
-        
         public async Task<Appointment?> GetByIdAsync(Guid id, Guid tenantId)
         {
             return await _dbSet
@@ -24,7 +23,6 @@ namespace AppointMe.Repository.Implementation
                 .FirstOrDefaultAsync(a => a.Id == id && a.TenantId == tenantId);
         }
 
-     
         public Task UpdateAsync(Appointment appointment)
         {
             _dbSet.Update(appointment);
@@ -78,12 +76,26 @@ namespace AppointMe.Repository.Implementation
                 .FirstOrDefaultAsync(a => a.Id == appointmentId && a.TenantId == tenantId);
         }
 
-        public async Task<bool> IsTimeSlotAvailableAsync(DateTime appointmentDate, Guid tenantId, Guid? excludeAppointmentId = null)
+
+        public async Task<bool> IsTimeSlotAvailableAsync(
+            DateTime startTime,
+            int durationMinutes,
+            Guid tenantId,
+            Guid? excludeAppointmentId = null)
         {
+            if (durationMinutes <= 0)
+                durationMinutes = 30;
+
+            var endTime = startTime.AddMinutes(durationMinutes);
+
+            // Overlap rule:
+            // existingStart < newEnd AND existingEnd > newStart
             var query = _dbSet.Where(a =>
                 a.TenantId == tenantId &&
-                a.AppointmentDate == appointmentDate &&
-                a.Status != AppointmentStatus.Cancelled);
+                a.Status != AppointmentStatus.Cancelled &&
+                a.AppointmentDate < endTime &&
+                a.AppointmentDate.AddMinutes(durationMinutes) > startTime
+            );
 
             if (excludeAppointmentId.HasValue)
                 query = query.Where(a => a.Id != excludeAppointmentId.Value);
@@ -102,5 +114,23 @@ namespace AppointMe.Repository.Implementation
                 .OrderByDescending(a => a.AppointmentDate)
                 .ToListAsync();
         }
+
+        public async Task<bool> OrderNumberExistsAsync(string orderNumber, Guid? excludeAppointmentId = null)
+        {
+            var normalized = orderNumber?.Trim();
+
+            if (string.IsNullOrWhiteSpace(normalized))
+                return false;
+
+            var query = _dbSet.AsQueryable().Where(a => a.OrderNumber == normalized);
+
+            if (excludeAppointmentId.HasValue)
+                query = query.Where(a => a.Id != excludeAppointmentId.Value);
+
+            return await query.AnyAsync();
+        }
     }
 }
+
+
+

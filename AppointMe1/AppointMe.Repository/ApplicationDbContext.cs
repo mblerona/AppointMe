@@ -101,8 +101,11 @@ namespace AppointMe.Repository.Data
                 entity.HasIndex(a => new { a.TenantId, a.Status })
                     .HasDatabaseName("IX_Appointment_TenantId_Status");
 
+                //entity.HasIndex(a => a.OrderNumber)
+                //    .HasDatabaseName("IX_Appointment_OrderNumber");
                 entity.HasIndex(a => a.OrderNumber)
-                    .HasDatabaseName("IX_Appointment_OrderNumber");
+                .IsUnique()
+                .HasDatabaseName("UX_Appointment_OrderNumber");
             });
 
             // ==================== BUSINESS ====================
@@ -172,7 +175,7 @@ namespace AppointMe.Repository.Data
                     .HasForeignKey(s => s.BusinessId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                // ✅ ONLY relationship for category lives here
+                
                 entity.HasOne(s => s.Category)
                     .WithMany(c => c.Services)
                     .HasForeignKey(s => s.CategoryId)

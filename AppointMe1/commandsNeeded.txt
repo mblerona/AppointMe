@@ -6,3 +6,6 @@ Update-Database -Context AppointMe.Repository.Data.ApplicationDbContext -Project
 
 
 dotnet aspnet-codegenerator identity -p .\AppointMe.Web\AppointMe.Web.csproj -dc ApplicationDbContext --files "Account.Login"
+
+
+Add-Migration EditOrderNumber -Context AppointMe.Repository.Data.ApplicationDbContext -Project AppointMe.Repository -StartupProject AppointMe.Web
