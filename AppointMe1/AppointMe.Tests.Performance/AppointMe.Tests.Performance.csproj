@@ -11,18 +11,11 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
-    <PackageReference Include="FluentAssertions" Version="8.8.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="Moq" Version="4.20.72" />
+    <PackageReference Include="NBomber" Version="6.1.2" />
+    <PackageReference Include="NBomber.Http" Version="6.1.0" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\AppointMe.Domain\AppointMe.Domain.csproj" />
-    <ProjectReference Include="..\AppointMe.Repository\AppointMe.Repository.csproj" />
-    <ProjectReference Include="..\AppointMe.Service\AppointMe.Service.csproj" />
   </ItemGroup>
 
   <ItemGroup>
