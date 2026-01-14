@@ -19,11 +19,13 @@ obj/
 .DS_Store
 Thumbs.db
 
-# Local app settings (secrets)
-appsettings.Development.json
-appsettings.*.Development.json
+# App settings & secrets
+**/appsettings.json
+**/appsettings.Development.json
+**/appsettings.*.Development.json
+**/secrets.json
 
-# EF / DB local files (if you ever have them)
+# EF / DB local files
 *.db
 *.db-journal
 
@@ -32,3 +34,62 @@ node_modules/
 
 # Publish output
 publish/
+
+# Visual Studio / ASP.NET publish & deployment
+**/.config/
+**/Properties/PublishProfiles/
+**/Properties/ServiceDependencies/
+**/Properties/serviceDependencies.*.json
+AppointMe.Web/Properties/serviceDependencies.json
+# Env files
+.env
+.env.*
+
+# Test results
+TestResults/
+coverage/
+coverage.*
+
+
+
+
+
+# # Build results
+# bin/
+# obj/
+# **/bin/
+# **/obj/
+
+# # VS / Rider
+# .vs/
+# .idea/
+# *.user
+# *.suo
+# *.userosscache
+# *.sln.docstates
+
+# # Logs
+# *.log
+
+# # OS
+# .DS_Store
+# Thumbs.db
+
+# # Local app settings (secrets)
+# appsettings.Development.json
+# appsettings.*.Development.json
+
+# # EF / DB local files (if you ever have them)
+# *.db
+# *.db-journal
+
+# # Node (if any)
+# node_modules/
+
+# # Publish output
+# publish/
+# # Visual Studio / ASP.NET publish & deployment
+# **/.config/
+# **/Properties/PublishProfiles/
+# **/Properties/ServiceDependencies/
+# **/Properties/serviceDependencies.*.json
