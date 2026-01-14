@@ -56,7 +56,7 @@ namespace AppointMe.Tests.Integration.Repositories
         [Fact]
         public async Task IsTimeSlotAvailableAsync_WhenOverlappingAppointmentExists_ShouldReturnFalse()
         {
-            // Arrange
+          
             var db = DbContextFactory.Create();
             var repo = new AppointmentRepository(db);
 
@@ -80,7 +80,7 @@ namespace AppointMe.Tests.Integration.Repositories
 
             await db.SaveChangesAsync();
 
-            // Act
+            
             var available = await repo.IsTimeSlotAvailableAsync(
                 date,
                 durationMinutes: 30,
@@ -88,7 +88,7 @@ namespace AppointMe.Tests.Integration.Repositories
                 excludeAppointmentId: null
             );
 
-            // Assert
+        
             available.Should().BeFalse();
         }
 

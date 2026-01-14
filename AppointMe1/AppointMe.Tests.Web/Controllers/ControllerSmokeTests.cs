@@ -32,7 +32,7 @@ public class ControllerSmokeTests : IClassFixture<CustomWebAppFactory>
     [InlineData("/Customers")]
     [InlineData("/Appointments")]
     [InlineData("/Appointments/Calendar")]
-    // ❌ DO NOT test /Invoices (no Index.cshtml => 500)
+
     [InlineData("/Invoices/Details/22222222-2222-2222-2222-222222222222")]
     [InlineData("/Services")]
     [InlineData("/Settings/Business")]

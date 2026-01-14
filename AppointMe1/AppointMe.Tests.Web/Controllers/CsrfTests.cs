@@ -20,10 +20,10 @@ public class CsrfTests : IClassFixture<CustomWebAppFactory>
     {
         var client = _factory.CreateClient(new() { AllowAutoRedirect = false });
 
-        // ✅ real login (cookie-based)
+      
         await client.LoginAsync(CustomWebAppFactory.DefaultUserEmail, CustomWebAppFactory.DefaultUserPassword);
 
-        // ❌ Intentionally NOT sending __RequestVerificationToken
+        
         var content = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string,string>("FirstName", "Ana"),
