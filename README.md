@@ -90,6 +90,20 @@ To test email functionality (appointment confirmations and invoices),
 - SMTP Email Integration  
 
 ---
+##  Future Improvements
+ 
+- Client self-service portal 
+- Online payments - Advanced reporting
+- Staff/user role extensions 
+
+--- 
+
+## 👤 Author 
+**AppointMe** 
+Blerona Mulladauti
+Integrated Systems – Advanced Project
+
+---
 
 ## ⚙️ Configuration
 
@@ -115,16 +129,5 @@ Use the following template to create your own configuration:
 
 ---
 
-##  Future Improvements
- 
-- Client self-service portal 
-- Online payments - Advanced reporting
-- Staff/user role extensions 
 
---- 
-
-## 👤 Author 
-**AppointMe** 
-Blerona Mulladauti
-Integrated Systems – Advanced Project
 
