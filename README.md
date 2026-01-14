@@ -112,6 +112,9 @@ Use the following template to create your own configuration:
     "SmtpPassword": "YOUR_PASSWORD"
   }
 }
+
+---
+
 ##  Future Improvements
  
 - Client self-service portal 
