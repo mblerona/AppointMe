@@ -40,7 +40,8 @@ publish/
 **/Properties/PublishProfiles/
 **/Properties/ServiceDependencies/
 **/Properties/serviceDependencies.*.json
-AppointMe.Web/Properties/serviceDependencies.json
+
+**/AppointMe.Web/Properties/serviceDependencies.json
 # Env files
 .env
 .env.*
