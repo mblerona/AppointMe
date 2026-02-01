@@ -2,16 +2,17 @@
 
 **Advanced Project – Integrated Systems**  
 A multi-tenant appointment management web application built with **.NET 8 MVC** and **Onion Architecture**.
-- Link to hosted app: https://appointmeweb20260112125147.azurewebsites.net
+
+- 🌐 Hosted application: https://appointmeweb20260112125147.azurewebsites.net
 
 ---
 
-##  Overview
+## 📌 Overview
 
 **AppointMe** is a web-based, multi-tenant appointment scheduling system designed to help businesses manage customers, services, appointments, and invoices efficiently.  
 Each registered business operates as an isolated tenant, ensuring complete data separation while sharing the same platform.
 
-The application focuses on **clean architecture**, **scalability**, and **real-world applicability**, making it suitable as both an academic advanced project and a SaaS-ready foundation.
+The application emphasizes **clean architecture**, **scalability**, and **real-world applicability**, making it suitable both as an academic advanced project and as a SaaS-ready foundation.
 
 ---
 
@@ -57,6 +58,8 @@ The application follows the **Onion Architecture** pattern:
 - **Service Layer** – Business logic and orchestration  
 - **Web Layer** – ASP.NET MVC controllers and views  
 
+This separation of concerns improves maintainability, testability, and long-term scalability.
+
 ---
 
 ##  User Flow
@@ -69,7 +72,7 @@ The application follows the **Onion Architecture** pattern:
 ### Application Usage
 1. *(Optional)* Define services and prices  
 2. Add customers  
-3. Schedule appointments (validated against rules and availability)  
+3. Schedule appointments (validated against business rules and availability)  
 4. *(Optional)* Generate and email invoices  
 
 ---
@@ -87,21 +90,40 @@ To test email functionality (appointment confirmations and invoices),
 - Entity Framework Core  
 - Onion Architecture  
 - SQL Server  
-- External Holiday API  
+- External Public Holidays API  
 - SMTP Email Integration  
 
 ---
+
+##  Testing Overview
+
+The application is validated using a **multi-layered testing strategy** covering business logic, data persistence, and web/API behavior.  
+A total of **111 automated tests** were implemented: **51 unit tests**, **38 integration tests**, and **22 web/API tests**.
+
+- **Unit tests** validate core service logic (appointments, invoices, holidays, email notifications) with isolated dependencies  
+- **Integration tests** verify Entity Framework Core mappings, repository queries, and strict tenant-based data isolation  
+- **Web/API tests** confirm correct controller behavior, routing, and service orchestration  
+
+Additional quality evaluation was performed using **code coverage analysis** and **mutation testing (Stryker.NET)**, achieving approximately **40% mutation score**, demonstrating effective fault detection in critical business logic.
+
+**Testing technologies used:**  
+xUnit, FluentAssertions, Entity Framework Core InMemory, ASP.NET WebApplicationFactory, ReportGenerator, Stryker.NET
+
+---
+
 ##  Future Improvements
- 
-- Client self-service portal 
-- Online payments - Advanced reporting
-- Staff/user role extensions 
 
---- 
+- Client self-service portal  
+- Online payments integration  
+- Advanced reporting and analytics  
+- Extended staff and role management  
 
-## 👤 Author 
-**AppointMe** 
-Blerona Mulladauti
+---
+
+##  Author
+
+**AppointMe**  
+Blerona Mulladauti  
 Integrated Systems – Advanced Project
 
 ---
@@ -127,8 +149,3 @@ Use the following template to create your own configuration:
     "SmtpPassword": "YOUR_PASSWORD"
   }
 }
-
----
-
-
-
