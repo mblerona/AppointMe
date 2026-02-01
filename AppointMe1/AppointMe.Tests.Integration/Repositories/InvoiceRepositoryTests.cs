@@ -26,11 +26,13 @@ namespace AppointMe.Tests.Integration.Repositories
         }
 
         private static Invoice CreateInvoice(
-    Guid tenantId,
-    Guid appointmentId,
-    string invoiceNumber)
+            Guid tenantId,
+            Guid appointmentId,
+            string invoiceNumber,
+            DateTime? issuedAt = null,
+            int linesCount = 0)
         {
-            return new Invoice
+            var invoice = new Invoice
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
@@ -38,10 +40,10 @@ namespace AppointMe.Tests.Integration.Repositories
                 CustomerId = Guid.NewGuid(),
 
                 InvoiceNumber = invoiceNumber,
-                IssuedAt = DateTime.UtcNow,
+                IssuedAt = issuedAt ?? DateTime.UtcNow,
                 Status = InvoiceStatus.Draft,
 
-                // REQUIRED snapshot fields
+                // required snapshot fields
                 BusinessNameSnapshot = "Test Business",
                 BusinessAddressSnapshot = "Skopje",
                 CustomerNameSnapshot = "Ana Doe",
@@ -57,37 +59,80 @@ namespace AppointMe.Tests.Integration.Repositories
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
+
+            for (int i = 0; i < linesCount; i++)
+            {
+                invoice.Lines.Add(new InvoiceLine
+                {
+                    Id = Guid.NewGuid(),
+                    InvoiceId = invoice.Id,
+                    NameSnapshot = $"Service {i + 1}",
+                    Qty = 1,
+                    UnitPrice = 50,
+                    LineTotal = 50
+                });
+            }
+
+            return invoice;
         }
 
         [Fact]
-        public async Task GetMaxInvoiceSequenceForYearAsync_ShouldReturnHighestSequence()
+        public async Task GetByIdAsync_WhenExistsForTenant_ReturnsInvoice_WithLines()
         {
-            // Arrange
             var db = DbContextFactory.Create();
             var repo = new InvoiceRepository(db);
 
             var tenantId = Guid.NewGuid();
             SeedBusiness(db, tenantId);
 
-            var year = DateTime.UtcNow.Year;
-
-            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), $"INV-{year}-0001"));
-            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), $"INV-{year}-0005"));
-            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), $"INV-{year}-0003"));
-
+            var inv = CreateInvoice(tenantId, Guid.NewGuid(), "INV-2026-0001", linesCount: 2);
+            db.Invoices.Add(inv);
             await db.SaveChangesAsync();
 
-            // Act
-            var max = await repo.GetMaxInvoiceSequenceForYearAsync(tenantId, year);
+            var loaded = await repo.GetByIdAsync(inv.Id, tenantId);
 
-            // Assert
-            max.Should().Be(5);
+            loaded.Should().NotBeNull();
+            loaded!.Id.Should().Be(inv.Id);
+            loaded.Lines.Should().HaveCount(2);
         }
 
         [Fact]
-        public async Task GetByAppointmentIdAsync_ShouldIncludeInvoiceLines()
+        public async Task GetByIdAsync_WhenWrongTenant_ReturnsNull()
         {
-            // Arrange
+            var db = DbContextFactory.Create();
+            var repo = new InvoiceRepository(db);
+
+            var tenantA = Guid.NewGuid();
+            var tenantB = Guid.NewGuid();
+            SeedBusiness(db, tenantA);
+            SeedBusiness(db, tenantB);
+
+            var inv = CreateInvoice(tenantA, Guid.NewGuid(), "INV-2026-0001", linesCount: 1);
+            db.Invoices.Add(inv);
+            await db.SaveChangesAsync();
+
+            var loaded = await repo.GetByIdAsync(inv.Id, tenantB);
+
+            loaded.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WhenNotFound_ReturnsNull()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new InvoiceRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+
+            var loaded = await repo.GetByIdAsync(Guid.NewGuid(), tenantId);
+
+            loaded.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task GetByAppointmentIdAsync_WhenExistsForTenant_ReturnsInvoice_WithLines()
+        {
             var db = DbContextFactory.Create();
             var repo = new InvoiceRepository(db);
 
@@ -95,88 +140,72 @@ namespace AppointMe.Tests.Integration.Repositories
             SeedBusiness(db, tenantId);
 
             var appointmentId = Guid.NewGuid();
-
-            var invoice = CreateInvoice(tenantId, appointmentId, "INV-2025-0001");
-            invoice.Lines.Add(new InvoiceLine
-            {
-                Id = Guid.NewGuid(),
-                InvoiceId = invoice.Id,
-                NameSnapshot = "Service A",
-                Qty = 1,
-                UnitPrice = 50,
-                LineTotal = 50
-            });
-
-            db.Invoices.Add(invoice);
+            var inv = CreateInvoice(tenantId, appointmentId, "INV-2026-0002", linesCount: 1);
+            db.Invoices.Add(inv);
             await db.SaveChangesAsync();
 
-            // Act
-            var result = await repo.GetByAppointmentIdAsync(appointmentId, tenantId);
+            var loaded = await repo.GetByAppointmentIdAsync(appointmentId, tenantId);
 
-            // Assert
-            result.Should().NotBeNull();
-            result!.Lines.Should().HaveCount(1);
-            result.Lines.First().NameSnapshot.Should().Be("Service A");
+            loaded.Should().NotBeNull();
+            loaded!.AppointmentId.Should().Be(appointmentId);
+            loaded.Lines.Should().HaveCount(1);
         }
 
         [Fact]
-        public async Task GetAllByTenantAsync_ShouldReturnOnlyTenantInvoices()
+        public async Task GetByAppointmentIdAsync_WhenWrongTenant_ReturnsNull()
         {
-            // Arrange
             var db = DbContextFactory.Create();
             var repo = new InvoiceRepository(db);
 
             var tenantA = Guid.NewGuid();
             var tenantB = Guid.NewGuid();
-
             SeedBusiness(db, tenantA);
             SeedBusiness(db, tenantB);
 
-            db.Invoices.Add(CreateInvoice(tenantA, Guid.NewGuid(), "INV-A-1"));
-            db.Invoices.Add(CreateInvoice(tenantA, Guid.NewGuid(), "INV-A-2"));
-            db.Invoices.Add(CreateInvoice(tenantB, Guid.NewGuid(), "INV-B-1"));
-
+            var appointmentId = Guid.NewGuid();
+            var inv = CreateInvoice(tenantA, appointmentId, "INV-2026-0002", linesCount: 1);
+            db.Invoices.Add(inv);
             await db.SaveChangesAsync();
 
-            // Act
-            var result = await repo.GetAllByTenantAsync(tenantA);
+            var loaded = await repo.GetByAppointmentIdAsync(appointmentId, tenantB);
 
-            // Assert
-            result.Should().HaveCount(2);
-            result.All(i => i.TenantId == tenantA).Should().BeTrue();
+            loaded.Should().BeNull();
         }
+
         [Fact]
-        public async Task GetByIdAsync_ShouldIncludeInvoiceLines()
+        public async Task GetAllByTenantAsync_ReturnsOnlyTenantInvoices_InIssuedAtDescendingOrder_AndIncludesLines()
         {
             var db = DbContextFactory.Create();
             var repo = new InvoiceRepository(db);
 
-            var tenantId = Guid.NewGuid();
-            SeedBusiness(db, tenantId);
+            var tenantA = Guid.NewGuid();
+            var tenantB = Guid.NewGuid();
+            SeedBusiness(db, tenantA);
+            SeedBusiness(db, tenantB);
 
-            var invoice = CreateInvoice(tenantId, Guid.NewGuid(), "INV-X-1");
-            invoice.Lines.Add(new InvoiceLine
-            {
-                Id = Guid.NewGuid(),
-                InvoiceId = invoice.Id,
-                NameSnapshot = "Line 1",
-                Qty = 1,
-                UnitPrice = 10,
-                LineTotal = 10
-            });
+            var older = CreateInvoice(tenantA, Guid.NewGuid(), "INV-2026-0001", issuedAt: DateTime.UtcNow.AddDays(-5), linesCount: 1);
+            var newer = CreateInvoice(tenantA, Guid.NewGuid(), "INV-2026-0002", issuedAt: DateTime.UtcNow.AddDays(-1), linesCount: 2);
+            var otherTenant = CreateInvoice(tenantB, Guid.NewGuid(), "INV-2026-0003", issuedAt: DateTime.UtcNow, linesCount: 3);
 
-            db.Invoices.Add(invoice);
+            db.Invoices.AddRange(older, newer, otherTenant);
             await db.SaveChangesAsync();
 
-            var loaded = await repo.GetByIdAsync(invoice.Id, tenantId);
+            var result = (await repo.GetAllByTenantAsync(tenantA)).ToList();
 
-            loaded.Should().NotBeNull();
-            loaded!.Lines.Should().HaveCount(1);
-            loaded.Lines.First().NameSnapshot.Should().Be("Line 1");
+            result.Should().HaveCount(2);
+            result.All(x => x.TenantId == tenantA).Should().BeTrue();
+
+            // ordering check (IssuedAt desc)
+            result[0].InvoiceNumber.Should().Be("INV-2026-0002");
+            result[1].InvoiceNumber.Should().Be("INV-2026-0001");
+
+            // include lines check (Include(i => i.Lines))
+            result[0].Lines.Should().HaveCount(2);
+            result[1].Lines.Should().HaveCount(1);
         }
 
         [Fact]
-        public async Task GetMaxInvoiceSequenceForYearAsync_WhenNoInvoices_ShouldReturnZero()
+        public async Task GetMaxInvoiceSequenceForYearAsync_WhenNoInvoices_ReturnsZero()
         {
             var db = DbContextFactory.Create();
             var repo = new InvoiceRepository(db);
@@ -189,6 +218,88 @@ namespace AppointMe.Tests.Integration.Repositories
             var max = await repo.GetMaxInvoiceSequenceForYearAsync(tenantId, year);
 
             max.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task GetMaxInvoiceSequenceForYearAsync_IgnoresOtherYears()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new InvoiceRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+
+            var year = 2026;
+            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), "INV-2025-0010"));
+            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), "INV-2026-0003"));
+            await db.SaveChangesAsync();
+
+            var max = await repo.GetMaxInvoiceSequenceForYearAsync(tenantId, year);
+
+            max.Should().Be(3);
+        }
+
+        [Fact]
+        public async Task GetMaxInvoiceSequenceForYearAsync_IgnoresOtherTenants()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new InvoiceRepository(db);
+
+            var tenantA = Guid.NewGuid();
+            var tenantB = Guid.NewGuid();
+            SeedBusiness(db, tenantA);
+            SeedBusiness(db, tenantB);
+
+            var year = 2026;
+
+            db.Invoices.Add(CreateInvoice(tenantA, Guid.NewGuid(), "INV-2026-0002"));
+            db.Invoices.Add(CreateInvoice(tenantB, Guid.NewGuid(), "INV-2026-0099"));
+            await db.SaveChangesAsync();
+
+            var maxA = await repo.GetMaxInvoiceSequenceForYearAsync(tenantA, year);
+
+            maxA.Should().Be(2);
+        }
+
+        [Fact]
+        public async Task GetMaxInvoiceSequenceForYearAsync_WhenLastInvoiceNumberMalformed_ReturnsZero()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new InvoiceRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+
+            var year = 2026;
+
+            // matches prefix but suffix isn't numeric -> TryParse fails -> expected 0
+            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), "INV-2026-ABCD"));
+            await db.SaveChangesAsync();
+
+            var max = await repo.GetMaxInvoiceSequenceForYearAsync(tenantId, year);
+
+            max.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task GetMaxInvoiceSequenceForYearAsync_ReturnsHighest_WhenNumbersAreZeroPadded()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new InvoiceRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+
+            var year = 2026;
+
+            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), "INV-2026-0001"));
+            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), "INV-2026-0010"));
+            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), "INV-2026-0009"));
+            await db.SaveChangesAsync();
+
+            var max = await repo.GetMaxInvoiceSequenceForYearAsync(tenantId, year);
+
+            max.Should().Be(10);
         }
     }
 }

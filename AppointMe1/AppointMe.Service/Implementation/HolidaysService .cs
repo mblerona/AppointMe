@@ -6,8 +6,9 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using AppointMe.Domain.DTO;
+using AppointMe.Service.Interface;
 
-namespace AppointMe.Repository.Implementation
+namespace AppointMe.Service.Implementation
 {
     public class HolidaysService : IHolidayService
     {

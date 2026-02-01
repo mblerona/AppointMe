@@ -1,0 +1,10 @@
+﻿{
+  "stryker-config": {
+    "solution": "../AppointMe1.sln",
+    "project": "AppointMe.Service.csproj",
+    "test-projects": [ "AppointMe.Tests.Unit.csproj" ],
+    "reporters": [ "html", "progress" ],
+    "mutate": [ "**/*.cs" ],
+    "concurrency": 1
+  }
+}

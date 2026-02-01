@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AppointMe.Repository.Interface
+namespace AppointMe.Service.Interface
 {
     public  interface IHolidayService
     {

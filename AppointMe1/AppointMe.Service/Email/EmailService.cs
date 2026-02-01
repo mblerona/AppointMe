@@ -1,4 +1,5 @@
-﻿using MailKit.Net.Smtp;
+﻿using AppointMe.Service.Email.Infrastructure;
+using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
@@ -8,10 +9,12 @@ namespace AppointMe.Service.Email
     public class EmailService : IEmailService
     {
         private readonly MailSettings _settings;
+        private readonly ISmtpClientFactory _smtpFactory;
 
-        public EmailService(IOptions<MailSettings> settings)
+        public EmailService(IOptions<MailSettings> settings, ISmtpClientFactory smtpFactory)
         {
             _settings = settings.Value;
+            _smtpFactory = smtpFactory;
         }
 
         public async Task SendEmailAsync(EmailMessage message)
@@ -57,10 +60,25 @@ namespace AppointMe.Service.Email
             return email;
         }
 
+        //private async Task SendAsync(MimeMessage email)
+        //{
+        //    using var smtp = new SmtpClient();
+
+
+        //    smtp.CheckCertificateRevocation = false;
+
+        //    var secureOption = _settings.EnableSsl
+        //        ? SecureSocketOptions.StartTls
+        //        : SecureSocketOptions.None;
+
+        //    await smtp.ConnectAsync(_settings.SmtpServer, _settings.SmtpServerPort, secureOption);
+        //    await smtp.AuthenticateAsync(_settings.SmtpUserName, _settings.SmtpPassword);
+        //    await smtp.SendAsync(email);
+        //    await smtp.DisconnectAsync(true);
+        //}
         private async Task SendAsync(MimeMessage email)
         {
-            using var smtp = new SmtpClient();
-
+            using var smtp = _smtpFactory.Create();
 
             smtp.CheckCertificateRevocation = false;
 

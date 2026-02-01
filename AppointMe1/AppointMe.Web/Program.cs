@@ -7,7 +7,7 @@ using AppointMe.Service.Implementation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using AppointMe.Service.Email;
-
+using AppointMe.Service.Email.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +21,7 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddScoped<IServiceOfferingRepository, ServiceOfferingRepository>();
 builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 
+builder.Services.AddTransient<ISmtpClientFactory, MailKitSmtpClientFactory>();
 
 
 builder.Services.AddDefaultIdentity<AppointMeAppUser>(options =>

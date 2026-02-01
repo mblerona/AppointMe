@@ -22,11 +22,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppointMe.Tests.Unit", "App
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppointMe.Tests.Web", "AppointMe.Tests.Web\AppointMe.Tests.Web.csproj", "{5DE02600-FDF9-46CE-A72F-3871E9929BEF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppointMe.Tests.Integration", "AppointMe.Tests.Integration\AppointMe.Tests.Integration.csproj", "{690EFE6A-9527-4AFE-A805-281B84D74648}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppointMe.Tests.Integration", "AppointMe.Tests.Integration\AppointMe.Tests.Integration.csproj", "{690EFE6A-9527-4AFE-A805-281B84D74648}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppointMe.Tests.E2E", "E2E\AppointMe.Tests.E2E.csproj", "{A794D39B-25C8-48D6-9620-9265AA3A3692}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppointMe.Tests.Performance", "AppointMe.Tests.Performance\AppointMe.Tests.Performance.csproj", "{8990A7EA-5D08-4918-A3D8-DC686A6F417E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppointMe.Tests.Performance", "AppointMe.Tests.Performance\AppointMe.Tests.Performance.csproj", "{8990A7EA-5D08-4918-A3D8-DC686A6F417E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -62,10 +60,6 @@ Global
 		{690EFE6A-9527-4AFE-A805-281B84D74648}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{690EFE6A-9527-4AFE-A805-281B84D74648}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{690EFE6A-9527-4AFE-A805-281B84D74648}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A794D39B-25C8-48D6-9620-9265AA3A3692}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A794D39B-25C8-48D6-9620-9265AA3A3692}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A794D39B-25C8-48D6-9620-9265AA3A3692}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A794D39B-25C8-48D6-9620-9265AA3A3692}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8990A7EA-5D08-4918-A3D8-DC686A6F417E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8990A7EA-5D08-4918-A3D8-DC686A6F417E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8990A7EA-5D08-4918-A3D8-DC686A6F417E}.Release|Any CPU.ActiveCfg = Release|Any CPU

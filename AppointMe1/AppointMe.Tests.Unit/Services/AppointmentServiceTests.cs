@@ -14,6 +14,7 @@ using AppointMe.Repository.Interface;
 using AppointMe.Service.Calendar;
 using AppointMe.Service.Email;
 using AppointMe.Service.Implementation;
+using AppointMe.Service.Interface;
 
 namespace AppointMe.Tests.Unit.Services
 {

@@ -50,7 +50,9 @@ publish/
 TestResults/
 coverage/
 coverage.*
-
+**/CoverageReport/
+**/TestResults/
+**/StrykerOutput/
 
 
 
