@@ -1018,5 +1018,76 @@ namespace AppointMe.Tests.Unit.Services
             apptRepo.Verify(r => r.DeleteAsync(appt), Times.Once);
             apptRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
         }
+        [Fact]
+        public async Task CreateAppointmentAsync_WhenEmailSendFails_StillCreatesAppointment()
+        {
+            var db = CreateDb();
+            var tenantId = Guid.NewGuid();
+            SeedDefaultBusiness(db, tenantId);
+
+            var apptRepo = new Mock<IAppointmentRepository>(MockBehavior.Strict);
+            var custRepo = new Mock<ICustomerRepository>(MockBehavior.Strict);
+            var svcRepo = new Mock<IServiceOfferingRepository>(MockBehavior.Strict);
+            var holiday = new Mock<IHolidayService>(MockBehavior.Strict);
+            var email = new Mock<IEmailService>(MockBehavior.Strict);
+
+            var customerId = Guid.NewGuid();
+            custRepo.Setup(r => r.GetByIdAsync(customerId))
+                .ReturnsAsync(MakeCustomer(customerId, tenantId, "customer@test.com"));
+
+            holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
+                .ReturnsAsync(new List<HolidayDTO>());
+
+            apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(It.IsAny<DateTime>(), It.IsAny<int>(), tenantId, null))
+                .ReturnsAsync(true);
+
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", null))
+                .ReturnsAsync(false);
+
+            apptRepo.Setup(r => r.AddAsync(It.IsAny<Appointment>()))
+                .Returns(Task.CompletedTask);
+
+            apptRepo.Setup(r => r.SaveChangesAsync())
+                .Returns(Task.CompletedTask);
+
+            // CRITICAL: Email service throws exception
+            email.Setup(e => e.SendEmailWithAttachmentAsync(
+                    It.IsAny<EmailMessage>(),
+                    It.IsAny<byte[]>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()))
+                .ThrowsAsync(new InvalidOperationException("SMTP server unavailable"));
+
+            var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
+
+            var dto = new CreateAppointmentDTO
+            {
+                CustomerId = customerId,
+                OrderNumber = "ORD-1",
+                AppointmentDate = NextWorkingDayAt(10, 0),
+                Description = "desc",
+                NotifyByEmail = true // Email is requested
+            };
+
+            // Should NOT throw - appointment creation should succeed despite email failure
+            var result = await service.CreateAppointmentAsync(dto, tenantId);
+
+            // Verify appointment was created successfully
+            result.Should().NotBeNull();
+            result.OrderNumber.Should().Be("ORD-1");
+            result.Status.Should().Be(AppointmentStatus.Scheduled.ToString());
+
+            // Verify database operations completed
+            apptRepo.Verify(r => r.AddAsync(It.IsAny<Appointment>()), Times.Once);
+            apptRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+
+            // Verify email was attempted
+            email.Verify(e => e.SendEmailWithAttachmentAsync(
+                It.IsAny<EmailMessage>(),
+                It.IsAny<byte[]>(),
+                It.IsAny<string>(),
+                It.IsAny<string>()), Times.Once);
+        }
+
     }
 }

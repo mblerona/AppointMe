@@ -24,8 +24,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppointMe.Tests.Web", "Appo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppointMe.Tests.Integration", "AppointMe.Tests.Integration\AppointMe.Tests.Integration.csproj", "{690EFE6A-9527-4AFE-A805-281B84D74648}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppointMe.Tests.Performance", "AppointMe.Tests.Performance\AppointMe.Tests.Performance.csproj", "{8990A7EA-5D08-4918-A3D8-DC686A6F417E}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -60,10 +58,6 @@ Global
 		{690EFE6A-9527-4AFE-A805-281B84D74648}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{690EFE6A-9527-4AFE-A805-281B84D74648}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{690EFE6A-9527-4AFE-A805-281B84D74648}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8990A7EA-5D08-4918-A3D8-DC686A6F417E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8990A7EA-5D08-4918-A3D8-DC686A6F417E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8990A7EA-5D08-4918-A3D8-DC686A6F417E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8990A7EA-5D08-4918-A3D8-DC686A6F417E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
