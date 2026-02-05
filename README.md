@@ -97,17 +97,23 @@ To test email functionality (appointment confirmations and invoices),
 
 ##  Testing Overview
 
-The application is validated using a **multi-layered testing strategy** covering business logic, data persistence, and web/API behavior.  
-A total of **111 automated tests** were implemented: **51 unit tests**, **38 integration tests**, and **22 web/API tests**.
+The application is validated using a multi-layered testing strategy that covers business logic, data persistence, control-flow correctness, and web/API behavior.
+A total of 111 automated tests were implemented: 52 unit tests, 38 integration tests, and 22 web/API tests.
 
-- **Unit tests** validate core service logic (appointments, invoices, holidays, email notifications) with isolated dependencies  
-- **Integration tests** verify Entity Framework Core mappings, repository queries, and strict tenant-based data isolation  
-- **Web/API tests** confirm correct controller behavior, routing, and service orchestration  
+Unit tests validate core service-layer business logic (appointments, invoices, holidays, email notifications) with isolated dependencies and deterministic outcomes
 
-Additional quality evaluation was performed using **code coverage analysis** and **mutation testing (Stryker.NET)**, achieving approximately **40% mutation score**, demonstrating effective fault detection in critical business logic.
+Graph-based testing was applied to a business-critical function to construct a control flow graph and achieve 100% edge coverage, ensuring all decision paths and error-handling scenarios are exercised
 
-**Testing technologies used:**  
-xUnit, FluentAssertions, Entity Framework Core InMemory, ASP.NET WebApplicationFactory, ReportGenerator, Stryker.NET
+Integration tests verify Entity Framework Core mappings, repository queries, persistence behavior, and strict tenant-based data isolation
+
+Web/API tests confirm correct controller behavior, routing, authentication, authorization, and service orchestration under realistic execution conditions
+
+Manual API testing with Postman complements automated tests by validating real HTTP behavior, session handling, CSRF protection, and cross-tenant access restrictions from a black-box perspective
+
+Additional quality evaluation was performed using code coverage analysis and mutation testing (Stryker.NET), achieving an overall mutation score of approximately 40%, demonstrating effective fault detection in business-critical logic.
+
+Testing technologies used:
+xUnit, FluentAssertions, Entity Framework Core InMemory, ASP.NET WebApplicationFactory, Postman, ReportGenerator, Stryker.NET
 
 ---
 
