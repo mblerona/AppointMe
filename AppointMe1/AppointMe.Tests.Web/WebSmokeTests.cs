@@ -1,12 +1,14 @@
 ﻿using System.Net;
 using Xunit;
-using Microsoft.AspNetCore.Mvc.Testing;
+using AppointMe.Tests.Web.Infrastructure;
 
-public class WebSmokeTests : IClassFixture<WebApplicationFactory<Program>>
+public class WebSmokeTests : IClassFixture<NoAuthWebAppFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    // NoAuthWebAppFactory (in-memory database): the plain WebApplicationFactory<Program> would use the
+    // real appsettings and connection string.
+    private readonly NoAuthWebAppFactory _factory;
 
-    public WebSmokeTests(WebApplicationFactory<Program> factory)
+    public WebSmokeTests(NoAuthWebAppFactory factory)
     {
         _factory = factory;
     }

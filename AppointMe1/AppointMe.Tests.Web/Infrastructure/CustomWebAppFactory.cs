@@ -45,7 +45,11 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 var root = sp.GetRequiredService<InMemoryDatabaseRoot>();
                 opt.UseInMemoryDatabase(_dbName, root);
                 // Registration uses an explicit transaction; the in-memory provider has none, so ignore the warning.
-                opt.ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning));
+                // Every factory builds its own EF service provider (own InMemoryDatabaseRoot); after 20 in one test
+                // run EF throws ManyServiceProvidersCreatedWarning, which is only a performance hint here.
+                opt.ConfigureWarnings(w => w
+                    .Ignore(InMemoryEventId.TransactionIgnoredWarning)
+                    .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
             });
 
             var spBuilt = services.BuildServiceProvider();

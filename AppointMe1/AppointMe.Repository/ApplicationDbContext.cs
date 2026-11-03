@@ -69,6 +69,13 @@ namespace AppointMe.Repository.Data
                     .WithOne(a => a.Customer)
                     .HasForeignKey(a => a.CustomerId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                // A6 + A7: Business.Customers uses TenantId (this removed the unused shadow BusinessId column).
+                // No cascade: deleting a tenant will remove its data explicitly, in order, in a service.
+                entity.HasOne<Business>()
+                    .WithMany(b => b.Customers)
+                    .HasForeignKey(c => c.TenantId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ==================== APPOINTMENT ====================
@@ -101,11 +108,16 @@ namespace AppointMe.Repository.Data
                 entity.HasIndex(a => new { a.TenantId, a.Status })
                     .HasDatabaseName("IX_Appointment_TenantId_Status");
 
-                //entity.HasIndex(a => a.OrderNumber)
-                //    .HasDatabaseName("IX_Appointment_OrderNumber");
-                entity.HasIndex(a => a.OrderNumber)
-                .IsUnique()
-                .HasDatabaseName("UX_Appointment_OrderNumber");
+                // S3: order numbers are unique per tenant (two businesses may both use "ORD-0001").
+                entity.HasIndex(a => new { a.TenantId, a.OrderNumber })
+                    .IsUnique()
+                    .HasDatabaseName("UX_Appointment_TenantId_OrderNumber");
+
+                // A7: every appointment belongs to an existing Business.
+                entity.HasOne<Business>()
+                    .WithMany()
+                    .HasForeignKey(a => a.TenantId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ==================== BUSINESS ====================
@@ -149,7 +161,7 @@ namespace AppointMe.Repository.Data
                 entity.HasOne(x => x.Business)
                     .WithMany()
                     .HasForeignKey(x => x.BusinessId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.Restrict); // was Cascade (A7: no cascades from Business)
 
                 // IMPORTANT: do NOT configure Services relationship here
                 // (it creates duplicate relationships + shadow FKs like ServiceCategoryId1)
@@ -173,7 +185,7 @@ namespace AppointMe.Repository.Data
                 entity.HasOne(s => s.Business)
                     .WithMany(b => b.Services)
                     .HasForeignKey(s => s.BusinessId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.Restrict); // was Cascade (A7: no cascades from Business)
 
                 
                 entity.HasOne(s => s.Category)
@@ -216,6 +228,13 @@ namespace AppointMe.Repository.Data
 
                 entity.HasIndex(u => u.TenantId)
                     .HasDatabaseName("IX_AppointMeAppUser_TenantId");
+
+                // A7: optional, because a platform admin has no tenant.
+                entity.HasOne<Business>()
+                    .WithMany()
+                    .HasForeignKey(u => u.TenantId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ==================== INVOICE ====================
@@ -263,6 +282,12 @@ namespace AppointMe.Repository.Data
                     .WithOne(l => l.Invoice)
                     .HasForeignKey(l => l.InvoiceId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                // A7: every invoice belongs to an existing Business.
+                entity.HasOne<Business>()
+                    .WithMany()
+                    .HasForeignKey(i => i.TenantId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ==================== INVOICE LINE ====================

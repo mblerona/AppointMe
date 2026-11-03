@@ -159,14 +159,14 @@ namespace AppointMe.Repository.Implementation
                 .ToListAsync();
         }
 
-        public async Task<bool> OrderNumberExistsAsync(string orderNumber, Guid? excludeAppointmentId = null)
+        public async Task<bool> OrderNumberExistsAsync(string orderNumber, Guid tenantId, Guid? excludeAppointmentId = null)
         {
             var normalized = orderNumber?.Trim();
 
             if (string.IsNullOrWhiteSpace(normalized))
                 return false;
 
-            var query = _dbSet.AsQueryable().Where(a => a.OrderNumber == normalized);
+            var query = _dbSet.Where(a => a.TenantId == tenantId && a.OrderNumber == normalized);
 
             if (excludeAppointmentId.HasValue)
                 query = query.Where(a => a.Id != excludeAppointmentId.Value);

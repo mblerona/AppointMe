@@ -67,15 +67,15 @@ namespace AppointMe.Repository.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.HasIndex("OrderNumber")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Appointment_OrderNumber");
-
                     b.HasIndex("TenantId", "AppointmentDate")
                         .HasDatabaseName("IX_Appointment_TenantId_AppointmentDate");
 
                     b.HasIndex("TenantId", "CustomerId")
                         .HasDatabaseName("IX_Appointment_TenantId_CustomerId");
+
+                    b.HasIndex("TenantId", "OrderNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Appointment_TenantId_OrderNumber");
 
                     b.HasIndex("TenantId", "Status")
                         .HasDatabaseName("IX_Appointment_TenantId_Status");
@@ -206,9 +206,6 @@ namespace AppointMe.Repository.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasDefaultValueSql("NEWID()");
 
-                    b.Property<Guid?>("BusinessId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("City")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -264,8 +261,6 @@ namespace AppointMe.Repository.Migrations
                         .HasDefaultValueSql("GETUTCDATE()");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("BusinessId");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("IX_Customer_TenantId");
@@ -726,6 +721,12 @@ namespace AppointMe.Repository.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("AppointMe.Domain.DomainModels.Business", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Customer");
                 });
 
@@ -752,7 +753,18 @@ namespace AppointMe.Repository.Migrations
                 {
                     b.HasOne("AppointMe.Domain.DomainModels.Business", null)
                         .WithMany("Customers")
-                        .HasForeignKey("BusinessId");
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AppointMe.Domain.DomainModels.Invoice", b =>
+                {
+                    b.HasOne("AppointMe.Domain.DomainModels.Business", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("AppointMe.Domain.DomainModels.InvoiceLine", b =>
@@ -771,7 +783,7 @@ namespace AppointMe.Repository.Migrations
                     b.HasOne("AppointMe.Domain.DomainModels.Business", "Business")
                         .WithMany()
                         .HasForeignKey("BusinessId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Business");
@@ -782,7 +794,7 @@ namespace AppointMe.Repository.Migrations
                     b.HasOne("AppointMe.Domain.DomainModels.Business", "Business")
                         .WithMany("Services")
                         .HasForeignKey("BusinessId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("AppointMe.Domain.DomainModels.ServiceCategory", "Category")
@@ -793,6 +805,14 @@ namespace AppointMe.Repository.Migrations
                     b.Navigation("Business");
 
                     b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("AppointMe.Domain.Identity.AppointMeAppUser", b =>
+                {
+                    b.HasOne("AppointMe.Domain.DomainModels.Business", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

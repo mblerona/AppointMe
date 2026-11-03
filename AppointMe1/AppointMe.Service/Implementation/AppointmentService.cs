@@ -89,7 +89,7 @@ namespace AppointMe.Service.Implementation
                 throw new BusinessRuleException("The selected time overlaps with another appointment.");
 
             dto.OrderNumber = dto.OrderNumber?.Trim();
-            if (await _appointmentRepository.OrderNumberExistsAsync(dto.OrderNumber))
+            if (await _appointmentRepository.OrderNumberExistsAsync(dto.OrderNumber, tenantId))
                 throw new BusinessRuleException("Order number already exists. Please use a different order number.");
 
             var businessId = tenantId;
@@ -208,7 +208,7 @@ namespace AppointMe.Service.Implementation
 
             if (!string.Equals(appointment.OrderNumber, newOrder, StringComparison.Ordinal))
             {
-                var exists = await _appointmentRepository.OrderNumberExistsAsync(newOrder, appointmentId);
+                var exists = await _appointmentRepository.OrderNumberExistsAsync(newOrder, tenantId, appointmentId);
                 if (exists)
                     throw new BusinessRuleException("Order number already exists. Please use a different order number.");
 

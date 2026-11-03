@@ -21,7 +21,8 @@ namespace AppointMe.Repository.Interface
 
         Task UpdateAsync(Appointment appointment);
 
-        Task<bool> OrderNumberExistsAsync(string orderNumber, Guid? excludeAppointmentId = null);
+        /// <summary>True if another appointment of this tenant already uses the order number (unique per tenant, audit S3).</summary>
+        Task<bool> OrderNumberExistsAsync(string orderNumber, Guid tenantId, Guid? excludeAppointmentId = null);
 
 
         /// <summary>Number of appointments of the tenant per status (statuses without appointments are missing).</summary>

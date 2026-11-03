@@ -273,7 +273,7 @@ namespace AppointMe.Tests.Integration.Repositories
             db.Appointments.Add(CreateAppointment(tenantId, customer.Id, DateTime.Today.AddDays(1), "ORD-13"));
             await db.SaveChangesAsync();
 
-            var exists = await repo.OrderNumberExistsAsync("ORD-13");
+            var exists = await repo.OrderNumberExistsAsync("ORD-13", tenantId);
             exists.Should().BeTrue();
         }
 
@@ -283,7 +283,7 @@ namespace AppointMe.Tests.Integration.Repositories
             var db = DbContextFactory.Create();
             var repo = new AppointmentRepository(db);
 
-            var exists = await repo.OrderNumberExistsAsync("NOPE");
+            var exists = await repo.OrderNumberExistsAsync("NOPE", Guid.NewGuid());
             exists.Should().BeFalse();
         }
 
@@ -301,7 +301,7 @@ namespace AppointMe.Tests.Integration.Repositories
             db.Appointments.Add(appt);
             await db.SaveChangesAsync();
 
-            var exists = await repo.OrderNumberExistsAsync("ORD-14", appt.Id);
+            var exists = await repo.OrderNumberExistsAsync("ORD-14", tenantId, appt.Id);
             exists.Should().BeFalse();
         }
 

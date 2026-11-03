@@ -399,7 +399,7 @@ namespace AppointMe.Tests.Unit.Services
             apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(It.IsAny<DateTime>(), It.IsAny<int>(), tenantId, null))
                 .ReturnsAsync(true);
 
-            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", null))
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null))
                 .ReturnsAsync(true);
 
             var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
@@ -441,7 +441,7 @@ namespace AppointMe.Tests.Unit.Services
             apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(It.IsAny<DateTime>(), It.IsAny<int>(), tenantId, null))
                 .ReturnsAsync(true);
 
-            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", null))
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null))
                 .ReturnsAsync(false);
 
             var id1 = Guid.NewGuid();
@@ -495,7 +495,7 @@ namespace AppointMe.Tests.Unit.Services
             apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(It.IsAny<DateTime>(), It.IsAny<int>(), tenantId, null))
                 .ReturnsAsync(true);
 
-            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", null))
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null))
                 .ReturnsAsync(false);
 
             apptRepo.Setup(r => r.AddAsync(It.IsAny<Appointment>()))
@@ -553,7 +553,7 @@ namespace AppointMe.Tests.Unit.Services
             apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(It.IsAny<DateTime>(), It.IsAny<int>(), tenantId, null))
                 .ReturnsAsync(true);
 
-            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", null))
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null))
                 .ReturnsAsync(false);
 
             apptRepo.Setup(r => r.AddAsync(It.IsAny<Appointment>()))
@@ -697,7 +697,7 @@ namespace AppointMe.Tests.Unit.Services
             apptRepo.Setup(r => r.GetWithCustomerAsync(apptId, tenantId))
                 .ReturnsAsync(appt);
 
-            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-NEW", apptId))
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-NEW", tenantId, apptId))
                 .ReturnsAsync(true);
 
             var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
@@ -1048,7 +1048,7 @@ namespace AppointMe.Tests.Unit.Services
             apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(It.IsAny<DateTime>(), It.IsAny<int>(), tenantId, null))
                 .ReturnsAsync(true);
 
-            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", null))
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null))
                 .ReturnsAsync(false);
 
             apptRepo.Setup(r => r.AddAsync(It.IsAny<Appointment>()))
