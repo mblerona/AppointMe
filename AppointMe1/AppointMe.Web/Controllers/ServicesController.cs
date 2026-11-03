@@ -1,10 +1,8 @@
 ﻿using AppointMe.Domain.DTO;
+using AppointMe.Service.Interface;
 using AppointMe.Domain.DomainModels;
-using AppointMe.Domain.Identity;
-using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppointMe.Web.Controllers
@@ -16,29 +14,22 @@ namespace AppointMe.Web.Controllers
 
         public ServicesController(
             IServiceOfferingRepository serviceRepo,
-            UserManager<AppointMeAppUser> userManager,
-            ApplicationDbContext db)
-            : base(userManager, db)
+            ITenantContext tenantContext)
+            : base(tenantContext)
         {
             _serviceRepo = serviceRepo;
         }
 
         public async Task<IActionResult> Index()
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
             var services = await _serviceRepo.GetAllByBusinessAsync(tenantId);
             return View(services);
         }
 
         [HttpGet]
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
             return View(new CreateServiceOfferingDTO { IsActive = true });
         }
 
@@ -46,13 +37,10 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CreateServiceOfferingDTO dto)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
             if (!ModelState.IsValid)
                 return View(dto);
 
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             var entity = new ServiceOffering
             {
@@ -77,10 +65,7 @@ namespace AppointMe.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> Edit(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
             var entity = await _serviceRepo.GetByIdAsync(id, tenantId);
 
             if (entity == null) return NotFound();
@@ -101,15 +86,12 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(Guid id, UpdateServiceOfferingDTO dto)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
             if (id != dto.Id) return BadRequest();
 
             if (!ModelState.IsValid)
                 return View(dto);
 
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
             var entity = await _serviceRepo.GetByIdAsync(id, tenantId);
 
             if (entity == null) return NotFound();
@@ -130,10 +112,7 @@ namespace AppointMe.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
             var entity = await _serviceRepo.GetByIdAsync(id, tenantId);
 
             if (entity == null) return NotFound();
@@ -145,10 +124,7 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
             var entity = await _serviceRepo.GetByIdAsync(id, tenantId);
 
             if (entity == null) return NotFound();

@@ -1,8 +1,7 @@
 ﻿using AppointMe.Domain.DomainModels;
-using AppointMe.Domain.Identity;
+using AppointMe.Service.Interface;
 using AppointMe.Repository.Data;
 using AppointMe.Web.ViewModels;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,15 +10,18 @@ namespace AppointMe.Web.Controllers
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public class DashboardController : BaseTenantController
     {
-        public DashboardController(UserManager<AppointMeAppUser> userManager, ApplicationDbContext db)
-            : base(userManager, db) { }
+        // TODO(step 3): replace _db with IDashboardService.
+        private readonly ApplicationDbContext _db;
+
+        public DashboardController(ITenantContext tenantContext, ApplicationDbContext db)
+            : base(tenantContext)
+        {
+            _db = db;
+        }
 
         public async Task<IActionResult> Index(string range = "all", string status = "all", string? search = null)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             var business = await _db.Businesses.FirstAsync(b => b.Id == tenantId);
 

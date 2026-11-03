@@ -1,11 +1,8 @@
 ﻿using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
-using AppointMe.Domain.Identity;
-using AppointMe.Repository.Data;
 using AppointMe.Service.Email;
 using AppointMe.Service.Interface;
 using AppointMe.Service.Pdf;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppointMe.Web.Controllers
@@ -21,9 +18,8 @@ namespace AppointMe.Web.Controllers
         public InvoicesController(
             IInvoiceService invoiceService,
             IEmailService emailService,
-            UserManager<AppointMeAppUser> userManager,
-            ApplicationDbContext db,
-            ILogger<InvoicesController> logger) : base(userManager, db)
+            ITenantContext tenantContext,
+            ILogger<InvoicesController> logger) : base(tenantContext)
         {
             _invoiceService = invoiceService;
             _emailService = emailService;
@@ -32,20 +28,14 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
             var invoices = await _invoiceService.GetAllAsync(tenantId);
             return View(invoices);
         }
 
         public async Task<IActionResult> Details(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -64,10 +54,7 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateFromAppointment(Guid appointmentId)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -97,10 +84,7 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SendByEmail(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -156,10 +140,7 @@ Thank you,
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SendPdfByEmail(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {

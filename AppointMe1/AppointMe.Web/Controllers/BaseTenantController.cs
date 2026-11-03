@@ -1,52 +1,26 @@
-﻿using AppointMe.Domain.DomainModels;
-using AppointMe.Domain.Identity;
-using AppointMe.Repository.Data;
+﻿using AppointMe.Service.Interface;
+using AppointMe.Web.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace AppointMe.Web.Controllers
 {
+    /// <summary>
+    /// Base for controllers that work on tenant-owned data. <see cref="RequireTenantFilter"/> resolves the
+    /// tenant before every action, so actions can read <see cref="TenantId"/> directly.
+    /// </summary>
     [Authorize]
+    [ServiceFilter(typeof(RequireTenantFilter))]
     public abstract class BaseTenantController : Controller
     {
-        protected readonly UserManager<AppointMeAppUser> _userManager;
-        protected readonly ApplicationDbContext _db;
+        private readonly ITenantContext _tenantContext;
 
-        protected BaseTenantController(UserManager<AppointMeAppUser> userManager, ApplicationDbContext db)
+        protected BaseTenantController(ITenantContext tenantContext)
         {
-            _userManager = userManager;
-            _db = db;
+            _tenantContext = tenantContext;
         }
 
-       
-        /// If tenant is missing (or Business missing), redirect user to Settings/Business.
-        
-        protected async Task<IActionResult?> EnsureTenantAsync()
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-                return Challenge();
-
-            if (user.TenantId == null || user.TenantId == Guid.Empty)
-                return RedirectToAction("Business", "Settings");
-
-           
-            var exists = await _db.Businesses.AnyAsync(b => b.Id == user.TenantId.Value);
-            if (!exists)
-                return RedirectToAction("Business", "Settings");
-
-            return null;
-        }
-
-        protected async Task<Guid> GetTenantIdAsync()
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user?.TenantId == null || user.TenantId == Guid.Empty)
-                throw new InvalidOperationException("Tenant is not assigned.");
-
-            return user.TenantId.Value;
-        }
+        /// <summary>The logged-in user's tenant, resolved on the server.</summary>
+        protected Guid TenantId => _tenantContext.TenantId;
     }
 }

@@ -5,11 +5,9 @@ using System.Threading.Tasks;
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
-using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -22,16 +20,19 @@ namespace AppointMe.Web.Controllers
         private readonly ICustomerService _customerService;
         private readonly IServiceOfferingRepository _serviceOfferingRepository;
         private readonly IHolidayService _holidaysService;
+        // TODO(step 3): replace _db with IBusinessService.
+        private readonly ApplicationDbContext _db;
 
         public AppointmentsController(
             IAppointmentService appointmentService,
             ICustomerService customerService,
             IServiceOfferingRepository serviceOfferingRepository,
             IHolidayService holidaysService,
-            UserManager<AppointMeAppUser> userManager,
+            ITenantContext tenantContext,
             ApplicationDbContext db)
-            : base(userManager, db)
+            : base(tenantContext)
         {
+            _db = db;
             _appointmentService = appointmentService;
             _customerService = customerService;
             _serviceOfferingRepository = serviceOfferingRepository;
@@ -85,10 +86,7 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Index(string? status, DateTime? startDate, DateTime? endDate)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
             IEnumerable<AppointmentDTO> appointments;
 
             if (startDate.HasValue && endDate.HasValue)
@@ -114,10 +112,7 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Details(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -132,10 +127,7 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Create(Guid? customerId = null)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             await PopulateCustomersSelectListAsync(tenantId, customerId);
             await PopulateServicesMultiSelectAsync(tenantId);
@@ -160,10 +152,7 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CreateAppointmentDTO dto)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             // Always repopulate tenant config when returning the view
             async Task LoadTenantConfig()
@@ -209,10 +198,7 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Edit(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             var biz = await _db.Businesses.AsNoTracking().FirstAsync(b => b.Id == tenantId);
             ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm");
@@ -253,10 +239,7 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(Guid id, UpdateAppointmentDTO dto)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             async Task LoadTenantConfig()
             {
@@ -301,10 +284,7 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Delete(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -321,10 +301,7 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -340,10 +317,7 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Calendar()
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
             var biz = await _db.Businesses.AsNoTracking().FirstAsync(b => b.Id == tenantId);
 
             ViewBag.WorkStart = biz.WorkDayStart.ToString(@"hh\:mm\:ss");
@@ -356,10 +330,7 @@ namespace AppointMe.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> CalendarEvents()
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
             var appts = await _appointmentService.GetAllAppointmentsAsync(tenantId);
 
             //  Remove Completed + Cancelled from calendar
@@ -384,10 +355,7 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SetStatus(Guid id, string status, string? returnUrl = null)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             if (!Enum.TryParse<AppointmentStatus>(status, ignoreCase: true, out var newStatus))
                 return BadRequest("Invalid status.");
@@ -438,9 +406,6 @@ namespace AppointMe.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> CalendarHolidays(int? year)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
             var y = year ?? DateTime.Now.Year;
             var list = await _holidaysService.GetHolidaysAsync(y, "MK");
 

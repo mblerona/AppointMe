@@ -1,6 +1,7 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
+using AppointMe.Service.Interface;
 using AppointMe.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
@@ -16,64 +17,30 @@ namespace AppointMe.Web.Controllers
         private readonly ApplicationDbContext _db;
         private readonly UserManager<AppointMeAppUser> _userManager;
         private readonly IWebHostEnvironment _env;
+        private readonly ITenantContext _tenantContext;
 
-        public SettingsController(ApplicationDbContext db, UserManager<AppointMeAppUser> userManager, IWebHostEnvironment env)
+        public SettingsController(
+            ApplicationDbContext db,
+            UserManager<AppointMeAppUser> userManager,
+            IWebHostEnvironment env,
+            ITenantContext tenantContext)
         {
             _db = db;
             _userManager = userManager;
             _env = env;
+            _tenantContext = tenantContext;
         }
 
         [HttpGet]
         public async Task<IActionResult> Business()
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            var tenant = await _tenantContext.ResolveAsync();
+            if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
 
-            if (user.TenantId == null || user.TenantId == Guid.Empty)
-            {
-                var newBiz = new Business
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "My Business",
-                    EnableServices = true,
-                    EnableInvoices = false,
-                    EnableStaffing = true,
-                    EnablePayments = true,
-                    DefaultSlotMinutes = 30,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
+            if (tenant.Status == TenantResolutionStatus.NoTenant)
+                return await CreateMissingBusinessAsync();
 
-                _db.Businesses.Add(newBiz);
-                await _db.SaveChangesAsync();
-
-                user.TenantId = newBiz.Id;
-                user.UpdatedAt = DateTime.UtcNow;
-                await _userManager.UpdateAsync(user);
-
-                return RedirectToAction(nameof(Business));
-            }
-
-            var business = await _db.Businesses.FirstOrDefaultAsync(b => b.Id == user.TenantId.Value);
-
-            if (business == null)
-            {
-                business = new Business
-                {
-                    Id = user.TenantId.Value,
-                    Name = "My Business",
-                    EnableServices = true,
-                    EnableInvoices = false,
-                    EnableStaffing = true,
-                    EnablePayments = true,
-                    DefaultSlotMinutes = 30,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                _db.Businesses.Add(business);
-                await _db.SaveChangesAsync();
-            }
+            var business = await _db.Businesses.FirstAsync(b => b.Id == tenant.TenantId!.Value);
 
             var vm = new BusinessSettingsVm
             {
@@ -111,13 +78,15 @@ namespace AppointMe.Web.Controllers
         {
             if (!ModelState.IsValid) return View(vm);
 
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            var tenant = await _tenantContext.ResolveAsync();
+            if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
+            if (tenant.Status == TenantResolutionStatus.NoTenant) return RedirectToAction(nameof(Business));
 
-            if (user.TenantId == null || user.TenantId.Value != vm.Id)
+            // The tenant comes from the server; a posted Id for another Business is rejected.
+            if (tenant.TenantId!.Value != vm.Id)
                 return Forbid();
 
-            var business = await _db.Businesses.FirstAsync(b => b.Id == user.TenantId.Value);
+            var business = await _db.Businesses.FirstAsync(b => b.Id == tenant.TenantId.Value);
 
             business.Name = vm.Name.Trim();
             business.Email = vm.Email?.Trim();
@@ -188,6 +157,41 @@ namespace AppointMe.Web.Controllers
             await _db.SaveChangesAsync();
 
             TempData["Success"] = "Business settings saved.";
+            return RedirectToAction(nameof(Business));
+        }
+
+        /// <summary>
+        /// Creates the Business for a user who has none yet, or whose TenantId points to a missing Business
+        /// (that Id is kept). TODO(step 2): the Business moves to registration and this GET becomes read-only.
+        /// </summary>
+        private async Task<IActionResult> CreateMissingBusinessAsync()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
+            var business = new Business
+            {
+                Id = user.TenantId is { } existing && existing != Guid.Empty ? existing : Guid.NewGuid(),
+                Name = "My Business",
+                EnableServices = true,
+                EnableInvoices = false,
+                EnableStaffing = true,
+                EnablePayments = true,
+                DefaultSlotMinutes = 30,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _db.Businesses.Add(business);
+            await _db.SaveChangesAsync();
+
+            if (user.TenantId != business.Id)
+            {
+                user.TenantId = business.Id;
+                user.UpdatedAt = DateTime.UtcNow;
+                await _userManager.UpdateAsync(user);
+            }
+
             return RedirectToAction(nameof(Business));
         }
 

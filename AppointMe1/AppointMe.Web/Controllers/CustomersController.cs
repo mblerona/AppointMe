@@ -1,8 +1,5 @@
 ﻿using AppointMe.Domain.Exceptions;
-using AppointMe.Domain.Identity;
-using AppointMe.Repository.Data;
 using AppointMe.Service.Interface;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using AppointMe.Domain.DTO;
 
@@ -14,9 +11,8 @@ namespace AppointMe.Web.Controllers
 
         public CustomersController(
             ICustomerService customerService,
-            UserManager<AppointMeAppUser> userManager,
-            ApplicationDbContext db)
-            : base(userManager, db)
+            ITenantContext tenantContext)
+            : base(tenantContext)
         {
             _customerService = customerService;
         }
@@ -24,10 +20,7 @@ namespace AppointMe.Web.Controllers
         // GET: Customers
         public async Task<IActionResult> Index(string searchTerm)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             var customers = string.IsNullOrEmpty(searchTerm)
                 ? await _customerService.GetAllCustomersAsync(tenantId)
@@ -39,10 +32,7 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Details(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -55,11 +45,8 @@ namespace AppointMe.Web.Controllers
             }
         }
 
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
             return View();
         }
 
@@ -67,13 +54,10 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CreateCustomerDTO createCustomerDto)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
             if (!ModelState.IsValid)
                 return View(createCustomerDto);
 
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -91,10 +75,7 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Edit(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -126,16 +107,13 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(Guid id, UpdateCustomerDTO updateCustomerDto)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
             if (!ModelState.IsValid)
             {
                 ViewData["CustomerId"] = id;
                 return View(updateCustomerDto);
             }
 
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -157,10 +135,7 @@ namespace AppointMe.Web.Controllers
 
         public async Task<IActionResult> Delete(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {
@@ -177,10 +152,7 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
-            var redirect = await EnsureTenantAsync();
-            if (redirect != null) return redirect;
-
-            var tenantId = await GetTenantIdAsync();
+            var tenantId = TenantId;
 
             try
             {

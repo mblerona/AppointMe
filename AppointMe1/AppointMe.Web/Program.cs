@@ -49,6 +49,11 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddMemoryCache();
 
+// Tenant of the current request, resolved once from the database (see TenantContext).
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantContext, AppointMe.Web.Infrastructure.TenantContext>();
+builder.Services.AddScoped<AppointMe.Web.Infrastructure.RequireTenantFilter>();
+
 builder.Services.AddHttpClient<IHolidayService, HolidayService>(client =>
     client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddControllersWithViews();
