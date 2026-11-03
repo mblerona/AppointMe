@@ -9,3 +9,5 @@ dotnet aspnet-codegenerator identity -p .\AppointMe.Web\AppointMe.Web.csproj -dc
 
 
 Add-Migration EditOrderNumber -Context AppointMe.Repository.Data.ApplicationDbContext -Project AppointMe.Repository -StartupProject AppointMe.Web
+
+

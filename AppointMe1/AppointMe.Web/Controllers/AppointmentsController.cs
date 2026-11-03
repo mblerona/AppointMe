@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
+using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
@@ -184,13 +185,19 @@ namespace AppointMe.Web.Controllers
 
             try
             {
-                await _appointmentService.CreateAppointmentAsync(dto, tenantId);
-                TempData["SuccessMessage"] = "Appointment created successfully!";
+                var created = await _appointmentService.CreateAppointmentAsync(dto, tenantId);
+
+                if (created.ConfirmationEmailFailed)
+                    TempData["WarningMessage"] = "Appointment created, but the confirmation email could not be sent.";
+                else
+                    TempData["SuccessMessage"] = "Appointment created successfully!";
+
                 return RedirectToAction(nameof(Index));
             }
-            catch (Exception ex) when (ex is KeyNotFoundException || ex is InvalidOperationException)
+            catch (Exception ex) when (ex is KeyNotFoundException || ex is BusinessRuleException)
             {
-                ModelState.AddModelError(string.Empty, ex.Message);
+                ModelState.AddModelError(string.Empty,
+                    ex is BusinessRuleException ? ex.Message : "The selected customer was not found.");
 
                 await PopulateCustomersSelectListAsync(tenantId, dto.CustomerId);
                 await PopulateServicesMultiSelectAsync(tenantId, dto.ServiceOfferingIds);
@@ -275,7 +282,11 @@ namespace AppointMe.Web.Controllers
                 TempData["SuccessMessage"] = "Appointment updated successfully!";
                 return RedirectToAction(nameof(Details), new { id });
             }
-            catch (Exception ex) when (ex is KeyNotFoundException || ex is InvalidOperationException)
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (BusinessRuleException ex)
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
 
@@ -386,20 +397,29 @@ namespace AppointMe.Web.Controllers
                 await _appointmentService.SetStatusAsync(id, newStatus, tenantId);
 
                 TempData["SuccessMessage"] = "Appointment status updated.";
-                if (!string.IsNullOrWhiteSpace(returnUrl)) return LocalRedirect(returnUrl);
-
-                return RedirectToAction(nameof(Index));
+                return RedirectToLocalOrIndex(returnUrl);
             }
             catch (KeyNotFoundException)
             {
                 return NotFound();
             }
-            catch (InvalidOperationException ex)
+            catch (BusinessRuleException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
-                if (!string.IsNullOrWhiteSpace(returnUrl)) return LocalRedirect(returnUrl);
-                return RedirectToAction(nameof(Index));
+                return RedirectToLocalOrIndex(returnUrl);
             }
+        }
+
+        /// <summary>
+        /// Follows returnUrl only when it points inside this app; anything else (e.g. an
+        /// external URL) falls back to the list, instead of LocalRedirect throwing a 500.
+        /// </summary>
+        private IActionResult RedirectToLocalOrIndex(string? returnUrl)
+        {
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return Redirect(returnUrl);
+
+            return RedirectToAction(nameof(Index));
         }
 
         private static List<int> BuildHiddenDays(Business biz)

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
+using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Implementation;
 using FluentAssertions;
@@ -15,12 +16,11 @@ namespace AppointMe.Tests.Unit.Services
     public class CustomerServiceTests
     {
         private readonly Mock<ICustomerRepository> _customerRepo = new();
-        private readonly Mock<IAppointmentRepository> _appointmentRepo = new(); // ctor requires it, even though not used
         private readonly CustomerService _sut;
 
         public CustomerServiceTests()
         {
-            _sut = new CustomerService(_customerRepo.Object, _appointmentRepo.Object);
+            _sut = new CustomerService(_customerRepo.Object);
         }
 
         [Fact]
@@ -152,7 +152,7 @@ namespace AppointMe.Tests.Unit.Services
             Func<Task> act = () => _sut.CreateCustomerAsync(dto, tenantId);
 
             // assert
-            await act.Should().ThrowAsync<InvalidOperationException>()
+            await act.Should().ThrowExactlyAsync<BusinessRuleException>()
                 .WithMessage($"Customer with email {dto.Email} already exists");
         }
 
@@ -258,7 +258,7 @@ namespace AppointMe.Tests.Unit.Services
             Func<Task> act = () => _sut.UpdateCustomerAsync(customerId, dto, tenantId);
 
             // assert
-            await act.Should().ThrowAsync<InvalidOperationException>()
+            await act.Should().ThrowExactlyAsync<BusinessRuleException>()
                 .WithMessage($"Customer with email {dto.Email} already exists");
         }
 

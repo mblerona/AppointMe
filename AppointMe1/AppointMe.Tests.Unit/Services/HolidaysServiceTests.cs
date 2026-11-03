@@ -3,6 +3,9 @@ using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Xunit;
 
 
@@ -32,7 +35,7 @@ public class HolidaysServiceTests
 
         var http = new HttpClient(handler);
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var sut = new HolidaysService(http, cache);
+        var sut = new HolidayService(http, cache, NullLogger<HolidayService>.Instance);
 
         // Act
         var result = await sut.GetHolidaysAsync(year, " mk ");
@@ -63,7 +66,7 @@ public class HolidaysServiceTests
 
         var http = new HttpClient(handler);
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var sut = new HolidaysService(http, cache);
+        var sut = new HolidayService(http, cache, NullLogger<HolidayService>.Instance);
 
         // Act
         var _ = await sut.GetHolidaysAsync(year, null!);
@@ -90,7 +93,7 @@ public class HolidaysServiceTests
 
         var http = new HttpClient(handler);
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var sut = new HolidaysService(http, cache);
+        var sut = new HolidayService(http, cache, NullLogger<HolidayService>.Instance);
 
         // Act
         var _ = await sut.GetHolidaysAsync(year, "   ");
@@ -117,7 +120,7 @@ public class HolidaysServiceTests
 
         var http = new HttpClient(handler);
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var sut = new HolidaysService(http, cache);
+        var sut = new HolidayService(http, cache, NullLogger<HolidayService>.Instance);
 
         // Act
         var r1 = await sut.GetHolidaysAsync(year, "MK");
@@ -131,8 +134,7 @@ public class HolidaysServiceTests
     }
 
     /// <summary>
-    /// Only keep this test if your IHolidayService/HolidaysService contains GetHolidayDatesAsync.
-    /// If your interface does NOT include it, delete this test.
+    /// GetHolidayDatesAsync builds on GetHolidaysAsync and caches the date set separately.
     /// </summary>
     [Fact]
     public async Task GetHolidayDatesAsync_ReturnsDistinctHolidayDates()
@@ -151,7 +153,7 @@ public class HolidaysServiceTests
 
         var http = new HttpClient(handler);
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var sut = new HolidaysService(http, cache);
+        var sut = new HolidayService(http, cache, NullLogger<HolidayService>.Instance);
 
         // Act
         var dates = await sut.GetHolidayDatesAsync(year, "MK");
@@ -223,7 +225,7 @@ public class HolidaysServiceTests
 
         var http = new HttpClient(handler);
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var sut = new HolidaysService(http, cache);
+        var sut = new HolidayService(http, cache, NullLogger<HolidayService>.Instance);
 
         // IMPORTANT: this key must match the service logic:
         // cacheKey = $"Holidays:list:{countryCode}:{year}"
@@ -267,7 +269,7 @@ public class HolidaysServiceTests
 
         var http = new HttpClient(handler);
         var cache = new MemoryCache(new MemoryCacheOptions());
-        var sut = new HolidaysService(http, cache);
+        var sut = new HolidayService(http, cache, NullLogger<HolidayService>.Instance);
 
         // Act
         var result = await sut.GetHolidaysAsync(year, "MK");
@@ -276,5 +278,79 @@ public class HolidaysServiceTests
         result.Should().NotBeNull();
         result.Should().BeEmpty();
         handler.CallCount.Should().Be(1);
+    }
+
+    // ----------------- API failures (B4) -----------------
+
+    public static TheoryData<string> FailureModes => new() { "network", "http500", "timeout", "badjson" };
+
+    private static HttpResponseMessage Fail(string mode) => mode switch
+    {
+        "network" => throw new HttpRequestException("connection refused"),
+        "timeout" => throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout"),
+        "http500" => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+        "badjson" => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("<html>maintenance</html>", Encoding.UTF8, "application/json")
+        },
+        _ => throw new ArgumentOutOfRangeException(nameof(mode))
+    };
+
+    private static HttpResponseMessage Ok(int year) => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent(BuildHolidayJson(year), Encoding.UTF8, "application/json")
+    };
+
+    [Theory]
+    [MemberData(nameof(FailureModes))]
+    public async Task GetHolidaysAsync_WhenApiFails_ReturnsEmptyList_AndLogsWarning(string mode)
+    {
+        var handler = new CountingHandler(_ => Fail(mode));
+        var logger = new Mock<ILogger<HolidayService>>();
+        var sut = new HolidayService(new HttpClient(handler), new MemoryCache(new MemoryCacheOptions()), logger.Object);
+
+        var result = await sut.GetHolidaysAsync(2026, "MK");
+
+        result.Should().NotBeNull().And.BeEmpty();
+        logger.Verify(l => l.Log(
+            LogLevel.Warning,
+            It.IsAny<EventId>(),
+            It.IsAny<It.IsAnyType>(),
+            It.IsNotNull<Exception>(),
+            It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetHolidaysAsync_AfterFailure_DoesNotCacheEmptyList_AndRetriesNextCall()
+    {
+        var year = 2026;
+        var calls = 0;
+        var handler = new CountingHandler(_ => ++calls == 1 ? Fail("network") : Ok(year));
+        var sut = new HolidayService(new HttpClient(handler), new MemoryCache(new MemoryCacheOptions()),
+            NullLogger<HolidayService>.Instance);
+
+        var first = await sut.GetHolidaysAsync(year, "MK");
+        var second = await sut.GetHolidaysAsync(year, "MK");
+
+        first.Should().BeEmpty();
+        second.Should().HaveCount(2, "the outage must not be remembered for 12 hours");
+        handler.CallCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetHolidayDatesAsync_WhenApiFails_ReturnsEmptySet_AndDoesNotCacheIt()
+    {
+        var year = 2026;
+        var calls = 0;
+        var handler = new CountingHandler(_ => ++calls == 1 ? Fail("timeout") : Ok(year));
+        var sut = new HolidayService(new HttpClient(handler), new MemoryCache(new MemoryCacheOptions()),
+            NullLogger<HolidayService>.Instance);
+
+        var first = await sut.GetHolidayDatesAsync(year, "MK");
+        var second = await sut.GetHolidayDatesAsync(year, "MK");
+
+        first.Should().BeEmpty();
+        second.Should().Contain(new DateOnly(year, 1, 1));
+        handler.CallCount.Should().Be(2);
     }
 }

@@ -6,14 +6,14 @@ namespace AppointMe.Tests.Web.Infrastructure;
 
 public static class TestLoginHelper
 {
-    private static string ExtractToken(string html)
+    public static string ExtractAntiForgeryToken(string html)
     {
         var match = Regex.Match(
             html,
             @"name=""__RequestVerificationToken""\s+type=""hidden""\s+value=""([^""]+)""",
             RegexOptions.IgnoreCase);
 
-        match.Success.Should().BeTrue("Login page should contain __RequestVerificationToken");
+        match.Success.Should().BeTrue("the page should contain __RequestVerificationToken");
         return WebUtility.HtmlDecode(match.Groups[1].Value);
     }
 
@@ -28,30 +28,55 @@ public static class TestLoginHelper
         return match.Success ? WebUtility.HtmlDecode(match.Groups[1].Value) : null;
     }
 
-    public static async Task LoginAsync(this HttpClient client, string email, string password)
+    /// <summary>
+    /// GETs <paramref name="formPageUrl"/> to obtain the antiforgery cookie and token,
+    /// then POSTs <paramref name="fields"/> (plus the token) to <paramref name="postUrl"/>.
+    /// </summary>
+    public static async Task<HttpResponseMessage> PostFormAsync(
+        this HttpClient client,
+        string formPageUrl,
+        string postUrl,
+        IDictionary<string, string> fields)
     {
-        // 1) GET login page to receive antiforgery cookie + token
+        var get = await client.GetAsync(formPageUrl);
+        get.StatusCode.Should().Be(HttpStatusCode.OK, $"GET {formPageUrl} must render a form with a token");
+
+        var token = ExtractAntiForgeryToken(await get.Content.ReadAsStringAsync());
+
+        var form = new Dictionary<string, string>(fields)
+        {
+            ["__RequestVerificationToken"] = token
+        };
+
+        return await client.PostAsync(postUrl, new FormUrlEncodedContent(form));
+    }
+
+    /// <summary>Submits the login form once and returns the raw response (no assertions).</summary>
+    public static async Task<HttpResponseMessage> PostLoginAsync(this HttpClient client, string email, string password)
+    {
         var get = await client.GetAsync("/Identity/Account/Login");
         get.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var html = await get.Content.ReadAsStringAsync();
 
-        var token = ExtractToken(html);
-        var returnUrl = ExtractReturnUrl(html);
-
-        // 2) POST login form
         var form = new Dictionary<string, string>
         {
             ["Input.Email"] = email,
             ["Input.Password"] = password,
             ["Input.RememberMe"] = "false",
-            ["__RequestVerificationToken"] = token
+            ["__RequestVerificationToken"] = ExtractAntiForgeryToken(html)
         };
 
+        var returnUrl = ExtractReturnUrl(html);
         if (!string.IsNullOrWhiteSpace(returnUrl))
             form["Input.ReturnUrl"] = returnUrl;
 
-        var post = await client.PostAsync("/Identity/Account/Login", new FormUrlEncodedContent(form));
+        return await client.PostAsync("/Identity/Account/Login", new FormUrlEncodedContent(form));
+    }
+
+    public static async Task LoginAsync(this HttpClient client, string email, string password)
+    {
+        var post = await client.PostLoginAsync(email, password);
 
         // Success is usually 302
         if (post.StatusCode == HttpStatusCode.OK)
@@ -63,14 +88,13 @@ public static class TestLoginHelper
 
         post.StatusCode.Should().BeOneOf(HttpStatusCode.Redirect, HttpStatusCode.OK);
 
-        // 3) IMPORTANT: Manually follow redirect once to complete sign-in when AllowAutoRedirect=false
+        // Manually follow redirect once to complete sign-in when AllowAutoRedirect=false
         if (post.StatusCode == HttpStatusCode.Redirect && post.Headers.Location != null)
         {
             var next = post.Headers.Location.ToString();
             if (next.StartsWith("/"))
             {
                 var follow = await client.GetAsync(next);
-                // follow is often 200 OK dashboard page
                 follow.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.Redirect);
             }
         }

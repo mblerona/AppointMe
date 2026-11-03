@@ -26,12 +26,16 @@ builder.Services.AddTransient<ISmtpClientFactory, MailKitSmtpClientFactory>();
 
 builder.Services.AddDefaultIdentity<AppointMeAppUser>(options =>
 {
-    options.SignIn.RequireConfirmedAccount = false; 
+    options.SignIn.RequireConfirmedAccount = false;
     options.Password.RequireDigit = true;
-    options.Password.RequiredLength = 6;
+    options.Password.RequiredLength = 8;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = true;
     options.Password.RequireLowercase = true;
+
+    options.Lockout.AllowedForNewUsers = true;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 })
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<ApplicationDbContext>();
@@ -45,7 +49,8 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddMemoryCache();
 
-builder.Services.AddHttpClient<IHolidayService, HolidaysService>();
+builder.Services.AddHttpClient<IHolidayService, HolidayService>(client =>
+    client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.Configure<AppointMe.Service.Email.MailSettings>(
@@ -73,7 +78,6 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// If you want Dashboard as the default:
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Dashboard}/{action=Index}/{id?}");

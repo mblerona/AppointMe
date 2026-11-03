@@ -35,7 +35,7 @@ namespace AppointMe.Web.Controllers
             }
             else if (range == "week")
             {
-                // last 7 days including today
+                // next 7 days, starting today
                 start = now.Date;
                 end = now.Date.AddDays(7);
             }

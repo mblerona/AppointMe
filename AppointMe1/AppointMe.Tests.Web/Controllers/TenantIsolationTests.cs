@@ -1,17 +1,21 @@
 ﻿using AppointMe.Domain.DomainModels;
-using AppointMe.Domain.Identity;
-using AppointMe.Repository.Data;
 using AppointMe.Tests.Web.Infrastructure;
 using FluentAssertions;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using Xunit;
 
 namespace AppointMe.Tests.Web.Controllers;
 
+/// <summary>
+/// A user of tenant B must get 404 for every record of tenant A. 404 (not 403) is deliberate:
+/// it does not reveal that the id exists.
+/// </summary>
 public class TenantIsolationTests : IClassFixture<CustomWebAppFactory>
 {
+    private static readonly Guid TenantA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static readonly Guid TenantB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    private const string UserBEmail = "userB@test.local";
+
     private readonly CustomWebAppFactory _factory;
 
     public TenantIsolationTests(CustomWebAppFactory factory)
@@ -19,134 +23,127 @@ public class TenantIsolationTests : IClassFixture<CustomWebAppFactory>
         _factory = factory;
     }
 
-    [Fact]
-    public async Task Customers_Details_ShouldNotReturnOtherTenantCustomer()
+    private async Task<HttpClient> LoginAsTenantBAsync()
     {
-        var tenantA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        var tenantB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        await TestData.EnsureTenantWithUserAsync(_factory, TenantA, "userA@test.local");
+        await TestData.EnsureTenantWithUserAsync(_factory, TenantB, UserBEmail);
 
-        var userAEmail = "userA@test.local";
-        var userBEmail = "userB@test.local";
-        const string password = "Test123!Aa";
+        var client = _factory.CreateClient(new() { AllowAutoRedirect = false });
+        await client.LoginAsync(UserBEmail, TestData.Password);
+        return client;
+    }
 
-        Guid customerId;
-
-        // Seed: businesses, customer (Tenant A), users (Tenant A and Tenant B)
-        using (var scope = _factory.Services.CreateScope())
+    private Task<Customer> SeedTenantACustomerAsync() =>
+        TestData.WithDbAsync(_factory, async db =>
         {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<AppointMeAppUser>>();
-
-            // Tenants (Businesses)
-            db.Businesses.Add(new Business
-            {
-                Id = tenantA,
-                Name = "Biz A",
-                Address = "A",
-                EnableInvoices = true,
-                EnableServices = true,
-                DefaultSlotMinutes = 30,
-                WorkDayStart = new TimeSpan(9, 0, 0),
-                WorkDayEnd = new TimeSpan(17, 0, 0),
-                OpenMon = true,
-                OpenTue = true,
-                OpenWed = true,
-                OpenThu = true,
-                OpenFri = true
-            });
-
-            db.Businesses.Add(new Business
-            {
-                Id = tenantB,
-                Name = "Biz B",
-                Address = "B",
-                EnableInvoices = true,
-                EnableServices = true,
-                DefaultSlotMinutes = 30,
-                WorkDayStart = new TimeSpan(9, 0, 0),
-                WorkDayEnd = new TimeSpan(17, 0, 0),
-                OpenMon = true,
-                OpenTue = true,
-                OpenWed = true,
-                OpenThu = true,
-                OpenFri = true
-            });
-
-            // Customer belongs to Tenant A
             var customer = new Customer
             {
                 Id = Guid.NewGuid(),
-                TenantId = tenantA,
+                TenantId = TenantA,
                 FirstName = "TenantA",
                 LastName = "Customer",
-                Email = "a@test.com",
+                Email = $"a-{Guid.NewGuid():N}@test.com",
                 PhoneNumber = "070000000",
                 City = "Skopje",
                 State = "North Macedonia",
-                CustomerNumber = 1
+                CustomerNumber = Random.Shared.Next(1000, int.MaxValue)
             };
-            customerId = customer.Id;
-
             db.Customers.Add(customer);
             await db.SaveChangesAsync();
+            return customer;
+        });
 
-            // Two users: one per tenant
-            await EnsureUserAsync(userMgr, userAEmail, password, tenantA);
-            await EnsureUserAsync(userMgr, userBEmail, password, tenantB);
-        }
-
-        // Act: login as Tenant B and try to view Tenant A customer
-        var client = _factory.CreateClient(new() { AllowAutoRedirect = false });
-
-        await client.LoginAsync(userBEmail, password);
-
-        var res = await client.GetAsync($"/Customers/Details/{customerId}");
-
-        // Your controller returns NotFound if customer not in tenant (it catches KeyNotFoundException)
-        res.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.Redirect);
-
+    private async Task<Appointment> SeedTenantAAppointmentAsync()
+    {
+        var customer = await SeedTenantACustomerAsync();
+        return await TestData.WithDbAsync(_factory, async db =>
+        {
+            var appt = new Appointment
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantA,
+                CustomerId = customer.Id,
+                OrderNumber = $"ORD-A-{Guid.NewGuid():N}",
+                Description = "Tenant A appointment",
+                AppointmentDate = DateTime.UtcNow.AddDays(3),
+                Status = AppointmentStatus.Scheduled
+            };
+            db.Appointments.Add(appt);
+            await db.SaveChangesAsync();
+            return appt;
+        });
     }
 
-    private static async Task EnsureUserAsync(
-        UserManager<AppointMeAppUser> userMgr,
-        string email,
-        string password,
-        Guid tenantId)
+    [Fact]
+    public async Task Customers_Details_ShouldReturn404_ForOtherTenantCustomer()
     {
-        var user = await userMgr.FindByEmailAsync(email);
+        var customer = await SeedTenantACustomerAsync();
+        var client = await LoginAsTenantBAsync();
 
-        if (user == null)
+        var res = await client.GetAsync($"/Customers/Details/{customer.Id}");
+
+        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Appointments_Details_ShouldReturn404_ForOtherTenantAppointment()
+    {
+        var appt = await SeedTenantAAppointmentAsync();
+        var client = await LoginAsTenantBAsync();
+
+        var res = await client.GetAsync($"/Appointments/Details/{appt.Id}");
+
+        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Invoices_Details_ShouldReturn404_ForOtherTenantInvoice()
+    {
+        var appt = await SeedTenantAAppointmentAsync();
+        var invoiceId = await TestData.WithDbAsync(_factory, async db =>
         {
-            user = new AppointMeAppUser
+            var invoice = new Invoice
             {
-                Id = Guid.NewGuid().ToString(),
-                UserName = email,
-                Email = email,
-                FirstName = "Test",
-                LastName = "User",
-                TenantId = tenantId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                EmailConfirmed = true
+                Id = Guid.NewGuid(),
+                TenantId = TenantA,
+                AppointmentId = appt.Id,
+                CustomerId = appt.CustomerId,
+                InvoiceNumber = $"INV-A-{Guid.NewGuid():N}",
+                CustomerNameSnapshot = "TenantA Customer",
+                BusinessNameSnapshot = "Biz A"
             };
+            db.Invoices.Add(invoice);
+            await db.SaveChangesAsync();
+            return invoice.Id;
+        });
+        var client = await LoginAsTenantBAsync();
 
-            var result = await userMgr.CreateAsync(user, password);
-            if (!result.Succeeded)
-                throw new InvalidOperationException(string.Join(", ", result.Errors.Select(e => e.Description)));
-        }
-        else
+        var res = await client.GetAsync($"/Invoices/Details/{invoiceId}");
+
+        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Services_Edit_ShouldReturn404_ForOtherTenantService()
+    {
+        var serviceId = await TestData.WithDbAsync(_factory, async db =>
         {
-            var changed = false;
-            if (user.TenantId != tenantId) { user.TenantId = tenantId; changed = true; }
-            if (!user.EmailConfirmed) { user.EmailConfirmed = true; changed = true; }
-            if (string.IsNullOrWhiteSpace(user.FirstName)) { user.FirstName = "Test"; changed = true; }
-            if (string.IsNullOrWhiteSpace(user.LastName)) { user.LastName = "User"; changed = true; }
-
-            if (changed)
+            var svc = new ServiceOffering
             {
-                user.UpdatedAt = DateTime.UtcNow;
-                await userMgr.UpdateAsync(user);
-            }
-        }
+                Id = Guid.NewGuid(),
+                BusinessId = TenantA,
+                Name = "Tenant A service",
+                Price = 100,
+                IsActive = true
+            };
+            db.ServiceOfferings.Add(svc);
+            await db.SaveChangesAsync();
+            return svc.Id;
+        });
+        var client = await LoginAsTenantBAsync();
+
+        var res = await client.GetAsync($"/Services/Edit/{serviceId}");
+
+        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 }

@@ -16,6 +16,7 @@ public class NoAuthWebAppFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("ConnectionStrings:DefaultConnection", TestConnection.Placeholder);
 
         builder.ConfigureServices(services =>
         {

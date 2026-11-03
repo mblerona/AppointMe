@@ -15,6 +15,9 @@ namespace AppointMe.Repository.Interface
         Task<IEnumerable<ServiceOffering>> GetByIdsForBusinessAsync(List<Guid> ids, Guid businessId);
         Task<ServiceOffering?> GetByIdAsync(Guid id, Guid businessId);
 
+        /// <summary>True if any appointment of this business references the service.</summary>
+        Task<bool> IsUsedByAppointmentsAsync(Guid id, Guid businessId);
+
 
         Task AddAsync(ServiceOffering entity, Guid businessId);
         Task UpdateAsync(ServiceOffering entity);

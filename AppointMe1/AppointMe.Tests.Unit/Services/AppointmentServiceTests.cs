@@ -4,11 +4,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
+using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Calendar;
@@ -86,7 +89,8 @@ namespace AppointMe.Tests.Unit.Services
             Mock<ICustomerRepository>? custRepo = null,
             Mock<IServiceOfferingRepository>? svcRepo = null,
             Mock<IHolidayService>? holidaySvc = null,
-            Mock<IEmailService>? emailSvc = null)
+            Mock<IEmailService>? emailSvc = null,
+            ILogger<AppointmentService>? logger = null)
         {
             apptRepo ??= new Mock<IAppointmentRepository>(MockBehavior.Strict);
             custRepo ??= new Mock<ICustomerRepository>(MockBehavior.Strict);
@@ -100,7 +104,8 @@ namespace AppointMe.Tests.Unit.Services
                 svcRepo.Object,
                 holidaySvc.Object,
                 db,
-                emailSvc.Object
+                emailSvc.Object,
+                logger ?? NullLogger<AppointmentService>.Instance
             );
         }
 
@@ -576,9 +581,10 @@ namespace AppointMe.Tests.Unit.Services
                 NotifyByEmail = true
             };
 
-            await service.CreateAppointmentAsync(dto, tenantId);
+            var result = await service.CreateAppointmentAsync(dto, tenantId);
 
             email.VerifyAll();
+            result.ConfirmationEmailFailed.Should().BeFalse();
         }
 
         // -----------------------
@@ -1058,7 +1064,8 @@ namespace AppointMe.Tests.Unit.Services
                     It.IsAny<string>()))
                 .ThrowsAsync(new InvalidOperationException("SMTP server unavailable"));
 
-            var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
+            var logger = new Mock<ILogger<AppointmentService>>();
+            var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email, logger.Object);
 
             var dto = new CreateAppointmentDTO
             {
@@ -1087,6 +1094,49 @@ namespace AppointMe.Tests.Unit.Services
                 It.IsAny<byte[]>(),
                 It.IsAny<string>(),
                 It.IsAny<string>()), Times.Once);
+
+            // The caller is told the email failed, and the failure is logged with its exception
+            result.ConfirmationEmailFailed.Should().BeTrue();
+            logger.Verify(l => l.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.Is<Exception>(ex => ex.Message == "SMTP server unavailable"),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAppointmentAsync_WhenTimeSlotOverlaps_ThrowsBusinessRuleException()
+        {
+            var db = CreateDb();
+            var tenantId = Guid.NewGuid();
+            SeedDefaultBusiness(db, tenantId);
+
+            var apptRepo = new Mock<IAppointmentRepository>(MockBehavior.Strict);
+            var custRepo = new Mock<ICustomerRepository>(MockBehavior.Strict);
+            var holiday = new Mock<IHolidayService>(MockBehavior.Strict);
+
+            var customerId = Guid.NewGuid();
+            custRepo.Setup(r => r.GetByIdAsync(customerId))
+                .ReturnsAsync(MakeCustomer(customerId, tenantId, "customer@test.com"));
+            holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
+                .ReturnsAsync(new List<HolidayDTO>());
+            apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(It.IsAny<DateTime>(), It.IsAny<int>(), tenantId, null))
+                .ReturnsAsync(false);
+
+            var service = BuildService(db, apptRepo, custRepo, holidaySvc: holiday);
+
+            Func<Task> act = () => service.CreateAppointmentAsync(new CreateAppointmentDTO
+            {
+                CustomerId = customerId,
+                OrderNumber = "ORD-1",
+                AppointmentDate = NextWorkingDayAt(10, 0),
+                Description = "desc"
+            }, tenantId);
+
+            // Controllers only show messages of this type to users, so the exact type matters
+            await act.Should().ThrowExactlyAsync<BusinessRuleException>()
+                .WithMessage("The selected time overlaps with another appointment.");
         }
 
     }

@@ -1,5 +1,6 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
+using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
@@ -45,8 +46,8 @@ namespace AppointMe.Service.Implementation
         {
            
             var biz = await _db.Businesses.FindAsync(tenantId);
-            if (biz == null) throw new InvalidOperationException("Business not found.");
-            if (!biz.EnableInvoices) throw new InvalidOperationException("Invoices are disabled in settings.");
+            if (biz == null) throw new BusinessRuleException("Business not found.");
+            if (!biz.EnableInvoices) throw new BusinessRuleException("Invoices are disabled in settings.");
 
           
             var existing = await _invoiceRepository.GetByAppointmentIdAsync(appointmentId, tenantId);
@@ -67,6 +68,13 @@ namespace AppointMe.Service.Implementation
            
             for (int attempt = 1; attempt <= 3; attempt++)
             {
+                if (attempt > 1)
+                {
+                    // A concurrent request may have created the invoice for this appointment meanwhile.
+                    var created = await _invoiceRepository.GetByAppointmentIdAsync(appointmentId, tenantId);
+                    if (created != null) return MapToDto(created);
+                }
+
                 var nextSeq = (await _invoiceRepository.GetMaxInvoiceSequenceForYearAsync(tenantId, year)) + 1;
                 var number = $"INV-{year}-{nextSeq:0000}";
 
@@ -132,12 +140,19 @@ namespace AppointMe.Service.Implementation
                 }
                 catch (DbUpdateException)
                 {
-                    
+                    // A unique index was hit (number or appointment taken concurrently). The failed
+                    // invoice and its lines are still tracked as Added; detach them, otherwise the
+                    // next SaveChanges would try to insert them again and every retry would fail.
+                    // ToList(): detaching a line makes EF remove it from invoice.Lines.
+                    foreach (var line in invoice.Lines.ToList())
+                        _db.Entry(line).State = EntityState.Detached;
+                    _db.Entry(invoice).State = EntityState.Detached;
+
                     if (attempt == 3) throw;
                 }
             }
 
-            throw new InvalidOperationException("Could not create invoice. Please retry.");
+            throw new BusinessRuleException("Could not create invoice. Please retry.");
         }
 
         private static InvoiceDTO MapToDto(Invoice i)

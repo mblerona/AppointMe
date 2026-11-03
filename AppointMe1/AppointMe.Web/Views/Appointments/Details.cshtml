@@ -21,32 +21,6 @@
         };
     }
 
-    string StatusPillClass(string? status)
-    {
-        var s = (status ?? "").Trim().ToLowerInvariant();
-        return s switch
-        {
-            "scheduled" => "status-pill status-scheduled",
-            "completed" => "status-pill status-completed",
-            "cancelled" => "status-pill status-cancelled",
-            "noshow" => "status-pill status-noshow",
-            _ => "status-pill"
-        };
-    }
-
-    string StatusIcon(string? status)
-    {
-        var s = (status ?? "").Trim().ToLowerInvariant();
-        return s switch
-        {
-            "scheduled" => "bi-calendar-check",
-            "completed" => "bi-check2-circle",
-            "cancelled" => "bi-x-circle",
-            "noshow" => "bi-exclamation-circle",
-            _ => "bi-info-circle"
-        };
-    }
-
     bool IsActive(string? current, string target)
         => (current ?? "").Equals(target, StringComparison.OrdinalIgnoreCase);
 

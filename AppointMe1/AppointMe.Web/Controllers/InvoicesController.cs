@@ -1,4 +1,5 @@
 ﻿using AppointMe.Domain.DTO;
+using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Service.Email;
@@ -13,15 +14,20 @@ namespace AppointMe.Web.Controllers
     {
         private readonly IInvoiceService _invoiceService;
         private readonly IEmailService _emailService;
+        private readonly ILogger<InvoicesController> _logger;
+
+        private const string SendFailedMessage = "The invoice could not be sent by email. Please try again later.";
 
         public InvoicesController(
             IInvoiceService invoiceService,
             IEmailService emailService,
             UserManager<AppointMeAppUser> userManager,
-            ApplicationDbContext db) : base(userManager, db)
+            ApplicationDbContext db,
+            ILogger<InvoicesController> logger) : base(userManager, db)
         {
             _invoiceService = invoiceService;
             _emailService = emailService;
+            _logger = logger;
         }
 
         public async Task<IActionResult> Index()
@@ -40,8 +46,17 @@ namespace AppointMe.Web.Controllers
             if (redirect != null) return redirect;
 
             var tenantId = await GetTenantIdAsync();
-            var invoice = await _invoiceService.GetByIdAsync(id, tenantId);
-            return View(invoice);
+
+            try
+            {
+                var invoice = await _invoiceService.GetByIdAsync(id, tenantId);
+                return View(invoice);
+            }
+            catch (KeyNotFoundException)
+            {
+                // Missing, or owned by another tenant: same answer, so ids can't be probed.
+                return NotFound();
+            }
         }
 
        
@@ -60,9 +75,20 @@ namespace AppointMe.Web.Controllers
                 TempData["SuccessMessage"] = "Invoice ready.";
                 return RedirectToAction(nameof(Details), new { id = invoice.Id });
             }
-            catch (Exception ex)
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (BusinessRuleException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
+                return RedirectToAction("Details", "Appointments", new { id = appointmentId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Creating an invoice for appointment {AppointmentId} (tenant {TenantId}) failed.",
+                    appointmentId, tenantId);
+                TempData["ErrorMessage"] = "The invoice could not be created. Please try again.";
                 return RedirectToAction("Details", "Appointments", new { id = appointmentId });
             }
         }
@@ -115,9 +141,14 @@ Thank you,
                 TempData["SuccessMessage"] = "Invoice sent by email.";
                 return RedirectToAction(nameof(Details), new { id });
             }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
             catch (Exception ex)
             {
-                TempData["ErrorMessage"] = ex.Message;
+                _logger.LogError(ex, "Sending invoice {InvoiceId} by email (tenant {TenantId}) failed.", id, tenantId);
+                TempData["ErrorMessage"] = SendFailedMessage;
                 return RedirectToAction(nameof(Details), new { id });
             }
         }
@@ -171,9 +202,14 @@ Thank you,
                 TempData["SuccessMessage"] = "Invoice PDF sent by email.";
                 return RedirectToAction(nameof(Details), new { id });
             }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
             catch (Exception ex)
             {
-                TempData["ErrorMessage"] = ex.ToString();
+                _logger.LogError(ex, "Sending invoice {InvoiceId} as PDF (tenant {TenantId}) failed.", id, tenantId);
+                TempData["ErrorMessage"] = SendFailedMessage;
                 return RedirectToAction(nameof(Details), new { id });
             }
         }

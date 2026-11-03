@@ -153,6 +153,14 @@ namespace AppointMe.Web.Controllers
 
             if (entity == null) return NotFound();
 
+            // Appointments keep a Restrict FK to their services, so deleting a used service would fail.
+            if (await _serviceRepo.IsUsedByAppointmentsAsync(id, tenantId))
+            {
+                TempData["ErrorMessage"] =
+                    "This service is used by existing appointments and cannot be deleted. Mark it as inactive instead.";
+                return RedirectToAction(nameof(Index));
+            }
+
             await _serviceRepo.DeleteAsync(entity);
             await _serviceRepo.SaveChangesAsync();
 

@@ -67,7 +67,7 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
             public string Email { get; set; }
 
             [Required]
-            [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+            [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 8)]
             [DataType(DataType.Password)]
             [Display(Name = "Password")]
             public string Password { get; set; }
@@ -98,12 +98,12 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
             await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
             await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
 
-            // Your custom required columns (fixes the NULL insert error)
             user.FirstName = Input.FirstName;
             user.LastName = Input.LastName;
 
-            // Multi-tenancy: set tenant id if your AppointMeAppUser requires it.
-            // If you have a different tenant creation/join flow, change this.
+            // Note: TenantId is a Guid? and is null for a new user, so this branch never runs.
+            // The tenant is assigned on the first visit to Settings/Business, which creates the
+            // Business and sets TenantId (audit items B9/A5 move this into registration).
             if (user.TenantId == Guid.Empty)
             {
                 user.TenantId = Guid.NewGuid();

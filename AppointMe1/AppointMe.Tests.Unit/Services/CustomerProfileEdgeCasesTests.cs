@@ -14,12 +14,11 @@ namespace AppointMe.Tests.Unit.Services
     public class CustomerProfileEdgeCasesTests
     {
         private readonly Mock<ICustomerRepository> _customerRepo = new();
-        private readonly Mock<IAppointmentRepository> _appointmentRepo = new();
         private readonly CustomerService _sut;
 
         public CustomerProfileEdgeCasesTests()
         {
-            _sut = new CustomerService(_customerRepo.Object, _appointmentRepo.Object);
+            _sut = new CustomerService(_customerRepo.Object);
         }
 
         [Fact]

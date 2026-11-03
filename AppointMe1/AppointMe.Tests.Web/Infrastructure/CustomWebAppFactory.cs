@@ -1,6 +1,7 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
+using AppointMe.Tests.Web.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -29,6 +30,7 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("ConnectionStrings:DefaultConnection", TestConnection.Placeholder);
 
         builder.ConfigureServices(services =>
         {

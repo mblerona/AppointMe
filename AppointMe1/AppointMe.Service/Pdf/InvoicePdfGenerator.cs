@@ -1,16 +1,13 @@
 ﻿using AppointMe.Domain.DTO;
+using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using AppointMe.Domain.DTO;
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
-using System.Net.Http;
 
 namespace AppointMe.Service.Pdf
 {
@@ -83,7 +80,8 @@ namespace AppointMe.Service.Pdf
                     {
                         row.ConstantItem(120).AlignMiddle().AlignRight()
                             .Height(60)
-                            .Image(logoBytes, ImageScaling.FitArea);
+                            .Image(logoBytes)
+                            .FitArea();
                     }
 
                     // RIGHT: Invoice meta

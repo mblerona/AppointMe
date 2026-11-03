@@ -28,6 +28,9 @@ namespace AppointMe.Domain.DTO
 
         
         public List<Guid> ServiceOfferingIds { get; set; } = new();
+
+        /// <summary>Set by CreateAppointmentAsync when a confirmation email was requested but could not be sent.</summary>
+        public bool ConfirmationEmailFailed { get; set; }
     }
 }
 

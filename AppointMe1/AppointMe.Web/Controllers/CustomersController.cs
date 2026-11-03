@@ -1,4 +1,5 @@
-﻿using AppointMe.Domain.Identity;
+﻿using AppointMe.Domain.Exceptions;
+using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Service.Interface;
 using Microsoft.AspNetCore.Identity;
@@ -73,7 +74,16 @@ namespace AppointMe.Web.Controllers
                 return View(createCustomerDto);
 
             var tenantId = await GetTenantIdAsync();
-            await _customerService.CreateCustomerAsync(createCustomerDto, tenantId);
+
+            try
+            {
+                await _customerService.CreateCustomerAsync(createCustomerDto, tenantId);
+            }
+            catch (BusinessRuleException ex)
+            {
+                ModelState.AddModelError(nameof(CreateCustomerDTO.Email), ex.Message);
+                return View(createCustomerDto);
+            }
 
             TempData["SuccessMessage"] = "Customer created successfully!";
             return RedirectToAction(nameof(Index));
@@ -136,6 +146,12 @@ namespace AppointMe.Web.Controllers
             catch (KeyNotFoundException)
             {
                 return NotFound();
+            }
+            catch (BusinessRuleException ex)
+            {
+                ModelState.AddModelError(nameof(UpdateCustomerDTO.Email), ex.Message);
+                ViewData["CustomerId"] = id;
+                return View(updateCustomerDto);
             }
         }
 

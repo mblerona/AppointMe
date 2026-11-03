@@ -1,12 +1,13 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
+using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Calendar;
 using AppointMe.Service.Email;
 using AppointMe.Service.Interface;
 using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace AppointMe.Service.Implementation
 {
@@ -18,6 +19,7 @@ namespace AppointMe.Service.Implementation
         private readonly IHolidayService _holidayService;
         private readonly ApplicationDbContext _db;
         private readonly IEmailService _emailService;
+        private readonly ILogger<AppointmentService> _logger;
 
         public AppointmentService(
             IAppointmentRepository appointmentRepository,
@@ -25,7 +27,8 @@ namespace AppointMe.Service.Implementation
             IServiceOfferingRepository serviceOfferingRepository,
             IHolidayService holidayService,
             ApplicationDbContext db,
-            IEmailService emailService)
+            IEmailService emailService,
+            ILogger<AppointmentService> logger)
         {
             _appointmentRepository = appointmentRepository;
             _customerRepository = customerRepository;
@@ -33,6 +36,7 @@ namespace AppointMe.Service.Implementation
             _holidayService = holidayService;
             _db = db;
             _emailService = emailService;
+            _logger = logger;
         }
 
         public async Task<AppointmentDTO> GetAppointmentByIdAsync(Guid id, Guid tenantId)
@@ -76,18 +80,18 @@ namespace AppointMe.Service.Implementation
 
             var business = await GetBusinessOrThrow(tenantId);
 
-            // ✅ still validate: future, open day, working hours, holidays
+            // Validate: future, open day, working hours, holidays
             await ValidateAgainstBusinessRulesAsync(dto.AppointmentDate, business);
 
-            // ✅ overlap availability (uses business duration)
+            // Overlap availability (uses business slot duration)
             var durationMinutes = business.DefaultSlotMinutes <= 0 ? 30 : business.DefaultSlotMinutes;
             var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(dto.AppointmentDate, durationMinutes, tenantId);
             if (!isAvailable)
-                throw new InvalidOperationException("The selected time overlaps with another appointment.");
+                throw new BusinessRuleException("The selected time overlaps with another appointment.");
 
             dto.OrderNumber = dto.OrderNumber?.Trim();
             if (await _appointmentRepository.OrderNumberExistsAsync(dto.OrderNumber))
-                throw new InvalidOperationException("Order number already exists. Please use a different order number.");
+                throw new BusinessRuleException("Order number already exists. Please use a different order number.");
 
             var businessId = tenantId;
 
@@ -101,7 +105,7 @@ namespace AppointMe.Service.Implementation
             {
                 selectedServices = (await _serviceOfferingRepository.GetByIdsForBusinessAsync(selectedIds, businessId)).ToList();
                 if (selectedServices.Count != selectedIds.Count)
-                    throw new InvalidOperationException("One or more selected services are invalid.");
+                    throw new BusinessRuleException("One or more selected services are invalid.");
             }
 
             var appointment = new Appointment
@@ -130,14 +134,10 @@ namespace AppointMe.Service.Implementation
             await _appointmentRepository.AddAsync(appointment);
             await _appointmentRepository.SaveChangesAsync();
 
-            Debug.WriteLine("=== CREATE APPOINTMENT EMAIL DEBUG ===");
-            Debug.WriteLine($"NotifyByEmail (dto): {dto.NotifyByEmail}");
-            Debug.WriteLine($"Customer.Email: {customer.Email}");
+            var result = MapToAppointmentDto(appointment);
 
             if (dto.NotifyByEmail && !string.IsNullOrWhiteSpace(customer.Email))
             {
-                Debug.WriteLine("Email checkbox is TRUE and customer email exists -> attempting send...");
-
                 var msg = new EmailMessage
                 {
                     MailTo = customer.Email,
@@ -170,12 +170,15 @@ namespace AppointMe.Service.Implementation
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine("EMAIL SEND FAILED:");
-                    Debug.WriteLine(ex.ToString());
+                    // The appointment is already saved; a failed notification must not undo it.
+                    _logger.LogError(ex,
+                        "Confirmation email for appointment {AppointmentId} (tenant {TenantId}) could not be sent.",
+                        appointment.Id, tenantId);
+                    result.ConfirmationEmailFailed = true;
                 }
             }
 
-            return MapToAppointmentDto(appointment);
+            return result;
         }
 
         public async Task<AppointmentDTO> UpdateAppointmentAsync(Guid appointmentId, UpdateAppointmentDTO dto, Guid tenantId)
@@ -193,7 +196,7 @@ namespace AppointMe.Service.Implementation
 
                 var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(dto.AppointmentDate, durationMinutes, tenantId, appointmentId);
                 if (!isAvailable)
-                    throw new InvalidOperationException("The selected time overlaps with another appointment.");
+                    throw new BusinessRuleException("The selected time overlaps with another appointment.");
 
                 appointment.AppointmentDate = dto.AppointmentDate;
 
@@ -202,13 +205,13 @@ namespace AppointMe.Service.Implementation
 
             var newOrder = (dto.OrderNumber ?? "").Trim();
             if (string.IsNullOrWhiteSpace(newOrder))
-                throw new InvalidOperationException("Order number is required.");
+                throw new BusinessRuleException("Order number is required.");
 
             if (!string.Equals(appointment.OrderNumber, newOrder, StringComparison.Ordinal))
             {
                 var exists = await _appointmentRepository.OrderNumberExistsAsync(newOrder, appointmentId);
                 if (exists)
-                    throw new InvalidOperationException("Order number already exists. Please use a different order number.");
+                    throw new BusinessRuleException("Order number already exists. Please use a different order number.");
 
                 appointment.OrderNumber = newOrder;
             }
@@ -230,7 +233,7 @@ namespace AppointMe.Service.Implementation
             {
                 selectedServices = (await _serviceOfferingRepository.GetByIdsForBusinessAsync(selectedIds, businessId)).ToList();
                 if (selectedServices.Count != selectedIds.Count)
-                    throw new InvalidOperationException("One or more selected services are invalid.");
+                    throw new BusinessRuleException("One or more selected services are invalid.");
             }
 
             appointment.AppointmentServices.Clear();
@@ -307,7 +310,7 @@ Best regards,
         private async Task<Business> GetBusinessOrThrow(Guid tenantId)
         {
             var biz = await _db.Businesses.AsNoTracking().FirstOrDefaultAsync(b => b.Id == tenantId);
-            if (biz == null) throw new InvalidOperationException("Business not found.");
+            if (biz == null) throw new BusinessRuleException("Business not found.");
             return biz;
         }
 
@@ -315,20 +318,18 @@ Best regards,
         {
             // 1) must be future
             if (appointmentDate <= DateTime.Now)
-                throw new InvalidOperationException("Appointment date/time must be in the future.");
+                throw new BusinessRuleException("Appointment date/time must be in the future.");
 
             // 2) must be on open day
             if (!IsOpenDay(appointmentDate.DayOfWeek, biz))
-                throw new InvalidOperationException("Business is closed on the selected day.");
+                throw new BusinessRuleException("Business is closed on the selected day.");
 
             // 3) must be within working hours
             var t = appointmentDate.TimeOfDay;
             if (t < biz.WorkDayStart || t >= biz.WorkDayEnd)
-                throw new InvalidOperationException($"Appointment must be between {biz.WorkDayStart:hh\\:mm} and {biz.WorkDayEnd:hh\\:mm}.");
+                throw new BusinessRuleException($"Appointment must be between {biz.WorkDayStart:hh\\:mm} and {biz.WorkDayEnd:hh\\:mm}.");
 
-            // ✅ REMOVED: slot alignment check
-
-            // 5) must NOT be a public holiday (MK)
+            // 4) must NOT be a public holiday (MK)
             var y = appointmentDate.Year;
             var holidays = await _holidayService.GetHolidaysAsync(y, "MK");
 
@@ -339,8 +340,8 @@ Best regards,
             {
                 var name = !string.IsNullOrWhiteSpace(holiday.LocalName) ? holiday.LocalName : holiday.Name;
                 if (!string.IsNullOrWhiteSpace(name))
-                    throw new InvalidOperationException($"Cannot create an appointment on a public holiday: {name}.");
-                throw new InvalidOperationException("Cannot create an appointment on a public holiday.");
+                    throw new BusinessRuleException($"Cannot create an appointment on a public holiday: {name}.");
+                throw new BusinessRuleException("Cannot create an appointment on a public holiday.");
             }
         }
 

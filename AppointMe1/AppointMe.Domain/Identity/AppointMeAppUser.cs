@@ -10,7 +10,10 @@ namespace AppointMe.Domain.Identity
     public class AppointMeAppUser : IdentityUser
     {
 
-        //WHY? make tentantID nullable, i will assign it later once business is created 
+        /// <summary>
+        /// Id of the Business this user belongs to. Nullable because it can be assigned after the
+        /// account is created (see SettingsController.Business).
+        /// </summary>
         public Guid? TenantId { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }

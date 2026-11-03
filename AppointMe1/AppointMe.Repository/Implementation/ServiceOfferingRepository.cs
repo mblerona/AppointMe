@@ -47,6 +47,13 @@ namespace AppointMe.Repository.Implementation
                 .FirstOrDefaultAsync(s => s.Id == id && s.BusinessId == businessId);
         }
 
+        public Task<bool> IsUsedByAppointmentsAsync(Guid id, Guid businessId)
+        {
+            return _context.AppointmentServices
+                // Translated to a SQL join, so the navigation is never null here.
+                .AnyAsync(x => x.ServiceOfferingId == id && x.ServiceOffering!.BusinessId == businessId);
+        }
+
         public async Task<IEnumerable<ServiceOffering>> GetByIdsForBusinessAsync(List<Guid> ids, Guid businessId)
         {
             if (ids == null || ids.Count == 0)

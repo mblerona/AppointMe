@@ -1,5 +1,6 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
+using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
 using System;
@@ -13,7 +14,7 @@ namespace AppointMe.Service.Implementation
     {
         private readonly ICustomerRepository _customerRepository;
 
-        public CustomerService(ICustomerRepository customerRepository, IAppointmentRepository appointmentRepository)
+        public CustomerService(ICustomerRepository customerRepository)
         {
             _customerRepository = customerRepository;
         }
@@ -81,7 +82,7 @@ namespace AppointMe.Service.Implementation
         {
             var existingCustomer = await _customerRepository.GetByEmailAsync(createCustomerDto.Email, tenantId);
             if (existingCustomer != null)
-                throw new InvalidOperationException($"Customer with email {createCustomerDto.Email} already exists");
+                throw new BusinessRuleException($"Customer with email {createCustomerDto.Email} already exists");
 
             var maxNumber = await _customerRepository.GetMaxCustomerNumberAsync(tenantId);
             var nextNumber = maxNumber + 1;
@@ -121,7 +122,7 @@ namespace AppointMe.Service.Implementation
             {
                 var existingCustomer = await _customerRepository.GetByEmailAsync(updateCustomerDto.Email, tenantId);
                 if (existingCustomer != null)
-                    throw new InvalidOperationException($"Customer with email {updateCustomerDto.Email} already exists");
+                    throw new BusinessRuleException($"Customer with email {updateCustomerDto.Email} already exists");
             }
 
             customer.FirstName = updateCustomerDto.FirstName ?? customer.FirstName;

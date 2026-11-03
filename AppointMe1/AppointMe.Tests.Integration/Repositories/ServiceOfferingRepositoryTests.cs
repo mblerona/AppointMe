@@ -217,7 +217,80 @@ namespace AppointMe.Tests.Integration.Repositories
             var loaded = await db.ServiceOfferings.FirstOrDefaultAsync(x => x.Id == svc.Id);
 
             loaded.Should().NotBeNull();
-            loaded!.BusinessId.Should().Be(realBiz); // 
+            loaded!.BusinessId.Should().Be(realBiz); //
+        }
+
+        // ----------------- IsUsedByAppointmentsAsync -----------------
+
+        private static void SeedAppointmentUsing(ApplicationDbContext db, Guid tenantId, ServiceOffering svc)
+        {
+            var appt = new Appointment
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                CustomerId = Guid.NewGuid(),
+                OrderNumber = $"ORD-{Guid.NewGuid():N}",
+                Description = "uses service",
+                AppointmentDate = DateTime.UtcNow.AddDays(1)
+            };
+            appt.AppointmentServices.Add(new AppointmentServiceModel
+            {
+                AppointmentId = appt.Id,
+                ServiceOfferingId = svc.Id,
+                PriceAtBooking = svc.Price
+            });
+            db.Appointments.Add(appt);
+        }
+
+        [Fact]
+        public async Task IsUsedByAppointmentsAsync_WhenAnAppointmentUsesService_ReturnsTrue()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new ServiceOfferingRepository(db);
+
+            var biz = Guid.NewGuid();
+            SeedBusiness(db, biz);
+            var cat = SeedCategory(db, biz);
+            var svc = SeedService(db, biz, cat.Id, "Used", 100, true);
+            SeedAppointmentUsing(db, biz, svc);
+            await db.SaveChangesAsync();
+
+            (await repo.IsUsedByAppointmentsAsync(svc.Id, biz)).Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task IsUsedByAppointmentsAsync_WhenNoAppointmentUsesService_ReturnsFalse()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new ServiceOfferingRepository(db);
+
+            var biz = Guid.NewGuid();
+            SeedBusiness(db, biz);
+            var cat = SeedCategory(db, biz);
+            var used = SeedService(db, biz, cat.Id, "Used", 100, true);
+            var unused = SeedService(db, biz, cat.Id, "Unused", 50, true);
+            SeedAppointmentUsing(db, biz, used);
+            await db.SaveChangesAsync();
+
+            (await repo.IsUsedByAppointmentsAsync(unused.Id, biz)).Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task IsUsedByAppointmentsAsync_WhenAskedWithAnotherBusinessId_ReturnsFalse()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new ServiceOfferingRepository(db);
+
+            var bizA = Guid.NewGuid();
+            var bizB = Guid.NewGuid();
+            SeedBusiness(db, bizA, "A");
+            SeedBusiness(db, bizB, "B");
+            var cat = SeedCategory(db, bizA);
+            var svc = SeedService(db, bizA, cat.Id, "A-service", 100, true);
+            SeedAppointmentUsing(db, bizA, svc);
+            await db.SaveChangesAsync();
+
+            (await repo.IsUsedByAppointmentsAsync(svc.Id, bizB)).Should().BeFalse();
         }
 
        
