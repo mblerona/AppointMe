@@ -40,7 +40,7 @@ namespace AppointMe.Repository.Implementation
         }
 
         public async Task<IReadOnlyList<Appointment>> GetForDashboardAsync(
-            Guid tenantId, DateTime? start, DateTime? end, AppointmentStatus? status, string? search, int take)
+            Guid tenantId, DateTime? start, DateTime? end, AppointmentStatus? status, string? search, string? normalizedPhone, int take)
         {
             var q = _dbSet
                 .AsNoTracking()
@@ -62,7 +62,9 @@ namespace AppointMe.Repository.Implementation
                     a.Customer!.LastName.Contains(s) ||
                     a.Customer!.PhoneNumber.Contains(s) ||
                     (a.Customer!.SecondPhoneNumber != null && a.Customer.SecondPhoneNumber.Contains(s)) ||
-                    a.Customer!.State.Contains(s));
+                    a.Customer!.State.Contains(s) ||
+                    (normalizedPhone != null &&
+                        (a.Customer!.PhoneNumber == normalizedPhone || a.Customer.SecondPhoneNumber == normalizedPhone)));
             }
 
             return await q

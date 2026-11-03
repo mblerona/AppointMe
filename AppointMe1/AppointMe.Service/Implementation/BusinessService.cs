@@ -2,6 +2,7 @@ using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.Identity;
+using AppointMe.Domain.Validation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
 using Microsoft.AspNetCore.Identity;
@@ -134,11 +135,12 @@ namespace AppointMe.Service.Implementation
                     $"Slot length must be between {MinSlotMinutes} and {MaxSlotMinutes} minutes.",
                     nameof(BusinessSettingsDTO.DefaultSlotMinutes));
 
+            var phone = PhoneNumberNormalizer.NormalizeOptional(settings.Phone, nameof(BusinessSettingsDTO.Phone));
             var logoExtension = logo is { Length: > 0 } ? ValidateLogo(logo) : null;
 
             business.Name = name;
             business.Email = settings.Email?.Trim();
-            business.Phone = settings.Phone?.Trim();
+            business.Phone = phone;
             business.Address = settings.Address?.Trim();
             business.PrimaryColor = NormalizeHex(settings.PrimaryColor);
             business.SecondaryColor = NormalizeHex(settings.SecondaryColor);

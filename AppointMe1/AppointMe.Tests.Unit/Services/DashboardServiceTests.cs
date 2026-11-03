@@ -30,7 +30,7 @@ public class DashboardServiceTests
                 [AppointmentStatus.Completed] = 2
             });
         _appointments.Setup(r => r.GetForDashboardAsync(Tenant, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(),
-                It.IsAny<AppointmentStatus?>(), It.IsAny<string?>(), It.IsAny<int>()))
+                It.IsAny<AppointmentStatus?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>()))
             .ReturnsAsync(new List<Appointment>());
         _customers.Setup(r => r.CountByTenantAsync(Tenant)).ReturnsAsync(7);
 
@@ -38,7 +38,7 @@ public class DashboardServiceTests
     }
 
     private void VerifyQuery(DateTime? start, DateTime? end, AppointmentStatus? status, string? search) =>
-        _appointments.Verify(r => r.GetForDashboardAsync(Tenant, start, end, status, search, DashboardService.MaxRows), Times.Once);
+        _appointments.Verify(r => r.GetForDashboardAsync(Tenant, start, end, status, search, null, DashboardService.MaxRows), Times.Once);
 
     [Fact]
     public async Task ReturnsBusinessAndCounts()
@@ -111,6 +111,15 @@ public class DashboardServiceTests
     }
 
     [Fact]
+    public async Task PhoneSearch_AlsoPassesTheNumberInE164()
+    {
+        await _sut.GetDashboardAsync(Tenant, "all", "all", "070 123 456");
+
+        _appointments.Verify(r => r.GetForDashboardAsync(
+            Tenant, null, null, null, "070 123 456", "+38970123456", DashboardService.MaxRows), Times.Once);
+    }
+
+    [Fact]
     public async Task MapsRows_IncludingMissingCustomer()
     {
         var withCustomer = new Appointment
@@ -127,7 +136,7 @@ public class DashboardServiceTests
             }
         };
         var withoutCustomer = new Appointment { Id = Guid.NewGuid(), OrderNumber = "ORD-2", Status = AppointmentStatus.Completed };
-        _appointments.Setup(r => r.GetForDashboardAsync(Tenant, null, null, null, null, DashboardService.MaxRows))
+        _appointments.Setup(r => r.GetForDashboardAsync(Tenant, null, null, null, null, null, DashboardService.MaxRows))
             .ReturnsAsync(new List<Appointment> { withCustomer, withoutCustomer });
 
         var rows = (await _sut.GetDashboardAsync(Tenant, "all", "all", null)).Rows;

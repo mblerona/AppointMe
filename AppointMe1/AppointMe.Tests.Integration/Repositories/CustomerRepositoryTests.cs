@@ -173,7 +173,7 @@ namespace AppointMe.Tests.Integration.Repositories
 
             await db.SaveChangesAsync();
 
-            var results = (await repo.SearchAsync("John", tenantA)).ToList();
+            var results = (await repo.SearchAsync("John", tenantA, null)).ToList();
 
             results.Should().HaveCount(1);
             results[0].TenantId.Should().Be(tenantA);
@@ -193,7 +193,7 @@ namespace AppointMe.Tests.Integration.Repositories
 
             await db.SaveChangesAsync();
 
-            var results = (await repo.SearchAsync("NO_MATCH", tenantId)).ToList();
+            var results = (await repo.SearchAsync("NO_MATCH", tenantId, null)).ToList();
 
             results.Should().BeEmpty();
         }

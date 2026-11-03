@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using AppointMe.Domain.Validation;
 
 namespace AppointMe.Web.ViewModels
 {
@@ -12,7 +13,7 @@ namespace AppointMe.Web.ViewModels
         [EmailAddress]
         public string? Email { get; set; }
 
-        [Phone]
+        [ValidPhoneNumber]
         public string? Phone { get; set; }
 
         public string? Address { get; set; }

@@ -30,9 +30,10 @@ namespace AppointMe.Repository.Interface
         /// <summary>
         /// Newest-first appointments (with Customer, not tracked) for the dashboard table. The date range is
         /// [start, end); search matches order number, customer name, phone numbers and state.
+        /// <paramref name="normalizedPhone"/> (the search in E.164, or null) also matches stored numbers exactly.
         /// </summary>
         Task<IReadOnlyList<Appointment>> GetForDashboardAsync(
-            Guid tenantId, DateTime? start, DateTime? end, AppointmentStatus? status, string? search, int take);
+            Guid tenantId, DateTime? start, DateTime? end, AppointmentStatus? status, string? search, string? normalizedPhone, int take);
 
         Task<bool> IsTimeSlotAvailableAsync(
             DateTime startTime,

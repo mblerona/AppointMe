@@ -2,6 +2,7 @@
 using AppointMe.Service.Interface;
 using Microsoft.AspNetCore.Mvc;
 using AppointMe.Domain.DTO;
+using AppointMe.Web.Infrastructure;
 
 namespace AppointMe.Web.Controllers
 {
@@ -65,7 +66,7 @@ namespace AppointMe.Web.Controllers
             }
             catch (BusinessRuleException ex)
             {
-                ModelState.AddModelError(nameof(CreateCustomerDTO.Email), ex.Message);
+                ModelState.AddModelError(ex.PropertyName ?? string.Empty, ex.Message);
                 return View(createCustomerDto);
             }
 
@@ -86,8 +87,9 @@ namespace AppointMe.Web.Controllers
                     FirstName = customer.FirstName,
                     LastName = customer.LastName,
                     Email = customer.Email,
-                    PhoneNumber = customer.PhoneNumber,
-                    SecondPhoneNumber = customer.SecondPhoneNumber,
+                    // Readable form in the input; the service normalizes to E.164 again on save.
+                    PhoneNumber = customer.PhoneNumber.ToDisplayPhone(),
+                    SecondPhoneNumber = string.IsNullOrEmpty(customer.SecondPhoneNumber) ? null : customer.SecondPhoneNumber.ToDisplayPhone(),
                     State = customer.State,
                     Notes = customer.Notes,
                     City = customer.City,
@@ -127,7 +129,7 @@ namespace AppointMe.Web.Controllers
             }
             catch (BusinessRuleException ex)
             {
-                ModelState.AddModelError(nameof(UpdateCustomerDTO.Email), ex.Message);
+                ModelState.AddModelError(ex.PropertyName ?? string.Empty, ex.Message);
                 ViewData["CustomerId"] = id;
                 return View(updateCustomerDto);
             }

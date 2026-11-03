@@ -116,7 +116,7 @@ namespace AppointMe.Tests.Unit.Services
                 BuildCustomer(Guid.NewGuid(), tenantId, number: 5, first:"John", last:"Smith"),
             };
 
-            _customerRepo.Setup(r => r.SearchAsync("john", tenantId))
+            _customerRepo.Setup(r => r.SearchAsync("john", tenantId, null))
                 .ReturnsAsync(customers);
 
             // act
@@ -126,7 +126,7 @@ namespace AppointMe.Tests.Unit.Services
             result.Should().HaveCount(1);
             result[0].FirstName.Should().Be("John");
 
-            _customerRepo.Verify(r => r.SearchAsync("john", tenantId), Times.Once);
+            _customerRepo.Verify(r => r.SearchAsync("john", tenantId, null), Times.Once);
         }
 
         [Fact]
@@ -140,7 +140,7 @@ namespace AppointMe.Tests.Unit.Services
                 FirstName = "A",
                 LastName = "B",
                 Email = "dup@test.com",
-                PhoneNumber = "111",
+                PhoneNumber = "070 111 111",
                 State = "MK",
                 City = "Skopje"
             };
@@ -166,8 +166,8 @@ namespace AppointMe.Tests.Unit.Services
                 FirstName = "New",
                 LastName = "Customer",
                 Email = "new@test.com",
-                PhoneNumber = "222",
-                SecondPhoneNumber = "333",
+                PhoneNumber = "070 222 222",
+                SecondPhoneNumber = "+49 30 1234567",
                 State = "MK",
                 City = "Skopje",
                 Notes = "note"
@@ -195,6 +195,8 @@ namespace AppointMe.Tests.Unit.Services
             added!.TenantId.Should().Be(tenantId);
             added.CustomerNumber.Should().Be(11); // max+1
             added.Email.Should().Be("new@test.com");
+            added.PhoneNumber.Should().Be("+38970222222", "phone numbers are stored in E.164");
+            added.SecondPhoneNumber.Should().Be("+49301234567");
 
             created.CustomerNumber.Should().Be(11);
 
@@ -217,7 +219,7 @@ namespace AppointMe.Tests.Unit.Services
                 FirstName = "X",
                 LastName = "Y",
                 Email = "x@test.com",
-                PhoneNumber = "111",
+                PhoneNumber = "070 111 111",
                 State = "MK",
                 City = "Sk"
             };
@@ -287,8 +289,8 @@ namespace AppointMe.Tests.Unit.Services
                 FirstName = "NewFirst",
                 LastName = customer.LastName,
                 Email = "new@test.com",
-                PhoneNumber = "999",
-                SecondPhoneNumber = "888",
+                PhoneNumber = "071 999 999",
+                SecondPhoneNumber = "02 3123 456",
                 State = "MK",
                 City = "Skopje",
                 Notes = "updated"
@@ -302,8 +304,8 @@ namespace AppointMe.Tests.Unit.Services
             // assert
             customer.FirstName.Should().Be("NewFirst");
             customer.Email.Should().Be("new@test.com");
-            customer.PhoneNumber.Should().Be("999");
-            customer.SecondPhoneNumber.Should().Be("888");
+            customer.PhoneNumber.Should().Be("+38971999999", "phone numbers are stored in E.164");
+            customer.SecondPhoneNumber.Should().Be("+38923123456");
             customer.Notes.Should().Be("updated");
             customer.UpdatedAt.Should().NotBe(oldUpdatedAt);
 
@@ -374,8 +376,8 @@ namespace AppointMe.Tests.Unit.Services
                 FirstName = first,
                 LastName = last,
                 Email = email,
-                PhoneNumber = "123",
-                SecondPhoneNumber = "456",
+                PhoneNumber = "+38970123123",
+                SecondPhoneNumber = "+38970456456",
                 State = "MK",
                 City = "Skopje",
                 Notes = "n",

@@ -1,5 +1,6 @@
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
+using AppointMe.Domain.Validation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
 
@@ -40,8 +41,10 @@ namespace AppointMe.Service.Implementation
 
             var counts = await _appointmentRepository.CountByStatusAsync(tenantId);
             var customers = await _customerRepository.CountByTenantAsync(tenantId);
+            // "070 123 456" should also find the stored "+38970123456".
+            var phone = PhoneNumberNormalizer.TryNormalize(search, out var e164) ? e164 : null;
             var rows = await _appointmentRepository.GetForDashboardAsync(
-                tenantId, start, end, statusFilter, search, MaxRows);
+                tenantId, start, end, statusFilter, search, phone, MaxRows);
 
             return new DashboardDTO
             {

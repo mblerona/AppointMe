@@ -1,6 +1,7 @@
 ﻿using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Service.Interface;
+using AppointMe.Web.Infrastructure;
 using AppointMe.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -80,7 +81,7 @@ namespace AppointMe.Web.Controllers
             Id = tenantId,
             Name = s.Name,
             Email = s.Email,
-            Phone = s.Phone,
+            Phone = string.IsNullOrEmpty(s.Phone) ? null : s.Phone.ToDisplayPhone(),
             Address = s.Address,
             LogoUrl = s.LogoUrl,
             PrimaryColor = s.PrimaryColor,

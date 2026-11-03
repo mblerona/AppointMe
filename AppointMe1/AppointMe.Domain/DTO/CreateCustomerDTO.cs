@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using AppointMe.Domain.Validation;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,10 +23,10 @@ namespace AppointMe.Domain.DTO
         public string Email { get; set; }
 
         [Required]
-        [Phone]
+        [ValidPhoneNumber]
         public string PhoneNumber { get; set; }
 
-        [Phone]
+        [ValidPhoneNumber]
         public string? SecondPhoneNumber { get; set; }
 
         [Required]

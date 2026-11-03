@@ -110,7 +110,7 @@ public class BusinessSettingsServiceTests : IDisposable
         var b = await StoredAsync();
         b.Name.Should().Be("New name");
         b.Email.Should().Be("biz@test.com");
-        b.Phone.Should().Be("070123456");
+        b.Phone.Should().Be("+38970123456", "phone numbers are stored in E.164");
         b.Address.Should().Be("Skopje");
         b.PrimaryColor.Should().Be("#abc");
         b.SecondaryColor.Should().Be("#11aa22");
@@ -174,6 +174,30 @@ public class BusinessSettingsServiceTests : IDisposable
 
         (await act.Should().ThrowAsync<BusinessRuleException>())
             .Which.PropertyName.Should().Be(nameof(BusinessSettingsDTO.DefaultSlotMinutes));
+    }
+
+    [Fact]
+    public async Task UpdateSettings_InvalidPhone_ThrowsForTheField_AndSavesNothing()
+    {
+        var s = ValidSettings();
+        s.Phone = "123";
+
+        var act = () => _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.PropertyName.Should().Be(nameof(BusinessSettingsDTO.Phone));
+        (await StoredAsync()).Name.Should().Be("Old name");
+    }
+
+    [Fact]
+    public async Task UpdateSettings_EmptyPhone_IsStoredAsNull()
+    {
+        var s = ValidSettings();
+        s.Phone = "  ";
+
+        await _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await StoredAsync()).Phone.Should().BeNull();
     }
 
     [Fact]

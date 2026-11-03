@@ -1,6 +1,7 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
+using AppointMe.Domain.Validation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
 using System;
@@ -74,15 +75,20 @@ namespace AppointMe.Service.Implementation
 
         public async Task<IEnumerable<CustomerDTO>> SearchCustomersAsync(string searchTerm, Guid tenantId)
         {
-            var customers = await _customerRepository.SearchAsync(searchTerm, tenantId);
+            // "070 123 456" should also find the stored "+38970123456".
+            var phone = PhoneNumberNormalizer.TryNormalize(searchTerm, out var e164) ? e164 : null;
+            var customers = await _customerRepository.SearchAsync(searchTerm, tenantId, phone);
             return customers.Select(MapToCustomerDto).ToList();
         }
 
         public async Task<CustomerDTO> CreateCustomerAsync(CreateCustomerDTO createCustomerDto, Guid tenantId)
         {
+            var phone = PhoneNumberNormalizer.NormalizeRequired(createCustomerDto.PhoneNumber, nameof(CreateCustomerDTO.PhoneNumber));
+            var secondPhone = PhoneNumberNormalizer.NormalizeOptional(createCustomerDto.SecondPhoneNumber, nameof(CreateCustomerDTO.SecondPhoneNumber));
+
             var existingCustomer = await _customerRepository.GetByEmailAsync(createCustomerDto.Email, tenantId);
             if (existingCustomer != null)
-                throw new BusinessRuleException($"Customer with email {createCustomerDto.Email} already exists");
+                throw new BusinessRuleException($"Customer with email {createCustomerDto.Email} already exists", nameof(CreateCustomerDTO.Email));
 
             var maxNumber = await _customerRepository.GetMaxCustomerNumberAsync(tenantId);
             var nextNumber = maxNumber + 1;
@@ -96,8 +102,8 @@ namespace AppointMe.Service.Implementation
                 FirstName = createCustomerDto.FirstName,
                 LastName = createCustomerDto.LastName,
                 Email = createCustomerDto.Email,
-                PhoneNumber = createCustomerDto.PhoneNumber,
-                SecondPhoneNumber = createCustomerDto.SecondPhoneNumber,
+                PhoneNumber = phone,
+                SecondPhoneNumber = secondPhone,
                 State = createCustomerDto.State,
                 City = createCustomerDto.City,
                 Notes = createCustomerDto.Notes,
@@ -118,18 +124,26 @@ namespace AppointMe.Service.Implementation
             if (customer == null || customer.TenantId != tenantId)
                 throw new KeyNotFoundException($"Customer with ID {customerId} not found");
 
+            // null = keep the stored number (validate before changing anything).
+            var phone = updateCustomerDto.PhoneNumber != null
+                ? PhoneNumberNormalizer.NormalizeRequired(updateCustomerDto.PhoneNumber, nameof(UpdateCustomerDTO.PhoneNumber))
+                : customer.PhoneNumber;
+            var secondPhone = updateCustomerDto.SecondPhoneNumber != null
+                ? PhoneNumberNormalizer.NormalizeOptional(updateCustomerDto.SecondPhoneNumber, nameof(UpdateCustomerDTO.SecondPhoneNumber))
+                : customer.SecondPhoneNumber;
+
             if (!string.IsNullOrEmpty(updateCustomerDto.Email) && updateCustomerDto.Email != customer.Email)
             {
                 var existingCustomer = await _customerRepository.GetByEmailAsync(updateCustomerDto.Email, tenantId);
                 if (existingCustomer != null)
-                    throw new BusinessRuleException($"Customer with email {updateCustomerDto.Email} already exists");
+                    throw new BusinessRuleException($"Customer with email {updateCustomerDto.Email} already exists", nameof(UpdateCustomerDTO.Email));
             }
 
             customer.FirstName = updateCustomerDto.FirstName ?? customer.FirstName;
             customer.LastName = updateCustomerDto.LastName ?? customer.LastName;
             customer.Email = updateCustomerDto.Email ?? customer.Email;
-            customer.PhoneNumber = updateCustomerDto.PhoneNumber ?? customer.PhoneNumber;
-            customer.SecondPhoneNumber = updateCustomerDto.SecondPhoneNumber ?? customer.SecondPhoneNumber;
+            customer.PhoneNumber = phone;
+            customer.SecondPhoneNumber = secondPhone;
             customer.State = updateCustomerDto.State ?? customer.State;
             customer.City = updateCustomerDto.City ?? customer.City;
             customer.Notes = updateCustomerDto.Notes ?? customer.Notes;

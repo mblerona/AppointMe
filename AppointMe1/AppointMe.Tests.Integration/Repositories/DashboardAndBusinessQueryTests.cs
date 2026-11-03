@@ -144,12 +144,12 @@ namespace AppointMe.Tests.Integration.Repositories
             var repo = new AppointmentRepository(db);
 
             var rows = await repo.GetForDashboardAsync(
-                TenantA, day, day.AddDays(1), AppointmentStatus.Scheduled, " Ana ", take: 20);
+                TenantA, day, day.AddDays(1), AppointmentStatus.Scheduled, " Ana ", normalizedPhone: null, take: 20);
 
             rows.Select(r => r.Id).Should().Equal(newer.Id, older.Id);
             rows.Should().OnlyContain(r => r.Customer != null);
 
-            (await repo.GetForDashboardAsync(TenantA, null, null, null, "070111", 20))
+            (await repo.GetForDashboardAsync(TenantA, null, null, null, "070111", null, 20))
                 .Should().HaveCount(4, "the search also matches phone numbers");
         }
 
@@ -163,13 +163,35 @@ namespace AppointMe.Tests.Integration.Repositories
             await db.SaveChangesAsync();
 
             var rows = await new AppointmentRepository(db)
-                .GetForDashboardAsync(TenantA, new DateTime(2026, 1, 3), null, null, null, take: 3);
+                .GetForDashboardAsync(TenantA, new DateTime(2026, 1, 3), null, null, null, null, take: 3);
 
             rows.Should().HaveCount(3);
             rows[0].AppointmentDate.Should().Be(new DateTime(2026, 1, 5));
         }
 
         // ---------------- CustomerRepository / ServiceOfferingRepository ----------------
+
+        [Fact]
+        public async Task NormalizedPhone_MatchesFirstOrSecondNumber_OnlyForTheTenant()
+        {
+            using var db = DbContextFactory.Create();
+            var first = AddCustomer(db, TenantA, "First", phone: "+38970123456");
+            var second = AddCustomer(db, TenantA, "Second", phone: "+38971000000");
+            second.SecondPhoneNumber = "+38970123456";
+            AddCustomer(db, TenantA, "Other", phone: "+38975000000");
+            var otherTenant = AddCustomer(db, TenantB, "OtherTenant", phone: "+38970123456");
+            AddAppointment(db, TenantA, first, DateTime.Today);
+            AddAppointment(db, TenantB, otherTenant, DateTime.Today);
+            await db.SaveChangesAsync();
+
+            // The raw term "070 123 456" matches nothing; the E.164 form matches both numbers.
+            var customers = await new CustomerRepository(db).SearchAsync("070 123 456", TenantA, "+38970123456");
+            customers.Select(c => c.FirstName).Should().BeEquivalentTo("First", "Second");
+
+            var rows = await new AppointmentRepository(db)
+                .GetForDashboardAsync(TenantA, null, null, null, "070 123 456", "+38970123456", 20);
+            rows.Should().ContainSingle().Which.CustomerId.Should().Be(first.Id);
+        }
 
         [Fact]
         public async Task CustomerCountByTenant_CountsOnlyTheTenantsCustomers()

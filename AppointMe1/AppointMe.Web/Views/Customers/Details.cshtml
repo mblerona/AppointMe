@@ -173,7 +173,7 @@
                         <div class="info-val">
                             @if (!string.IsNullOrWhiteSpace(Model.PhoneNumber))
                             {
-                                <a href="tel:@Model.PhoneNumber" class="text-decoration-none">@Model.PhoneNumber</a>
+                                <a href="tel:@Model.PhoneNumber" class="text-decoration-none">@Model.PhoneNumber.ToDisplayPhone()</a>
                             }
                             else
                             {
@@ -188,7 +188,7 @@
                         <div class="info-val">
                             @if (!string.IsNullOrWhiteSpace(Model.SecondPhoneNumber))
                             {
-                                <a href="tel:@Model.SecondPhoneNumber" class="text-decoration-none">@Model.SecondPhoneNumber</a>
+                                <a href="tel:@Model.SecondPhoneNumber" class="text-decoration-none">@Model.SecondPhoneNumber.ToDisplayPhone()</a>
                             }
                             else
                             {

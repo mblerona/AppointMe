@@ -268,10 +268,10 @@
                                 </td>
                                 <td class="small">
                                     <div><i class="bi bi-envelope me-2"></i>@a.Email</div>
-                                    <div><i class="bi bi-telephone me-2"></i>@a.Phone1</div>
+                                    <div><i class="bi bi-telephone me-2"></i>@a.Phone1.ToDisplayPhone()</div>
                                     @if (!string.IsNullOrWhiteSpace(a.Phone2))
                                     {
-                                        <div><i class="bi bi-telephone me-2"></i>@a.Phone2</div>
+                                        <div><i class="bi bi-telephone me-2"></i>@a.Phone2.ToDisplayPhone()</div>
                                     }
                                 </td>
                                 <td>

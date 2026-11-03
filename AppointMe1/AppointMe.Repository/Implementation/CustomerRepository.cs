@@ -19,7 +19,7 @@ namespace AppointMe.Repository.Implementation
             return await _dbSet.FirstOrDefaultAsync(c => c.Email == email && c.TenantId == tenantId);
         }
 
-        public async Task<IEnumerable<Customer>> SearchAsync(string searchTerm, Guid tenantId)
+        public async Task<IEnumerable<Customer>> SearchAsync(string searchTerm, Guid tenantId, string? normalizedPhone)
         {
             return await _dbSet
                 .Where(c => c.TenantId == tenantId &&
@@ -27,6 +27,7 @@ namespace AppointMe.Repository.Implementation
                             c.LastName.Contains(searchTerm) ||
                             c.Email.Contains(searchTerm) ||
                             c.PhoneNumber.Contains(searchTerm) ||
+                            (normalizedPhone != null && (c.PhoneNumber == normalizedPhone || c.SecondPhoneNumber == normalizedPhone)) ||
                             c.State.Contains(searchTerm)))
                 .ToListAsync();
         }
