@@ -27,5 +27,8 @@ namespace AppointMe.Service.Interface
 
         /// <exception cref="KeyNotFoundException">The tenant has no Business.</exception>
         Task<BusinessCalendarConfigDTO> GetCalendarConfigAsync(Guid tenantId);
+
+        /// <summary>Name, logo, colors and nav switches for the layout; null if the tenant has no Business.</summary>
+        Task<BusinessBrandingDTO?> GetBrandingAsync(Guid tenantId);
     }
 }

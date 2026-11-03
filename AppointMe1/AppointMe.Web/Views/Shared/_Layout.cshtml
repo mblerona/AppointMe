@@ -1,10 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Identity
 @using AppointMe.Domain.Identity
-@using AppointMe.Repository.Data
-@using AppointMe.Domain.DomainModels
 @inject SignInManager<AppointMeAppUser> SignInManager
-@inject UserManager<AppointMeAppUser> UserManager
-@inject ApplicationDbContext Db
 
 @functions {
     bool IsLightColor(string hex)
@@ -34,16 +30,8 @@
 }
 
 @{
-    Business? biz = null;
-
-    if (User?.Identity?.IsAuthenticated == true)
-    {
-        var u = await UserManager.GetUserAsync(User);
-        if (u?.TenantId != null && u.TenantId != Guid.Empty)
-        {
-            biz = await Db.Businesses.FindAsync(u.TenantId.Value);
-        }
-    }
+    // CurrentBusiness (injected in _ViewImports) is cached per request and shared with the page.
+    var biz = await CurrentBusiness.GetAsync();
 
     var navbarColor = biz?.PrimaryColor ?? "#212529";
     var bgColor = biz?.SecondaryColor ?? "#ffffff";

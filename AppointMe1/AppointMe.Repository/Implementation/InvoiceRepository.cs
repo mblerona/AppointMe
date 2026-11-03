@@ -36,6 +36,14 @@ namespace AppointMe.Repository.Implementation
                 .OrderByDescending(i => i.IssuedAt)
                 .ToListAsync();
         }
+        public void Detach(Invoice invoice)
+        {
+            // ToList(): detaching a line makes EF remove it from invoice.Lines.
+            foreach (var line in invoice.Lines.ToList())
+                _context.Entry(line).State = EntityState.Detached;
+            _context.Entry(invoice).State = EntityState.Detached;
+        }
+
         public async Task<int> GetMaxInvoiceSequenceForYearAsync(Guid tenantId, int year)
         {
             var prefix = $"INV-{year}-";

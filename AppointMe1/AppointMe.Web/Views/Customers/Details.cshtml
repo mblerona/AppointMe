@@ -1,24 +1,12 @@
 ﻿@model AppointMe.Domain.DTO.CustomerProfileDTO
 @using Microsoft.AspNetCore.Identity
 @using AppointMe.Domain.Identity
-@using AppointMe.Repository.Data
-@inject UserManager<AppointMeAppUser> UserManager
-@inject ApplicationDbContext Db
 
 @{
     ViewData["Title"] = "Customer Details";
 
   
-    var enableServices = false;
-    if (User?.Identity?.IsAuthenticated == true)
-    {
-        var u = await UserManager.GetUserAsync(User);
-        if (u?.TenantId != null && u.TenantId != Guid.Empty)
-        {
-            var biz = await Db.Businesses.FindAsync(u.TenantId.Value);
-            enableServices = biz?.EnableServices == true;
-        }
-    }
+    var enableServices = (await CurrentBusiness.GetAsync())?.EnableServices == true;
 
     decimal CalcTotal(AppointMe.Domain.DTO.AppointmentDTO a)
     {

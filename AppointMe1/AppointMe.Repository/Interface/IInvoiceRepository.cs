@@ -15,5 +15,11 @@ namespace AppointMe.Repository.Interface
 
         Task<int> GetMaxInvoiceSequenceForYearAsync(Guid tenantId, int year);
 
+        /// <summary>
+        /// Stops tracking an invoice (and its lines) whose insert failed, so the next SaveChanges
+        /// doesn't try to insert it again (used by the invoice-number retry).
+        /// </summary>
+        void Detach(Invoice invoice);
+
     }
 }

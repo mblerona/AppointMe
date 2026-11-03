@@ -244,6 +244,43 @@ public class BusinessSettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetBranding_ReturnsNameLogoColorsAndSwitches()
+    {
+        var b = await _db.Businesses.SingleAsync();
+        b.PrimaryColor = "#112233";
+        b.SecondaryColor = "#ffffff";
+        await _db.SaveChangesAsync();
+
+        var branding = await _sut.GetBrandingAsync(Tenant);
+
+        branding!.Name.Should().Be("Old name");
+        branding.LogoUrl.Should().Be("/uploads/logos/old.png");
+        branding.PrimaryColor.Should().Be("#112233");
+        branding.SecondaryColor.Should().Be("#ffffff");
+        branding.EnableServices.Should().BeTrue();
+        branding.EnableInvoices.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetBranding_InvoicesAreOff_WhenServicesAreOff()
+    {
+        var b = await _db.Businesses.SingleAsync();
+        b.EnableServices = false;
+        await _db.SaveChangesAsync();
+
+        var branding = await _sut.GetBrandingAsync(Tenant);
+
+        branding!.EnableServices.Should().BeFalse();
+        branding.EnableInvoices.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetBranding_ForUnknownTenant_ReturnsNull()
+    {
+        (await _sut.GetBrandingAsync(Guid.NewGuid())).Should().BeNull("the layout must not fail");
+    }
+
+    [Fact]
     public async Task GetCalendarConfig_MapsHoursClosedDaysAndSlot()
     {
         var config = await _sut.GetCalendarConfigAsync(Tenant);

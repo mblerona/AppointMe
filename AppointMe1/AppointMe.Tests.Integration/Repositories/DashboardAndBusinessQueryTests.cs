@@ -184,6 +184,32 @@ namespace AppointMe.Tests.Integration.Repositories
         }
 
         [Fact]
+        public async Task InvoiceRepository_Detach_StopsTrackingTheInvoiceAndItsLines()
+        {
+            using var db = DbContextFactory.Create();
+            var repo = new InvoiceRepository(db);
+            var invoice = new Invoice
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantA,
+                InvoiceNumber = "INV-DETACH",
+                Lines = new List<InvoiceLine>
+                {
+                    new() { Id = Guid.NewGuid(), NameSnapshot = "A", Qty = 1, UnitPrice = 1, LineTotal = 1 },
+                    new() { Id = Guid.NewGuid(), NameSnapshot = "B", Qty = 1, UnitPrice = 2, LineTotal = 2 }
+                }
+            };
+            await repo.AddAsync(invoice);
+            db.ChangeTracker.Entries().Should().HaveCount(3);
+
+            repo.Detach(invoice);
+            await repo.SaveChangesAsync();
+
+            db.ChangeTracker.Entries().Should().BeEmpty();
+            db.Invoices.Should().BeEmpty();
+        }
+
+        [Fact]
         public async Task CategoryBelongsToBusiness_IsTrueOnlyForTheOwningBusiness()
         {
             using var db = DbContextFactory.Create();

@@ -1,7 +1,6 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
-using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Calendar;
 using AppointMe.Service.Email;
@@ -17,7 +16,7 @@ namespace AppointMe.Service.Implementation
         private readonly ICustomerRepository _customerRepository;
         private readonly IServiceOfferingRepository _serviceOfferingRepository;
         private readonly IHolidayService _holidayService;
-        private readonly ApplicationDbContext _db;
+        private readonly IBusinessRepository _businessRepository;
         private readonly IEmailService _emailService;
         private readonly ILogger<AppointmentService> _logger;
 
@@ -26,7 +25,7 @@ namespace AppointMe.Service.Implementation
             ICustomerRepository customerRepository,
             IServiceOfferingRepository serviceOfferingRepository,
             IHolidayService holidayService,
-            ApplicationDbContext db,
+            IBusinessRepository businessRepository,
             IEmailService emailService,
             ILogger<AppointmentService> logger)
         {
@@ -34,7 +33,7 @@ namespace AppointMe.Service.Implementation
             _customerRepository = customerRepository;
             _serviceOfferingRepository = serviceOfferingRepository;
             _holidayService = holidayService;
-            _db = db;
+            _businessRepository = businessRepository;
             _emailService = emailService;
             _logger = logger;
         }
@@ -309,7 +308,7 @@ Best regards,
         // =========================
         private async Task<Business> GetBusinessOrThrow(Guid tenantId)
         {
-            var biz = await _db.Businesses.AsNoTracking().FirstOrDefaultAsync(b => b.Id == tenantId);
+            var biz = await _businessRepository.GetByIdReadOnlyAsync(tenantId);
             if (biz == null) throw new BusinessRuleException("Business not found.");
             return biz;
         }

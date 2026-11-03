@@ -185,6 +185,22 @@ namespace AppointMe.Service.Implementation
             };
         }
 
+        public async Task<BusinessBrandingDTO?> GetBrandingAsync(Guid tenantId)
+        {
+            var b = await _businessRepository.GetByIdReadOnlyAsync(tenantId);
+            if (b == null) return null;
+
+            return new BusinessBrandingDTO
+            {
+                Name = b.Name,
+                LogoUrl = b.LogoUrl,
+                PrimaryColor = b.PrimaryColor,
+                SecondaryColor = b.SecondaryColor,
+                EnableServices = b.EnableServices,
+                EnableInvoices = b.EnableServices && b.EnableInvoices
+            };
+        }
+
         // ---------------- helpers ----------------
 
         private static string ValidateName(string? input, string? propertyName = null)

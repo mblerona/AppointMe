@@ -1,7 +1,6 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
-using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -17,16 +16,16 @@ namespace AppointMe.Service.Implementation
     {
         private readonly IInvoiceRepository _invoiceRepository;
         private readonly IAppointmentRepository _appointmentRepository;
-        private readonly ApplicationDbContext _db;
+        private readonly IBusinessRepository _businessRepository;
 
         public InvoiceService(
             IInvoiceRepository invoiceRepository,
             IAppointmentRepository appointmentRepository,
-            ApplicationDbContext db)
+            IBusinessRepository businessRepository)
         {
             _invoiceRepository = invoiceRepository;
             _appointmentRepository = appointmentRepository;
-            _db = db;
+            _businessRepository = businessRepository;
         }
 
         public async Task<IEnumerable<InvoiceDTO>> GetAllAsync(Guid tenantId)
@@ -45,7 +44,7 @@ namespace AppointMe.Service.Implementation
         public async Task<InvoiceDTO> CreateOrGetForAppointmentAsync(Guid appointmentId, Guid tenantId)
         {
            
-            var biz = await _db.Businesses.FindAsync(tenantId);
+            var biz = await _businessRepository.GetByIdReadOnlyAsync(tenantId);
             if (biz == null) throw new BusinessRuleException("Business not found.");
             if (!biz.EnableInvoices) throw new BusinessRuleException("Invoices are disabled in settings.");
 
@@ -143,10 +142,7 @@ namespace AppointMe.Service.Implementation
                     // A unique index was hit (number or appointment taken concurrently). The failed
                     // invoice and its lines are still tracked as Added; detach them, otherwise the
                     // next SaveChanges would try to insert them again and every retry would fail.
-                    // ToList(): detaching a line makes EF remove it from invoice.Lines.
-                    foreach (var line in invoice.Lines.ToList())
-                        _db.Entry(line).State = EntityState.Detached;
-                    _db.Entry(invoice).State = EntityState.Detached;
+                    _invoiceRepository.Detach(invoice);
 
                     if (attempt == 3) throw;
                 }

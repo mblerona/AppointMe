@@ -38,4 +38,26 @@ public class CsrfTests : IClassFixture<CustomWebAppFactory>
 
         res.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.Redirect);
     }
+
+    [Fact]
+    public async Task GlobalFilter_RejectsPostWithoutToken_EvenOnActionWithoutValidateAntiForgeryToken()
+    {
+        // DashboardController.Index has no [HttpGet] and no [ValidateAntiForgeryToken], so it accepts a POST.
+        // Only the global AutoValidateAntiforgeryTokenAttribute (audit A11) rejects it.
+        var client = _factory.CreateClient(new() { AllowAutoRedirect = false });
+        await client.LoginAsync(CustomWebAppFactory.DefaultUserEmail, CustomWebAppFactory.DefaultUserPassword);
+
+        var res = await client.PostAsync("/Dashboard", new FormUrlEncodedContent(Array.Empty<KeyValuePair<string, string>>()));
+
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GlobalFilter_DoesNotBlockGetRequests()
+    {
+        var client = _factory.CreateClient(new() { AllowAutoRedirect = false });
+        await client.LoginAsync(CustomWebAppFactory.DefaultUserEmail, CustomWebAppFactory.DefaultUserPassword);
+
+        (await client.GetAsync("/Dashboard")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
 }

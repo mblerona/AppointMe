@@ -13,6 +13,7 @@ using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Data;
+using AppointMe.Repository.Implementation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Calendar;
 using AppointMe.Service.Email;
@@ -103,7 +104,7 @@ namespace AppointMe.Tests.Unit.Services
                 custRepo.Object,
                 svcRepo.Object,
                 holidaySvc.Object,
-                db,
+                new BusinessRepository(db),
                 emailSvc.Object,
                 logger ?? NullLogger<AppointmentService>.Instance
             );

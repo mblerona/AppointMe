@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Repository.Data;
+using AppointMe.Repository.Implementation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Implementation;
 using FluentAssertions;
@@ -99,7 +100,7 @@ namespace AppointMe.Tests.Unit.Services
             return new InvoiceService(
                 invoiceRepo.Object,
                 apptRepo.Object,
-                db
+                new BusinessRepository(db)
             );
         }
 

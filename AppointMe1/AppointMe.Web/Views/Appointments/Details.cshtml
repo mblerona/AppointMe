@@ -1,9 +1,6 @@
 ﻿@model AppointMe.Domain.DTO.AppointmentDTO
 @using Microsoft.AspNetCore.Identity
 @using AppointMe.Domain.Identity
-@using AppointMe.Repository.Data
-@inject UserManager<AppointMeAppUser> UserManager
-@inject ApplicationDbContext Db
 
 @{
     ViewData["Title"] = "Appointment Details";
@@ -27,21 +24,9 @@
     var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
 
  
-    var enableServices = false;
-    var enableInvoices = false;
-
-    if (User?.Identity?.IsAuthenticated == true)
-    {
-        var u = await UserManager.GetUserAsync(User);
-        if (u?.TenantId != null && u.TenantId != Guid.Empty)
-        {
-            var biz = await Db.Businesses.FindAsync(u.TenantId.Value);
-            enableServices = biz?.EnableServices == true;
-
-           
-            enableInvoices = enableServices && biz?.EnableInvoices == true;
-        }
-    }
+    var business = await CurrentBusiness.GetAsync();
+    var enableServices = business?.EnableServices == true;
+    var enableInvoices = business?.EnableInvoices == true;
 
    
     var hasServices = Model.Services != null && Model.Services.Any();
