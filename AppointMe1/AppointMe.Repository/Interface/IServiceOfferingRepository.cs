@@ -18,6 +18,9 @@ namespace AppointMe.Repository.Interface
         /// <summary>True if any appointment of this business references the service.</summary>
         Task<bool> IsUsedByAppointmentsAsync(Guid id, Guid businessId);
 
+        /// <summary>True if the category exists and belongs to this business (audit S2).</summary>
+        Task<bool> CategoryBelongsToBusinessAsync(Guid categoryId, Guid businessId);
+
 
         Task AddAsync(ServiceOffering entity, Guid businessId);
         Task UpdateAsync(ServiceOffering entity);

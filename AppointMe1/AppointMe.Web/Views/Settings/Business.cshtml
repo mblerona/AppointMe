@@ -14,6 +14,7 @@
 <form asp-action="Business" method="post" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
 
     <!-- BASIC INFO -->
     <div class="mb-3">

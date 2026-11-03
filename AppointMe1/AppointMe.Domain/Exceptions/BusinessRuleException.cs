@@ -9,5 +9,17 @@ namespace AppointMe.Domain.Exceptions
     public class BusinessRuleException : InvalidOperationException
     {
         public BusinessRuleException(string message) : base(message) { }
+
+        /// <param name="propertyName">The input field the message belongs to (for example "WorkDayEnd").</param>
+        public BusinessRuleException(string message, string? propertyName) : base(message)
+        {
+            PropertyName = propertyName;
+        }
+
+        /// <summary>
+        /// The input field the rule is about, so a controller can show the message next to that field
+        /// (<c>ModelState.AddModelError(ex.PropertyName ?? "", ex.Message)</c>). Null for form-level errors.
+        /// </summary>
+        public string? PropertyName { get; }
     }
 }

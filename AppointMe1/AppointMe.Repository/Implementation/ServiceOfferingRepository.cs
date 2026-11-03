@@ -54,6 +54,12 @@ namespace AppointMe.Repository.Implementation
                 .AnyAsync(x => x.ServiceOfferingId == id && x.ServiceOffering!.BusinessId == businessId);
         }
 
+        public Task<bool> CategoryBelongsToBusinessAsync(Guid categoryId, Guid businessId)
+        {
+            return _context.ServiceCategories
+                .AnyAsync(c => c.Id == categoryId && c.BusinessId == businessId);
+        }
+
         public async Task<IEnumerable<ServiceOffering>> GetByIdsForBusinessAsync(List<Guid> ids, Guid businessId)
         {
             if (ids == null || ids.Count == 0)

@@ -45,6 +45,9 @@ namespace AppointMe.Repository.Implementation
         {
             return await _dbSet.Where(c => c.TenantId == tenantId).ToListAsync();
         }
+        public Task<int> CountByTenantAsync(Guid tenantId) =>
+            _dbSet.AsNoTracking().CountAsync(c => c.TenantId == tenantId);
+
         public async Task<int> GetMaxCustomerNumberAsync(Guid tenantId)
         {
             return await _context.Customers

@@ -1,7 +1,6 @@
 ﻿using AppointMe.Domain.DTO;
+using AppointMe.Domain.Exceptions;
 using AppointMe.Service.Interface;
-using AppointMe.Domain.DomainModels;
-using AppointMe.Repository.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,20 +9,19 @@ namespace AppointMe.Web.Controllers
     [Authorize]
     public class ServicesController : BaseTenantController
     {
-        private readonly IServiceOfferingRepository _serviceRepo;
+        private readonly IServiceOfferingService _serviceOfferingService;
 
         public ServicesController(
-            IServiceOfferingRepository serviceRepo,
+            IServiceOfferingService serviceOfferingService,
             ITenantContext tenantContext)
             : base(tenantContext)
         {
-            _serviceRepo = serviceRepo;
+            _serviceOfferingService = serviceOfferingService;
         }
 
         public async Task<IActionResult> Index()
         {
-            var tenantId = TenantId;
-            var services = await _serviceRepo.GetAllByBusinessAsync(tenantId);
+            var services = await _serviceOfferingService.GetAllAsync(TenantId);
             return View(services);
         }
 
@@ -40,23 +38,15 @@ namespace AppointMe.Web.Controllers
             if (!ModelState.IsValid)
                 return View(dto);
 
-            var tenantId = TenantId;
-
-            var entity = new ServiceOffering
+            try
             {
-                Id = Guid.NewGuid(),
-           
-                Name = dto.Name.Trim(),
-                Price = dto.Price,
-                IsActive = dto.IsActive,
-                CategoryId = dto.CategoryId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-          
-            await _serviceRepo.AddAsync(entity, tenantId);
-            await _serviceRepo.SaveChangesAsync();
+                await _serviceOfferingService.CreateAsync(dto, TenantId);
+            }
+            catch (BusinessRuleException ex)
+            {
+                ModelState.AddModelError(ex.PropertyName ?? string.Empty, ex.Message);
+                return View(dto);
+            }
 
             TempData["SuccessMessage"] = "Service created successfully!";
             return RedirectToAction(nameof(Index));
@@ -65,21 +55,23 @@ namespace AppointMe.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> Edit(Guid id)
         {
-            var tenantId = TenantId;
-            var entity = await _serviceRepo.GetByIdAsync(id, tenantId);
-
-            if (entity == null) return NotFound();
-
-            var dto = new UpdateServiceOfferingDTO
+            try
             {
-                Id = entity.Id,
-                Name = entity.Name,
-                Price = entity.Price,
-                IsActive = entity.IsActive,
-                CategoryId = entity.CategoryId
-            };
+                var entity = await _serviceOfferingService.GetByIdAsync(id, TenantId);
 
-            return View(dto);
+                return View(new UpdateServiceOfferingDTO
+                {
+                    Id = entity.Id,
+                    Name = entity.Name,
+                    Price = entity.Price,
+                    IsActive = entity.IsActive,
+                    CategoryId = entity.CategoryId
+                });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
         }
 
         [HttpPost]
@@ -91,19 +83,19 @@ namespace AppointMe.Web.Controllers
             if (!ModelState.IsValid)
                 return View(dto);
 
-            var tenantId = TenantId;
-            var entity = await _serviceRepo.GetByIdAsync(id, tenantId);
-
-            if (entity == null) return NotFound();
-
-            entity.Name = dto.Name.Trim();
-            entity.Price = dto.Price;
-            entity.IsActive = dto.IsActive;
-            entity.CategoryId = dto.CategoryId;
-            entity.UpdatedAt = DateTime.UtcNow;
-
-            await _serviceRepo.UpdateAsync(entity);
-            await _serviceRepo.SaveChangesAsync();
+            try
+            {
+                await _serviceOfferingService.UpdateAsync(id, dto, TenantId);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (BusinessRuleException ex)
+            {
+                ModelState.AddModelError(ex.PropertyName ?? string.Empty, ex.Message);
+                return View(dto);
+            }
 
             TempData["SuccessMessage"] = "Service updated successfully!";
             return RedirectToAction(nameof(Index));
@@ -112,38 +104,36 @@ namespace AppointMe.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var tenantId = TenantId;
-            var entity = await _serviceRepo.GetByIdAsync(id, tenantId);
-
-            if (entity == null) return NotFound();
-
-            return View(entity);
+            try
+            {
+                return View(await _serviceOfferingService.GetByIdAsync(id, TenantId));
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
         }
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
-            var tenantId = TenantId;
-            var entity = await _serviceRepo.GetByIdAsync(id, tenantId);
-
-            if (entity == null) return NotFound();
-
-            // Appointments keep a Restrict FK to their services, so deleting a used service would fail.
-            if (await _serviceRepo.IsUsedByAppointmentsAsync(id, tenantId))
+            try
             {
-                TempData["ErrorMessage"] =
-                    "This service is used by existing appointments and cannot be deleted. Mark it as inactive instead.";
+                await _serviceOfferingService.DeleteAsync(id, TenantId);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (BusinessRuleException ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
                 return RedirectToAction(nameof(Index));
             }
-
-            await _serviceRepo.DeleteAsync(entity);
-            await _serviceRepo.SaveChangesAsync();
 
             TempData["SuccessMessage"] = "Service deleted successfully!";
             return RedirectToAction(nameof(Index));
         }
     }
 }
-
-

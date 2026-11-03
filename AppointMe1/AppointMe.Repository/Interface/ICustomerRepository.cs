@@ -14,5 +14,6 @@ namespace AppointMe.Repository.Interface
         Task<IEnumerable<Customer>> SearchAsync(string searchTerm, Guid tenantId);
         Task<Customer> GetWithAppointmentsAsync(Guid customerId, Guid tenantId);
         Task<IEnumerable<Customer>> GetAllByTenantAsync(Guid tenantId);
+        Task<int> CountByTenantAsync(Guid tenantId);
     }
 }

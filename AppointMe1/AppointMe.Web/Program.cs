@@ -55,7 +55,12 @@ builder.Services.AddScoped<ITenantContext, AppointMe.Web.Infrastructure.TenantCo
 builder.Services.AddScoped<AppointMe.Web.Infrastructure.RequireTenantFilter>();
 
 // Registration (Business + owner) and Identity emails (confirmation, password reset) via MailKit.
+builder.Services.AddScoped<IBusinessRepository, BusinessRepository>();
 builder.Services.AddScoped<IBusinessService, BusinessService>();
+builder.Services.AddScoped<IServiceOfferingService, ServiceOfferingService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<ILogoStorage, AppointMe.Web.Infrastructure.WebRootLogoStorage>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddTransient<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender, AppointMe.Web.Infrastructure.IdentityEmailSender>();
 builder.Services.AddScoped<AppointMe.Web.Infrastructure.AccountConfirmationEmail>();
 

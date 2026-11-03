@@ -2,7 +2,9 @@ using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
+using AppointMe.Repository.Implementation;
 using AppointMe.Service.Implementation;
+using AppointMe.Service.Interface;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -10,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
 using Xunit;
 
 namespace AppointMe.Tests.Unit.Services;
@@ -25,6 +28,7 @@ public class BusinessServiceTests : IDisposable
     private readonly ApplicationDbContext _db;
     private readonly UserManager<AppointMeAppUser> _userManager;
     private readonly BusinessService _sut;
+    private readonly Mock<ILogoStorage> _logoStorage = new(MockBehavior.Strict);
 
     public BusinessServiceTests()
     {
@@ -47,7 +51,7 @@ public class BusinessServiceTests : IDisposable
             null!,
             NullLogger<UserManager<AppointMeAppUser>>.Instance);
 
-        _sut = new BusinessService(_db, _userManager);
+        _sut = new BusinessService(new BusinessRepository(_db), _userManager, _logoStorage.Object);
     }
 
     public void Dispose()

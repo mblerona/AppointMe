@@ -1,6 +1,7 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Tests.Web.Infrastructure;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using System.Net;
 using Xunit;
 
@@ -145,5 +146,67 @@ public class TenantIsolationTests : IClassFixture<CustomWebAppFactory>
         var res = await client.GetAsync($"/Services/Edit/{serviceId}");
 
         res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    // ---------- S2: a service's category must belong to the tenant ----------
+    // CategoryId is a posted foreign key, not a record being opened, so it is a validation error
+    // (form shown again, nothing saved) rather than a 404.
+
+    private Task<Guid> SeedTenantACategoryAsync() =>
+        TestData.WithDbAsync(_factory, async db =>
+        {
+            var cat = new ServiceCategory { Id = Guid.NewGuid(), BusinessId = TenantA, Name = "Tenant A category" };
+            db.ServiceCategories.Add(cat);
+            await db.SaveChangesAsync();
+            return cat.Id;
+        });
+
+    [Fact]
+    public async Task Services_Create_WithOtherTenantCategory_IsRejected_AndSavesNothing()
+    {
+        var client = await LoginAsTenantBAsync();
+        var categoryA = await SeedTenantACategoryAsync();
+        var name = $"S2 create {Guid.NewGuid():N}";
+
+        var res = await client.PostFormAsync("/Services/Create", "/Services/Create", new Dictionary<string, string>
+        {
+            ["Name"] = name,
+            ["Price"] = "100",
+            ["IsActive"] = "true",
+            ["CategoryId"] = categoryA.ToString()
+        });
+
+        res.StatusCode.Should().Be(HttpStatusCode.OK, "the form is shown again with the error");
+        (await res.Content.ReadAsStringAsync()).Should().Contain("The selected category was not found.");
+        (await TestData.WithDbAsync(_factory, db => db.ServiceOfferings.AnyAsync(s => s.Name == name)))
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Services_Edit_WithOtherTenantCategory_IsRejected_AndLeavesServiceUnchanged()
+    {
+        var client = await LoginAsTenantBAsync();
+        var categoryA = await SeedTenantACategoryAsync();
+        var serviceB = await TestData.WithDbAsync(_factory, async db =>
+        {
+            var svc = new ServiceOffering { Id = Guid.NewGuid(), BusinessId = TenantB, Name = "Tenant B service", Price = 50, IsActive = true };
+            db.ServiceOfferings.Add(svc);
+            await db.SaveChangesAsync();
+            return svc.Id;
+        });
+
+        var res = await client.PostFormAsync($"/Services/Edit/{serviceB}", $"/Services/Edit/{serviceB}", new Dictionary<string, string>
+        {
+            ["Id"] = serviceB.ToString(),
+            ["Name"] = "Renamed",
+            ["Price"] = "60",
+            ["IsActive"] = "true",
+            ["CategoryId"] = categoryA.ToString()
+        });
+
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var stored = await TestData.WithDbAsync(_factory, db => db.ServiceOfferings.AsNoTracking().SingleAsync(s => s.Id == serviceB));
+        stored.Name.Should().Be("Tenant B service");
+        stored.CategoryId.Should().BeNull();
     }
 }

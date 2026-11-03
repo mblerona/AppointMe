@@ -29,6 +29,48 @@ namespace AppointMe.Repository.Implementation
             return Task.CompletedTask;
         }
 
+        public async Task<IReadOnlyDictionary<AppointmentStatus, int>> CountByStatusAsync(Guid tenantId)
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Where(a => a.TenantId == tenantId)
+                .GroupBy(a => a.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.Status, x => x.Count);
+        }
+
+        public async Task<IReadOnlyList<Appointment>> GetForDashboardAsync(
+            Guid tenantId, DateTime? start, DateTime? end, AppointmentStatus? status, string? search, int take)
+        {
+            var q = _dbSet
+                .AsNoTracking()
+                .Include(a => a.Customer)
+                .Where(a => a.TenantId == tenantId);
+
+            if (start.HasValue && end.HasValue)
+                q = q.Where(a => a.AppointmentDate >= start.Value && a.AppointmentDate < end.Value);
+
+            if (status.HasValue)
+                q = q.Where(a => a.Status == status.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim();
+                q = q.Where(a =>
+                    a.OrderNumber.Contains(s) ||
+                    a.Customer!.FirstName.Contains(s) ||
+                    a.Customer!.LastName.Contains(s) ||
+                    a.Customer!.PhoneNumber.Contains(s) ||
+                    (a.Customer!.SecondPhoneNumber != null && a.Customer.SecondPhoneNumber.Contains(s)) ||
+                    a.Customer!.State.Contains(s));
+            }
+
+            return await q
+                .OrderByDescending(a => a.AppointmentDate)
+                .Take(take)
+                .ToListAsync();
+        }
+
         public async Task<IEnumerable<Appointment>> GetByCustomerIdAsync(Guid customerId, Guid tenantId)
         {
             return await _dbSet
