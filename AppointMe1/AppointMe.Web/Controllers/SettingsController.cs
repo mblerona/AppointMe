@@ -1,11 +1,9 @@
 ﻿using AppointMe.Domain.DomainModels;
-using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Service.Interface;
 using AppointMe.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,18 +13,15 @@ namespace AppointMe.Web.Controllers
     public class SettingsController : Controller
     {
         private readonly ApplicationDbContext _db;
-        private readonly UserManager<AppointMeAppUser> _userManager;
         private readonly IWebHostEnvironment _env;
         private readonly ITenantContext _tenantContext;
 
         public SettingsController(
             ApplicationDbContext db,
-            UserManager<AppointMeAppUser> userManager,
             IWebHostEnvironment env,
             ITenantContext tenantContext)
         {
             _db = db;
-            _userManager = userManager;
             _env = env;
             _tenantContext = tenantContext;
         }
@@ -38,7 +33,7 @@ namespace AppointMe.Web.Controllers
             if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
 
             if (tenant.Status == TenantResolutionStatus.NoTenant)
-                return await CreateMissingBusinessAsync();
+                return NoBusiness();
 
             var business = await _db.Businesses.FirstAsync(b => b.Id == tenant.TenantId!.Value);
 
@@ -80,7 +75,7 @@ namespace AppointMe.Web.Controllers
 
             var tenant = await _tenantContext.ResolveAsync();
             if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
-            if (tenant.Status == TenantResolutionStatus.NoTenant) return RedirectToAction(nameof(Business));
+            if (tenant.Status == TenantResolutionStatus.NoTenant) return NoBusiness();
 
             // The tenant comes from the server; a posted Id for another Business is rejected.
             if (tenant.TenantId!.Value != vm.Id)
@@ -161,39 +156,11 @@ namespace AppointMe.Web.Controllers
         }
 
         /// <summary>
-        /// Creates the Business for a user who has none yet, or whose TenantId points to a missing Business
-        /// (that Id is kept). TODO(step 2): the Business moves to registration and this GET becomes read-only.
+        /// The Business is created at registration, so this page never creates one. A user without a
+        /// Business (which should not happen after the ConfirmExistingUsers migration) sees an error page.
+        /// RequireTenantFilter sends such users here, so this must not redirect back (no loop).
         /// </summary>
-        private async Task<IActionResult> CreateMissingBusinessAsync()
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
-
-            var business = new Business
-            {
-                Id = user.TenantId is { } existing && existing != Guid.Empty ? existing : Guid.NewGuid(),
-                Name = "My Business",
-                EnableServices = true,
-                EnableInvoices = false,
-                EnableStaffing = true,
-                EnablePayments = true,
-                DefaultSlotMinutes = 30,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            _db.Businesses.Add(business);
-            await _db.SaveChangesAsync();
-
-            if (user.TenantId != business.Id)
-            {
-                user.TenantId = business.Id;
-                user.UpdatedAt = DateTime.UtcNow;
-                await _userManager.UpdateAsync(user);
-            }
-
-            return RedirectToAction(nameof(Business));
-        }
+        private IActionResult NoBusiness() => View("NoBusiness");
 
         private static string? NormalizeHex(string? input)
         {

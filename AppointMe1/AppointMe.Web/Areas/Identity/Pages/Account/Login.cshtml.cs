@@ -19,12 +19,20 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
     [AllowAnonymous]
     public class LoginModel : PageModel
     {
+        public const string ConfirmEmailMessage =
+            "You need to confirm your email before you can log in. Check your inbox for the confirmation link.";
+
         private readonly SignInManager<AppointMeAppUser> _signInManager;
+        private readonly UserManager<AppointMeAppUser> _userManager;
         private readonly ILogger<LoginModel> _logger;
 
-        public LoginModel(SignInManager<AppointMeAppUser> signInManager, ILogger<LoginModel> logger)
+        public LoginModel(
+            SignInManager<AppointMeAppUser> signInManager,
+            UserManager<AppointMeAppUser> userManager,
+            ILogger<LoginModel> logger)
         {
             _signInManager = signInManager;
+            _userManager = userManager;
             _logger = logger;
         }
 
@@ -37,6 +45,9 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
 
         [TempData]
         public string ErrorMessage { get; set; }
+
+        /// <summary>True when the password was correct but the email is not confirmed yet.</summary>
+        public bool ShowResendConfirmation { get; set; }
 
         public class InputModel
         {
@@ -96,6 +107,41 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
             {
                 _logger.LogWarning("User account locked out.");
                 return RedirectToPage("./Lockout");
+            }
+
+            if (result.IsNotAllowed)
+                return await HandleNotAllowedAsync();
+
+            ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+            return Page();
+        }
+
+        /// <summary>
+        /// Identity returns NotAllowed for an unconfirmed account before it checks the password (and before
+        /// lockout). So the "confirm your email" hint is shown only when the password is correct, otherwise
+        /// anyone could find out which emails are registered. Wrong passwords still count towards lockout.
+        /// </summary>
+        private async Task<IActionResult> HandleNotAllowedAsync()
+        {
+            var user = await _userManager.FindByEmailAsync(Input.Email);
+            if (user != null && !await _userManager.IsEmailConfirmedAsync(user))
+            {
+                if (await _userManager.IsLockedOutAsync(user))
+                    return RedirectToPage("./Lockout");
+
+                if (await _userManager.CheckPasswordAsync(user, Input.Password))
+                {
+                    ShowResendConfirmation = true;
+                    ModelState.AddModelError(string.Empty, ConfirmEmailMessage);
+                    return Page();
+                }
+
+                await _userManager.AccessFailedAsync(user);
+                if (await _userManager.IsLockedOutAsync(user))
+                {
+                    _logger.LogWarning("User account locked out.");
+                    return RedirectToPage("./Lockout");
+                }
             }
 
             ModelState.AddModelError(string.Empty, "Invalid login attempt.");

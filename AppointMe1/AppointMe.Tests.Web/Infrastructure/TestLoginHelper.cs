@@ -78,15 +78,16 @@ public static class TestLoginHelper
     {
         var post = await client.PostLoginAsync(email, password);
 
-        // Success is usually 302
+        // A successful login always redirects; 200 means the form was shown again with an error
+        // (wrong password, unconfirmed email, ...).
         if (post.StatusCode == HttpStatusCode.OK)
         {
-            // Could be "invalid login attempt" page; fail with useful info
             var postHtml = await post.Content.ReadAsStringAsync();
             postHtml.Should().NotContain("Invalid login attempt", "login must succeed for web tests to work");
+            postHtml.Should().NotContain("confirm your email", "test users must be created with EmailConfirmed = true");
         }
 
-        post.StatusCode.Should().BeOneOf(HttpStatusCode.Redirect, HttpStatusCode.OK);
+        post.StatusCode.Should().Be(HttpStatusCode.Redirect, "a successful login redirects");
 
         // Manually follow redirect once to complete sign-in when AllowAutoRedirect=false
         if (post.StatusCode == HttpStatusCode.Redirect && post.Headers.Location != null)

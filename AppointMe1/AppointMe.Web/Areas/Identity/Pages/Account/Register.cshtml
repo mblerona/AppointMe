@@ -8,7 +8,7 @@
 <div class="d-flex align-items-start justify-content-between mb-4">
     <div>
         <h1 class="fw-bold mb-1">Create account</h1>
-        <div class="text-muted">Set up your user profile to start using AppointMe.</div>
+        <div class="text-muted">Set up your business and user profile to start using AppointMe.</div>
     </div>
 </div>
 
@@ -16,6 +16,15 @@
     <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
 
     <div class="row g-3">
+        <div class="col-12">
+            <label asp-for="Input.BusinessName" class="form-label fw-semibold">Business name</label>
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="bi bi-shop"></i></span>
+                <input asp-for="Input.BusinessName" class="form-control" aria-required="true" placeholder="My Salon" />
+            </div>
+            <span asp-validation-for="Input.BusinessName" class="text-danger"></span>
+        </div>
+
         <div class="col-12 col-md-6">
             <label asp-for="Input.FirstName" class="form-label fw-semibold">First name</label>
             <div class="input-group">

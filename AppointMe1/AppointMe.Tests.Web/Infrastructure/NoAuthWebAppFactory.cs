@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.InMemory.Storage;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,8 @@ public class NoAuthWebAppFactory : WebApplicationFactory<Program>
             {
                 var root = sp.GetRequiredService<InMemoryDatabaseRoot>();
                 opt.UseInMemoryDatabase(_dbName, root);
+                // Registration uses an explicit transaction; the in-memory provider has none, so ignore the warning.
+                opt.ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning));
             });
 
             var spBuilt = services.BuildServiceProvider();

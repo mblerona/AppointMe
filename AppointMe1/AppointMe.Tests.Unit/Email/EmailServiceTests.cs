@@ -62,6 +62,34 @@ public class EmailServiceTests
     }
 
     [Fact]
+    public async Task SendEmailAsync_WhenIsHtml_SendsAnHtmlBody()
+    {
+        var settings = Options.Create(new MailSettings
+        {
+            SmtpServer = "smtp.test.local",
+            SmtpServerPort = 587,
+            EnableSsl = true,
+            EmailDisplayName = "AppointMe",
+            SmtpUserName = "sender@test.local",
+            SmtpPassword = "secret"
+        });
+        var fakeSmtp = new FakeSmtpClient();
+        var sut = new EmailService(settings, new FakeSmtpClientFactory(fakeSmtp));
+
+        await sut.SendEmailAsync(new EmailMessage
+        {
+            MailTo = "user@example.com",
+            Subject = "Confirm",
+            Content = "<p>Hi <a href=\"https://x\">link</a></p>",
+            IsHtml = true
+        });
+
+        var body = fakeSmtp.LastMessage!.Body.Should().BeOfType<TextPart>().Subject;
+        body.IsHtml.Should().BeTrue();
+        body.Text.Should().Be("<p>Hi <a href=\"https://x\">link</a></p>");
+    }
+
+    [Fact]
     public async Task SendEmailWithAttachmentAsync_SendsEmail_WithAttachment()
     {
         // Arrange

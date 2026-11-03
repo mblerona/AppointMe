@@ -55,6 +55,11 @@
         <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl" class="fw-semibold">Create one</a>
     </div>
 
+    <div class="text-center mt-2 small-link small">
+        <a id="resend-confirmation" asp-page="./ResendEmailConfirmation" asp-route-email="@Model.Input?.Email"
+           class="@(Model.ShowResendConfirmation ? "fw-semibold" : "text-muted")">Resend confirmation email</a>
+    </div>
+
 
 </form>
 

@@ -26,7 +26,7 @@ builder.Services.AddTransient<ISmtpClientFactory, MailKitSmtpClientFactory>();
 
 builder.Services.AddDefaultIdentity<AppointMeAppUser>(options =>
 {
-    options.SignIn.RequireConfirmedAccount = false;
+    options.SignIn.RequireConfirmedAccount = true;
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 8;
     options.Password.RequireNonAlphanumeric = false;
@@ -53,6 +53,11 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, AppointMe.Web.Infrastructure.TenantContext>();
 builder.Services.AddScoped<AppointMe.Web.Infrastructure.RequireTenantFilter>();
+
+// Registration (Business + owner) and Identity emails (confirmation, password reset) via MailKit.
+builder.Services.AddScoped<IBusinessService, BusinessService>();
+builder.Services.AddTransient<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender, AppointMe.Web.Infrastructure.IdentityEmailSender>();
+builder.Services.AddScoped<AppointMe.Web.Infrastructure.AccountConfirmationEmail>();
 
 builder.Services.AddHttpClient<IHolidayService, HolidayService>(client =>
     client.Timeout = TimeSpan.FromSeconds(10));

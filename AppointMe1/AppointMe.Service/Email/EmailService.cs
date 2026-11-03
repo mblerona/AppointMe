@@ -21,7 +21,7 @@ namespace AppointMe.Service.Email
         {
             var email = BuildBaseMessage(message);
 
-            email.Body = new TextPart(MimeKit.Text.TextFormat.Plain)
+            email.Body = new TextPart(message.IsHtml ? MimeKit.Text.TextFormat.Html : MimeKit.Text.TextFormat.Plain)
             {
                 Text = message.Content
             };
@@ -37,10 +37,11 @@ namespace AppointMe.Service.Email
         {
             var email = BuildBaseMessage(message);
 
-            var builder = new BodyBuilder
-            {
-                TextBody = message.Content
-            };
+            var builder = new BodyBuilder();
+            if (message.IsHtml)
+                builder.HtmlBody = message.Content;
+            else
+                builder.TextBody = message.Content;
 
             builder.Attachments.Add(attachmentFileName, attachmentBytes, ContentType.Parse(contentType));
 

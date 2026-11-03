@@ -1,0 +1,32 @@
+@page
+@model RegisterConfirmationModel
+@{
+    ViewData["Title"] = "Check your email";
+    Layout = "../_AuthLayout.cshtml";
+}
+
+<div class="mb-4">
+    <h1 class="fw-bold mb-1">Check your email to confirm your account</h1>
+    <div class="text-muted">Your account and business have been created.</div>
+</div>
+
+@if (Model.EmailFailed)
+{
+    <div class="alert alert-warning" role="alert">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        We couldn't send the confirmation email right now. Please try again with
+        <a asp-page="./ResendEmailConfirmation" asp-route-email="@Model.Email" class="fw-semibold">Resend confirmation email</a>.
+    </div>
+}
+else
+{
+    <p>
+        We sent a confirmation link to <strong>@Model.Email</strong>.
+        Open the link in that email to activate your account, then log in.
+    </p>
+}
+
+<div class="d-flex flex-wrap gap-3 mt-4 small-link">
+    <a asp-page="./Login" class="fw-semibold"><i class="bi bi-box-arrow-in-right me-1"></i>Go to log in</a>
+    <a asp-page="./ResendEmailConfirmation" asp-route-email="@Model.Email">Didn't get the email? Resend it</a>
+</div>

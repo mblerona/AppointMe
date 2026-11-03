@@ -1,9 +1,11 @@
 using System.Net;
 using AppointMe.Domain.Identity;
+using AppointMe.Repository.Data;
 using AppointMe.Tests.Web.Infrastructure;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -47,7 +49,6 @@ public class TenantRedirectTests : IClassFixture<CustomWebAppFactory>
     [InlineData("/Invoices")]
     public async Task UserWithoutTenant_IsRedirectedToBusinessSettings(string url)
     {
-        // Never follow the redirect: Settings/Business would create a Business for this user.
         var client = await LoginAsUserAsync(NoTenantEmail, tenantId: null);
 
         var res = await client.GetAsync(url);
@@ -65,6 +66,23 @@ public class TenantRedirectTests : IClassFixture<CustomWebAppFactory>
 
         res.StatusCode.Should().Be(HttpStatusCode.Redirect);
         res.Headers.Location!.ToString().Should().Contain("/Settings/Business");
+    }
+
+    [Fact]
+    public async Task BusinessSettings_ForUserWithoutBusiness_ShowsAnError_AndCreatesNoBusiness()
+    {
+        var client = await LoginAsUserAsync(NoTenantEmail, tenantId: null);
+        var before = await TestData.WithDbAsync(_factory, (ApplicationDbContext db) => db.Businesses.CountAsync());
+
+        var res = await client.GetAsync("/Settings/Business");
+
+        res.StatusCode.Should().Be(HttpStatusCode.OK, "no redirect, so the tenant filter can't loop");
+        (await res.Content.ReadAsStringAsync()).Should().Contain("isn't linked to a business");
+        (await TestData.WithDbAsync(_factory, (ApplicationDbContext db) => db.Businesses.CountAsync())).Should().Be(before);
+
+        using var scope = _factory.Services.CreateScope();
+        var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<AppointMeAppUser>>();
+        (await userMgr.FindByEmailAsync(NoTenantEmail))!.TenantId.Should().BeNull();
     }
 
     [Fact]

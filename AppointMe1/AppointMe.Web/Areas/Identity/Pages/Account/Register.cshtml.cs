@@ -6,17 +6,17 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Text;
-using System.Text.Encodings.Web;
 using System.Threading;
 using System.Threading.Tasks;
+using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.Identity;
+using AppointMe.Service.Implementation;
+using AppointMe.Service.Interface;
+using AppointMe.Web.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 
 namespace AppointMe.Web.Areas.Identity.Pages.Account
@@ -27,22 +27,25 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
         private readonly UserManager<AppointMeAppUser> _userManager;
         private readonly IUserStore<AppointMeAppUser> _userStore;
         private readonly IUserEmailStore<AppointMeAppUser> _emailStore;
+        private readonly IBusinessService _businessService;
+        private readonly AccountConfirmationEmail _confirmationEmail;
         private readonly ILogger<RegisterModel> _logger;
-        private readonly IEmailSender _emailSender;
 
         public RegisterModel(
             UserManager<AppointMeAppUser> userManager,
             IUserStore<AppointMeAppUser> userStore,
             SignInManager<AppointMeAppUser> signInManager,
-            ILogger<RegisterModel> logger,
-            IEmailSender emailSender)
+            IBusinessService businessService,
+            AccountConfirmationEmail confirmationEmail,
+            ILogger<RegisterModel> logger)
         {
             _userManager = userManager;
             _userStore = userStore;
             _emailStore = GetEmailStore();
             _signInManager = signInManager;
+            _businessService = businessService;
+            _confirmationEmail = confirmationEmail;
             _logger = logger;
-            _emailSender = emailSender;
         }
 
         [BindProperty]
@@ -53,6 +56,11 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
 
         public class InputModel
         {
+            [Required]
+            [StringLength(BusinessService.MaxBusinessNameLength)]
+            [Display(Name = "Business name")]
+            public string BusinessName { get; set; }
+
             [Required]
             [Display(Name = "First name")]
             public string FirstName { get; set; }
@@ -98,50 +106,45 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
             await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
             await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
 
-            user.FirstName = Input.FirstName;
-            user.LastName = Input.LastName;
+            user.FirstName = Input.FirstName.Trim();
+            user.LastName = Input.LastName.Trim();
 
-            // Note: TenantId is a Guid? and is null for a new user, so this branch never runs.
-            // The tenant is assigned on the first visit to Settings/Business, which creates the
-            // Business and sets TenantId (audit items B9/A5 move this into registration).
-            if (user.TenantId == Guid.Empty)
+            IdentityResult result;
+            try
             {
-                user.TenantId = Guid.NewGuid();
+                // Creates the Business and the user together and sets user.TenantId.
+                result = await _businessService.RegisterOwnerAsync(user, Input.Password, Input.BusinessName);
+            }
+            catch (BusinessRuleException ex)
+            {
+                ModelState.AddModelError($"{nameof(Input)}.{nameof(InputModel.BusinessName)}", ex.Message);
+                return Page();
             }
 
-            var result = await _userManager.CreateAsync(user, Input.Password);
-
-            if (result.Succeeded)
+            if (!result.Succeeded)
             {
-                _logger.LogInformation("User created a new account with password.");
+                foreach (var error in result.Errors)
+                    ModelState.AddModelError(string.Empty, error.Description);
 
-                var userId = await _userManager.GetUserIdAsync(user);
-                var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-                code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-                var callbackUrl = Url.Page(
-                    "/Account/ConfirmEmail",
-                    pageHandler: null,
-                    values: new { area = "Identity", userId = userId, code = code, returnUrl = returnUrl },
-                    protocol: Request.Scheme);
+                return Page();
+            }
 
-                await _emailSender.SendEmailAsync(
-                    Input.Email,
-                    "Confirm your email",
-                    $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+            _logger.LogInformation("User {UserId} registered with business {TenantId}.", user.Id, user.TenantId);
 
-                if (_userManager.Options.SignIn.RequireConfirmedAccount)
+            // A failed email must not undo the registration; the confirmation page offers a resend.
+            var emailSent = await _confirmationEmail.TrySendAsync(user, Url, Request.Scheme);
+
+            if (_userManager.Options.SignIn.RequireConfirmedAccount)
+            {
+                return RedirectToPage("RegisterConfirmation", new
                 {
-                    return RedirectToPage("RegisterConfirmation", new { email = Input.Email, returnUrl });
-                }
-
-                await _signInManager.SignInAsync(user, isPersistent: false);
-                return LocalRedirect(returnUrl);
+                    email = Input.Email,
+                    emailFailed = emailSent ? (bool?)null : true
+                });
             }
 
-            foreach (var error in result.Errors)
-                ModelState.AddModelError(string.Empty, error.Description);
-
-            return Page();
+            await _signInManager.SignInAsync(user, isPersistent: false);
+            return LocalRedirect(returnUrl);
         }
 
         private AppointMeAppUser CreateUser()
@@ -167,8 +170,3 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
         }
     }
 }
-
-
-
-
-

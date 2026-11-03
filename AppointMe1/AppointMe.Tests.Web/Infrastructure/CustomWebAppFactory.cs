@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.InMemory.Storage;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,14 +44,8 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
             {
                 var root = sp.GetRequiredService<InMemoryDatabaseRoot>();
                 opt.UseInMemoryDatabase(_dbName, root);
-            });
-
-            //  Identity login must work in tests
-            services.Configure<IdentityOptions>(o =>
-            {
-                o.SignIn.RequireConfirmedAccount = false;
-                o.SignIn.RequireConfirmedEmail = false;
-                o.SignIn.RequireConfirmedPhoneNumber = false;
+                // Registration uses an explicit transaction; the in-memory provider has none, so ignore the warning.
+                opt.ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning));
             });
 
             var spBuilt = services.BuildServiceProvider();
