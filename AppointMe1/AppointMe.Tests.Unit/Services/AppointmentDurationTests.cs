@@ -60,7 +60,8 @@ public class AppointmentDurationTests
             holidays.Object,
             new BusinessRepository(_db),
             _email.Object,
-            NullLogger<AppointmentService>.Instance);
+            NullLogger<AppointmentService>.Instance,
+            TimeProvider.System);
     }
 
     private static DateTime Tomorrow(int hour, int minute = 0) => DateTime.Today.AddDays(1).AddHours(hour).AddMinutes(minute);
@@ -904,6 +905,7 @@ public class AppointmentDurationTests
         await BookAsync(Tomorrow(9, 45), "ORD-1", notify: true);
 
         ics.Should().NotBeNull();
-        Encoding.UTF8.GetString(ics!).Should().Contain($"DTEND:{Tomorrow(10, 30):yyyyMMdd'T'HHmmss}");
+        var endUtc = AppointMe.Domain.TimeZones.BusinessTimeZones.ToUtc(Tomorrow(10, 30), "Europe/Skopje");
+        Encoding.UTF8.GetString(ics!).Should().Contain($"DTEND:{endUtc:yyyyMMdd'T'HHmmss}Z");
     }
 }

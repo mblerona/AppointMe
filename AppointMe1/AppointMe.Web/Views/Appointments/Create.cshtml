@@ -140,6 +140,7 @@
                         <span asp-validation-for="AppointmentDate" class="text-danger"></span>
                         <div class="input-hint mt-1">Only future times inside business hours are allowed.</div>
                         <div id="durationHint" class="input-hint fw-semibold mt-1"
+                             data-business-now="@ViewBag.BusinessNow"
                              data-slot-minutes="@ViewBag.SlotMinutes"
                              data-work-start="@ViewBag.WorkStart"
                              data-work-end="@ViewBag.WorkEnd"
@@ -358,7 +359,7 @@
                 if (t > we) dt.setHours(weH, weM, 0, 0);
 
                
-                const now = new Date();
+                const now = AppointmentForm.now();
                 const nowRounded = roundUpToStep(now, STEP_MINUTES);
 
                 if (dt < nowRounded) {
@@ -374,7 +375,7 @@
                 return toLocalDatetimeValue(dt);
             }
 
-            const minAligned = roundUpToStep(new Date(), STEP_MINUTES);
+            const minAligned = roundUpToStep(AppointmentForm.now(), STEP_MINUTES);
 
             // initialize value
             if (!input.value) {

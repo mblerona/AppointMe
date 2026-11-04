@@ -65,6 +65,23 @@ public class DashboardServiceTests
         VerifyQuery(null, null, null, null);
     }
 
+    [Theory]
+    [InlineData("Asia/Tokyo", 19)]           // 05:00 the next morning there
+    [InlineData("America/Los_Angeles", 18)]  // 12:00 there
+    [InlineData("UTC", 18)]
+    public async Task Today_IsTheBusinessesDate_NotTheServers(string zone, int expectedDay)
+    {
+        _businesses.Setup(r => r.GetByIdReadOnlyAsync(Tenant))
+            .ReturnsAsync(new Business { Id = Tenant, Name = "Bella", TimeZoneId = zone });
+        var sut = new DashboardService(_businesses.Object, _appointments.Object, _customers.Object,
+            new FixedTimeProvider(new DateTime(2026, 11, 18, 20, 0, 0)));
+
+        var d = await sut.GetDashboardAsync(Tenant, "today", "all", null);
+
+        d.Today.Should().Be(new DateTime(2026, 11, expectedDay));
+        VerifyQuery(new DateTime(2026, 11, expectedDay), new DateTime(2026, 11, expectedDay + 1), null, null);
+    }
+
     [Fact]
     public async Task Today_IsTodayFromMidnight()
     {

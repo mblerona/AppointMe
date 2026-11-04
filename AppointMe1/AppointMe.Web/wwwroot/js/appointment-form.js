@@ -29,6 +29,18 @@ window.AppointmentForm = (function () {
         return rest === 0 ? hours + " h" : hours + " h " + rest + " min";
     }
 
+    // The business's clock, not the browser's: the user may be in another time zone, and the server
+    // decides what counts as the past by the business's time. The server sends the time when the page
+    // was rendered, and this counts forward from it. Field values are read the same way, as plain clock
+    // times, so comparing them with this works in any browser time zone.
+    const scriptLoadedAt = Date.now();
+
+    function now() {
+        const hint = document.getElementById("durationHint");
+        const rendered = hint && hint.dataset.businessNow;
+        return rendered ? new Date(new Date(rendered).getTime() + (Date.now() - scriptLoadedAt)) : new Date();
+    }
+
     function toMinutes(hhmm) {
         const [h, m] = hhmm.split(":").map(Number);
         return h * 60 + m;
@@ -105,7 +117,7 @@ window.AppointmentForm = (function () {
         const slotMinutes = Number(data.slotMinutes);
         const openingMinutes = toMinutes(data.workStart);
 
-        const firstFree = nextOnInterval(new Date(), slotMinutes, openingMinutes);
+        const firstFree = nextOnInterval(now(), slotMinutes, openingMinutes);
         input.min = firstFree;
         input.step = 1440 % slotMinutes === 0 ? slotMinutes * 60 : 60;
 
@@ -214,5 +226,5 @@ window.AppointmentForm = (function () {
         update();
     }
 
-    return { calculateDuration, formatDuration, nextOnInterval, createSaveGuard, prepareNewBookingDate, initDurationHint };
+    return { now, calculateDuration, formatDuration, nextOnInterval, createSaveGuard, prepareNewBookingDate, initDurationHint };
 })();

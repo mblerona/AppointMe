@@ -139,6 +139,11 @@ namespace AppointMe.Repository.Data
                 entity.Property(b => b.EnableStaffing).HasDefaultValue(true);
                 entity.Property(b => b.EnablePayments).HasDefaultValue(true);
                 entity.Property(b => b.EnableInvoices).HasDefaultValue(true);
+
+                entity.Property(b => b.TimeZoneId)
+                    .IsRequired()
+                    .HasMaxLength(AppointMe.Domain.TimeZones.BusinessTimeZones.MaxIdLength)
+                    .HasDefaultValue(AppointMe.Domain.TimeZones.BusinessTimeZones.Default);
             });
 
             // ==================== SERVICE CATEGORY ====================

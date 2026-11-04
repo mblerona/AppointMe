@@ -1,6 +1,7 @@
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
+using AppointMe.Domain.TimeZones;
 using AppointMe.Domain.Identity;
 using AppointMe.Domain.Validation;
 using AppointMe.Repository.Interface;
@@ -22,15 +23,18 @@ namespace AppointMe.Service.Implementation
         private readonly IBusinessRepository _businessRepository;
         private readonly UserManager<AppointMeAppUser> _userManager;
         private readonly ILogoStorage _logoStorage;
+        private readonly TimeProvider _timeProvider;
 
         public BusinessService(
             IBusinessRepository businessRepository,
             UserManager<AppointMeAppUser> userManager,
-            ILogoStorage logoStorage)
+            ILogoStorage logoStorage,
+            TimeProvider timeProvider)
         {
             _businessRepository = businessRepository;
             _userManager = userManager;
             _logoStorage = logoStorage;
+            _timeProvider = timeProvider;
         }
 
         // ---------------- registration ----------------
@@ -109,6 +113,7 @@ namespace AppointMe.Service.Implementation
                 EnableInvoices = b.EnableServices && b.EnableInvoices,
                 WorkDayStart = b.WorkDayStart,
                 WorkDayEnd = b.WorkDayEnd,
+                TimeZoneId = b.TimeZoneId,
                 OpenMon = b.OpenMon,
                 OpenTue = b.OpenTue,
                 OpenWed = b.OpenWed,
@@ -135,6 +140,9 @@ namespace AppointMe.Service.Implementation
                     $"Time slot interval must be between {MinSlotMinutes} and {MaxSlotMinutes} minutes.",
                     nameof(BusinessSettingsDTO.DefaultSlotMinutes));
 
+            if (!string.IsNullOrWhiteSpace(settings.TimeZoneId) && !BusinessTimeZones.IsSupported(settings.TimeZoneId))
+                throw new BusinessRuleException("Please choose a time zone from the list.", nameof(BusinessSettingsDTO.TimeZoneId));
+
             var phone = PhoneNumberNormalizer.NormalizeOptional(settings.Phone, nameof(BusinessSettingsDTO.Phone));
             var logoExtension = logo is { Length: > 0 } ? ValidateLogo(logo) : null;
 
@@ -147,6 +155,8 @@ namespace AppointMe.Service.Implementation
             business.DefaultSlotMinutes = settings.DefaultSlotMinutes;
             business.WorkDayStart = settings.WorkDayStart;
             business.WorkDayEnd = settings.WorkDayEnd;
+            if (!string.IsNullOrWhiteSpace(settings.TimeZoneId))
+                business.TimeZoneId = settings.TimeZoneId;
             business.OpenMon = settings.OpenMon;
             business.OpenTue = settings.OpenTue;
             business.OpenWed = settings.OpenWed;
@@ -182,6 +192,7 @@ namespace AppointMe.Service.Implementation
             {
                 WorkDayStart = b.WorkDayStart,
                 WorkDayEnd = b.WorkDayEnd,
+                Now = BusinessTimeZones.Now(_timeProvider, b.TimeZoneId),
                 SlotMinutes = b.DefaultSlotMinutes <= 0 ? FallbackSlotMinutes : b.DefaultSlotMinutes,
                 HiddenDays = hidden
             };

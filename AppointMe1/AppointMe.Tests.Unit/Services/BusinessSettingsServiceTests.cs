@@ -32,7 +32,7 @@ public class BusinessSettingsServiceTests : IDisposable
         var userManager = new Mock<UserManager<AppointMeAppUser>>(
             Mock.Of<IUserStore<AppointMeAppUser>>(), null!, null!, null!, null!, null!, null!, null!, null!);
 
-        _sut = new BusinessService(new BusinessRepository(_db), userManager.Object, _logoStorage.Object);
+        _sut = new BusinessService(new BusinessRepository(_db), userManager.Object, _logoStorage.Object, TimeProvider.System);
 
         _db.Businesses.Add(new Business
         {
@@ -73,6 +73,50 @@ public class BusinessSettingsServiceTests : IDisposable
     {
         _db.ChangeTracker.Clear();
         return await _db.Businesses.SingleAsync(b => b.Id == Tenant);
+    }
+
+    [Fact]
+    public async Task UpdateSettings_SavesASupportedTimeZone()
+    {
+        var s = ValidSettings();
+        s.TimeZoneId = "Asia/Tokyo";
+
+        await _sut.UpdateSettingsAsync(Tenant, s, null);
+
+        (await StoredAsync()).TimeZoneId.Should().Be("Asia/Tokyo");
+        (await _sut.GetSettingsAsync(Tenant)).TimeZoneId.Should().Be("Asia/Tokyo");
+    }
+
+    [Theory]
+    [InlineData("Mars/Olympus")]
+    [InlineData("europe/skopje")]
+    [InlineData("Central European Standard Time")]
+    public async Task UpdateSettings_WithAnUnsupportedTimeZone_Throws_AndSavesNothing(string zone)
+    {
+        var s = ValidSettings();
+        s.TimeZoneId = zone;
+
+        var act = () => _sut.UpdateSettingsAsync(Tenant, s, null);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.PropertyName.Should().Be(nameof(BusinessSettingsDTO.TimeZoneId));
+        var stored = await StoredAsync();
+        stored.TimeZoneId.Should().Be("Europe/Skopje");
+        stored.Name.Should().Be("Old name");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task UpdateSettings_WithoutATimeZone_KeepsTheCurrentOne(string? zone)
+    {
+        var s = ValidSettings();
+        s.TimeZoneId = "Asia/Tokyo";
+        await _sut.UpdateSettingsAsync(Tenant, s, null);
+
+        s.TimeZoneId = zone;
+        await _sut.UpdateSettingsAsync(Tenant, s, null);
+
+        (await StoredAsync()).TimeZoneId.Should().Be("Asia/Tokyo");
     }
 
     [Fact]

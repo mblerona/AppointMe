@@ -21,6 +21,9 @@ namespace AppointMe.Domain.DTO
         public TimeSpan WorkDayStart { get; set; }
         public TimeSpan WorkDayEnd { get; set; }
 
+        /// <summary>When saving, empty means "keep the current zone".</summary>
+        public string? TimeZoneId { get; set; }
+
         public bool OpenMon { get; set; }
         public bool OpenTue { get; set; }
         public bool OpenWed { get; set; }
@@ -35,6 +38,9 @@ namespace AppointMe.Domain.DTO
     {
         public TimeSpan WorkDayStart { get; set; }
         public TimeSpan WorkDayEnd { get; set; }
+
+        /// <summary>The business's clock right now, in its own time zone.</summary>
+        public DateTime Now { get; set; }
 
         /// <summary>Slot length for snapping times; never 0 or negative.</summary>
         public int SlotMinutes { get; set; }

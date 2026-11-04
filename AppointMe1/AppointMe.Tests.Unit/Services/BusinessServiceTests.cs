@@ -51,7 +51,7 @@ public class BusinessServiceTests : IDisposable
             null!,
             NullLogger<UserManager<AppointMeAppUser>>.Instance);
 
-        _sut = new BusinessService(new BusinessRepository(_db), _userManager, _logoStorage.Object);
+        _sut = new BusinessService(new BusinessRepository(_db), _userManager, _logoStorage.Object, TimeProvider.System);
     }
 
     public void Dispose()
@@ -92,6 +92,7 @@ public class BusinessServiceTests : IDisposable
         business.Name.Should().Be("Bella Salon");
         business.EnableInvoices.Should().BeFalse("same defaults as before");
         business.DefaultSlotMinutes.Should().Be(30);
+        business.TimeZoneId.Should().Be("Europe/Skopje");
 
         var stored = await _db.Users.SingleAsync(u => u.Email == "owner@test.com");
         stored.TenantId.Should().Be(business.Id);

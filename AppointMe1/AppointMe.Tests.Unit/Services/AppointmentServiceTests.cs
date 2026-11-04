@@ -106,7 +106,8 @@ namespace AppointMe.Tests.Unit.Services
                 holidaySvc.Object,
                 new BusinessRepository(db),
                 emailSvc.Object,
-                logger ?? NullLogger<AppointmentService>.Instance
+                logger ?? NullLogger<AppointmentService>.Instance,
+                TimeProvider.System
             );
         }
 
@@ -206,7 +207,7 @@ namespace AppointMe.Tests.Unit.Services
             {
                 CustomerId = customerId,
                 OrderNumber = "ORD-1",
-                AppointmentDate = DateTime.Now.AddMinutes(-5), // past
+                AppointmentDate = DateTime.Now.AddDays(-2), // past in every time zone
                 Description = "desc"
             };
 

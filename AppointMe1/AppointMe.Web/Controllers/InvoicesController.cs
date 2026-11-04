@@ -12,6 +12,7 @@ namespace AppointMe.Web.Controllers
         private readonly IInvoiceService _invoiceService;
         private readonly IEmailService _emailService;
         private readonly ILogger<InvoicesController> _logger;
+        private readonly IBusinessService _businessService;
 
         private const string SendFailedMessage = "The invoice could not be sent by email. Please try again later.";
 
@@ -19,8 +20,10 @@ namespace AppointMe.Web.Controllers
             IInvoiceService invoiceService,
             IEmailService emailService,
             ITenantContext tenantContext,
-            ILogger<InvoicesController> logger) : base(tenantContext)
+            ILogger<InvoicesController> logger,
+            IBusinessService businessService) : base(tenantContext)
         {
+            _businessService = businessService;
             _invoiceService = invoiceService;
             _emailService = emailService;
             _logger = logger;
@@ -153,7 +156,8 @@ Thank you,
                 }
 
                 // Generate PDF bytes
-                var pdfBytes = await InvoicePdfGenerator.GenerateAsync(invoice);
+                var businessNow = (await _businessService.GetCalendarConfigAsync(TenantId)).Now;
+                var pdfBytes = await InvoicePdfGenerator.GenerateAsync(invoice, businessNow);
 
                 var subject = $"{invoice.BusinessName} Invoice {invoice.InvoiceNumber}";
                 var content =

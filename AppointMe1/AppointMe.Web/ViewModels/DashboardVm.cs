@@ -4,6 +4,7 @@
     {
         public string BusinessName { get; set; } = "";
         public string? LogoUrl { get; set; }
+        public DateTime Today { get; set; }
 
         public int TotalAppointments { get; set; }
         public int ScheduledAppointments { get; set; }

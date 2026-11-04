@@ -5,6 +5,9 @@ namespace AppointMe.Domain.DTO
         public string BusinessName { get; set; } = "";
         public string? LogoUrl { get; set; }
 
+        /// <summary>Today's date in the business's time zone.</summary>
+        public DateTime Today { get; set; }
+
         public int TotalAppointments { get; set; }
         public int ScheduledAppointments { get; set; }
         public int CompletedAppointments { get; set; }

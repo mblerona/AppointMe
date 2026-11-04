@@ -1,6 +1,7 @@
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
+using AppointMe.Domain.TimeZones;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Calendar;
 using AppointMe.Service.Email;
@@ -21,6 +22,7 @@ namespace AppointMe.Service.Implementation
         private readonly IBusinessRepository _businessRepository;
         private readonly IEmailService _emailService;
         private readonly ILogger<AppointmentService> _logger;
+        private readonly TimeProvider _timeProvider;
 
         public AppointmentService(
             IAppointmentRepository appointmentRepository,
@@ -29,8 +31,10 @@ namespace AppointMe.Service.Implementation
             IHolidayService holidayService,
             IBusinessRepository businessRepository,
             IEmailService emailService,
-            ILogger<AppointmentService> logger)
+            ILogger<AppointmentService> logger,
+            TimeProvider timeProvider)
         {
+            _timeProvider = timeProvider;
             _appointmentRepository = appointmentRepository;
             _customerRepository = customerRepository;
             _serviceOfferingRepository = serviceOfferingRepository;
@@ -143,15 +147,17 @@ namespace AppointMe.Service.Implementation
 
                 try
                 {
-                    var endTime = appointment.AppointmentDate.AddMinutes(appointment.DurationMinutes);
+                    // In UTC, so the customer's calendar shows the right moment wherever they are.
+                    var startUtc = BusinessTimeZones.ToUtc(appointment.AppointmentDate, business.TimeZoneId);
+                    var endUtc = BusinessTimeZones.ToUtc(appointment.AppointmentDate.AddMinutes(appointment.DurationMinutes), business.TimeZoneId);
 
                     // ICS attachment
                     var icsBytes = IcsCalendarBuilder.BuildAppointmentIcs(
                         appointment.Id,
                         business.Name,
                         business.Address,
-                        appointment.AppointmentDate,
-                        endTime,
+                        startUtc,
+                        endUtc,
                         $"{customer.FirstName} {customer.LastName}".Trim(),
                         appointment.OrderNumber,
                         appointment.Description
@@ -357,7 +363,7 @@ Best regards,
         private async Task ValidateAgainstBusinessRulesAsync(DateTime appointmentDate, int durationMinutes, Business biz)
         {
             // 1) must be future
-            if (appointmentDate <= DateTime.Now)
+            if (appointmentDate <= BusinessTimeZones.Now(_timeProvider, biz.TimeZoneId))
                 throw new BusinessRuleException("Appointment date/time must be in the future.");
 
             // 2) must be on open day

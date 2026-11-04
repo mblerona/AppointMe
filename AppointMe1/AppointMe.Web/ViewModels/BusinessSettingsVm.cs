@@ -29,6 +29,10 @@ namespace AppointMe.Web.ViewModels
 
         [Range(5, 240)]
         public int DefaultSlotMinutes { get; set; } = 30;
+
+        [MaxLength(AppointMe.Domain.TimeZones.BusinessTimeZones.MaxIdLength)]
+        public string? TimeZoneId { get; set; }
+
         public bool EnableServices { get; set; }
         public bool EnableInvoices { get; set; }
         [Required]

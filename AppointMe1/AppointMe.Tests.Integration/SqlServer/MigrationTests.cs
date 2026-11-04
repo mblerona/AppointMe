@@ -17,6 +17,7 @@ namespace AppointMe.Tests.Integration.SqlServer
         public const string TenantForeignKeys = "20261103152752_TenantForeignKeysAndPerTenantOrderNumber";
         public const string AddAppointmentDuration = "20261104114652_AddAppointmentDuration";
         public const string AddServiceDuration = "20261104122910_AddServiceDuration";
+        public const string AddBusinessTimeZone = "20261104134128_AddBusinessTimeZone";
 
         public static string User(string id, string? tenantSql, bool confirmed) => $@"
 INSERT INTO AspNetUsers (Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
@@ -80,6 +81,35 @@ VALUES ('{existingBusiness}', N'Existing', 30, '09:00', '17:00', 1, 1, 1, 1, 1, 
             (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Businesses")).Should().Be(3);
         }
 
+    }
+
+    [Trait("Category", SqlServerCollection.Category)]
+    public class AddBusinessTimeZoneMigrationTests
+    {
+        [Fact]
+        public async Task ExistingBusinessesGetSkopje_NewRowsToo_AndRollsBack()
+        {
+            await using var database = new SqlServerTestDatabase();
+            await database.MigrateToAsync(MigrationSql.AddServiceDuration);
+
+            const string existing = "aaaaaaaa-0000-0000-0000-000000000001";
+            const string added = "aaaaaaaa-0000-0000-0000-000000000002";
+            await database.ExecuteSqlAsync(MigrationSql.Business(existing, "Existing"));
+
+            await database.MigrateToAsync(MigrationSql.AddBusinessTimeZone);
+
+            (await database.ScalarAsync($"SELECT COUNT(*) AS Value FROM Businesses WHERE Id = '{existing}' AND TimeZoneId = 'Europe/Skopje' AND Name = N'Existing'"))
+                .Should().Be(1, "the time the app used so far was the server's, which is in Skopje");
+
+            await database.ExecuteSqlAsync(MigrationSql.Business(added, "Added by a script"));
+            (await database.ScalarAsync($"SELECT COUNT(*) AS Value FROM Businesses WHERE Id = '{added}' AND TimeZoneId = 'Europe/Skopje'"))
+                .Should().Be(1, "an insert that doesn't mention the column gets the default");
+
+            await database.MigrateToAsync(MigrationSql.AddServiceDuration);
+
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Businesses' AND COLUMN_NAME = 'TimeZoneId'")).Should().Be(0);
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Businesses")).Should().Be(2, "rolling back keeps the businesses");
+        }
     }
 
     [Trait("Category", SqlServerCollection.Category)]

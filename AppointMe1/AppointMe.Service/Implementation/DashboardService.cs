@@ -1,5 +1,6 @@
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
+using AppointMe.Domain.TimeZones;
 using AppointMe.Domain.Validation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
@@ -32,7 +33,8 @@ namespace AppointMe.Service.Implementation
             var business = await _businessRepository.GetByIdReadOnlyAsync(tenantId)
                 ?? throw new KeyNotFoundException("Business not found.");
 
-            var (start, end) = GetRange(range);
+            var today = BusinessTimeZones.Now(_timeProvider, business.TimeZoneId).Date;
+            var (start, end) = GetRange(range, today);
             AppointmentStatus? statusFilter =
                 !string.IsNullOrWhiteSpace(status) && status != "all" &&
                 Enum.TryParse<AppointmentStatus>(status, ignoreCase: true, out var parsed)
@@ -50,6 +52,7 @@ namespace AppointMe.Service.Implementation
             {
                 BusinessName = business.Name,
                 LogoUrl = business.LogoUrl,
+                Today = today,
                 TotalAppointments = counts.Values.Sum(),
                 ScheduledAppointments = counts.GetValueOrDefault(AppointmentStatus.Scheduled),
                 CompletedAppointments = counts.GetValueOrDefault(AppointmentStatus.Completed),
@@ -59,14 +62,9 @@ namespace AppointMe.Service.Implementation
             };
         }
 
-        /// <summary>
-        /// [start, end) for the range filter, in local time like the stored appointment times
-        /// (server time until audit item B5 adds a business timezone).
-        /// </summary>
-        private (DateTime? Start, DateTime? End) GetRange(string? range)
+        /// <summary>[start, end) for the range filter, as the business's clock times like the stored appointment times.</summary>
+        private static (DateTime? Start, DateTime? End) GetRange(string? range, DateTime today)
         {
-            var today = _timeProvider.GetLocalNow().DateTime.Date;
-
             switch (range)
             {
                 case "today":

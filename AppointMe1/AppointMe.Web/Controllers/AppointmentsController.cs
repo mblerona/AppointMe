@@ -393,12 +393,14 @@ namespace AppointMe.Web.Controllers
             ViewBag.WorkEnd = config.WorkDayEnd.ToString(timeFormat);
             ViewBag.HiddenDays = System.Text.Json.JsonSerializer.Serialize(config.HiddenDays);
             ViewBag.SlotMinutes = config.SlotMinutes;
+            // The browser may be in another time zone, so the scripts must not use its clock for "now".
+            ViewBag.BusinessNow = config.Now.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         [HttpGet]
         public async Task<IActionResult> CalendarHolidays(int? year)
         {
-            var y = year ?? DateTime.Now.Year;
+            var y = year ?? (await _businessService.GetCalendarConfigAsync(TenantId)).Now.Year;
             var list = await _holidaysService.GetHolidaysAsync(y, "MK");
 
             var events = list.Select(h => new

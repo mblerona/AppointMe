@@ -12,8 +12,8 @@ namespace AppointMe.Service.Calendar
            Guid appointmentId,
            string businessName,
            string? businessAddress,
-           DateTime startLocal,
-           DateTime endLocal,
+           DateTime startUtc,
+           DateTime endUtc,
            string customerFullName,
            string? orderNumber,
            string? notes)
@@ -27,8 +27,8 @@ namespace AppointMe.Service.Calendar
             var dtStampUtc = DateTime.UtcNow;
 
             
-            var dtStart = FormatIcsLocal(startLocal);
-            var dtEnd = FormatIcsLocal(endLocal);
+            var dtStart = FormatIcsUtc(startUtc);
+            var dtEnd = FormatIcsUtc(endUtc);
             var dtStamp = FormatIcsUtc(dtStampUtc);
 
             var summary = $"Appointment at {businessName}";
@@ -75,13 +75,9 @@ namespace AppointMe.Service.Calendar
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
 
-      
-        private static string FormatIcsLocal(DateTime dt)
-            => dt.ToString("yyyyMMdd'T'HHmmss");
-
-        
+        // Invariant: the file format must not depend on the server's culture.
         private static string FormatIcsUtc(DateTime dtUtc)
-            => dtUtc.ToString("yyyyMMdd'T'HHmmss'Z'");
+            => dtUtc.ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
 
       
         private static string EscapeText(string s)

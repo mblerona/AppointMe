@@ -1,4 +1,4 @@
-﻿@model AppointMe.Domain.DTO.UpdateAppointmentDTO
+@model AppointMe.Domain.DTO.UpdateAppointmentDTO
 @using AppointMe.Domain.DomainModels
 @using Microsoft.AspNetCore.Identity
 @using AppointMe.Domain.Identity
@@ -115,6 +115,7 @@
                         <span asp-validation-for="AppointmentDate" class="text-danger"></span>
                         <div class="form-text">Must be inside business hours and not in the past.</div>
                         <div id="durationHint" class="form-text fw-semibold"
+                             data-business-now="@ViewBag.BusinessNow"
                              data-slot-minutes="@ViewBag.SlotMinutes"
                              data-work-start="@ViewBag.WorkStart"
                              data-work-end="@ViewBag.WorkEnd"
@@ -331,7 +332,7 @@
                 if (t > we) dt.setHours(weH, weM, 0, 0);
 
                 // no past date appointments allowed!!!
-                const now = new Date();
+                const now = AppointmentForm.now();
                 if (dt < now) {
                     dt.setTime(now.getTime());
                     const t2 = dt.getHours() * 60 + dt.getMinutes();
@@ -346,7 +347,7 @@
             }
 
             // A minimum after the stored date would make the browser refuse to submit the form.
-            const nowValue = toLocalDatetimeValue(new Date());
+            const nowValue = toLocalDatetimeValue(AppointmentForm.now());
             if (originalValue >= nowValue) input.min = nowValue;
 
             input.addEventListener("change", async function () {

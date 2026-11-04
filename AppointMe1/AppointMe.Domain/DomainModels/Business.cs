@@ -42,6 +42,10 @@ namespace AppointMe.Domain.DomainModels
         public TimeSpan WorkDayStart { get; set; } = new TimeSpan(9, 0, 0);
         public TimeSpan WorkDayEnd { get; set; } = new TimeSpan(17, 0, 0);
 
+        /// <summary>IANA id. Appointment times are this zone's clock times; see <see cref="TimeZones.BusinessTimeZones"/>.</summary>
+        [Required, MaxLength(TimeZones.BusinessTimeZones.MaxIdLength)]
+        public string TimeZoneId { get; set; } = TimeZones.BusinessTimeZones.Default;
+
         // optional: which days are open (Mon-Fri default)
         public bool OpenMon { get; set; } = true;
         public bool OpenTue { get; set; } = true;

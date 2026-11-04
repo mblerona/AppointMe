@@ -8,6 +8,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -21,6 +22,10 @@ public class TenantContextTests
     private readonly ApplicationDbContext _db = new(
         new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase($"tenant-context-{Guid.NewGuid()}")
+            // Same as the web factories: this class can run after more than 20 of them have started, and
+            // then EF throws this warning here. Without this, every test in the class fails, but only for
+            // some test orders, so it looks random.
+            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options);
 
     private TenantContext CreateContext(ClaimsPrincipal principal) =>

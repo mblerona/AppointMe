@@ -24,6 +24,7 @@ namespace AppointMe.Web.Controllers
             {
                 BusinessName = dashboard.BusinessName,
                 LogoUrl = dashboard.LogoUrl,
+                Today = dashboard.Today,
 
                 TotalAppointments = dashboard.TotalAppointments,
                 ScheduledAppointments = dashboard.ScheduledAppointments,

@@ -38,7 +38,8 @@ namespace AppointMe.Tests.Integration.SqlServer
                 new NoHolidays(),
                 new BusinessRepository(db),
                 new NoEmail(),
-                NullLogger<AppointmentService>.Instance);
+                NullLogger<AppointmentService>.Instance,
+                TimeProvider.System);
         }
 
         private sealed class NoHolidays : IHolidayService

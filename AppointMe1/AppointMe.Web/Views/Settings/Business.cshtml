@@ -132,6 +132,21 @@
                 Appointments start at these intervals from opening time. Without services, this is also the appointment length.
             </div>
         </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="TimeZoneId" class="form-label">Time zone</label>
+
+            <select asp-for="TimeZoneId" class="form-select">
+                @foreach (var zone in AppointMe.Domain.TimeZones.BusinessTimeZones.Supported)
+                {
+                    <option value="@zone">@AppointMe.Domain.TimeZones.BusinessTimeZones.DisplayName(zone)</option>
+                }
+            </select>
+
+            <span asp-validation-for="TimeZoneId" class="text-danger"></span>
+            <div class="form-text">
+                Sets today's date and what counts as the past. Existing appointments keep their clock times.
+            </div>
+        </div>
     </div>
 
     <!-- FEATURES -->
