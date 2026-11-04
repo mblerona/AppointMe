@@ -114,6 +114,14 @@
                         <input asp-for="AppointmentDate" asp-format="{0:yyyy-MM-ddTHH\:mm}" id="apptDate" type="datetime-local" class="form-control" />
                         <span asp-validation-for="AppointmentDate" class="text-danger"></span>
                         <div class="form-text">Must be inside business hours and not in the past.</div>
+                        <div id="durationHint" class="form-text fw-semibold"
+                             data-slot-minutes="@ViewBag.SlotMinutes"
+                             data-work-end="@ViewBag.WorkEnd"
+                             data-services-enabled="@(enableServices ? "true" : "false")"
+                             data-stored-duration="@ViewData["StoredDurationMinutes"]"
+                             data-stored-date="@ViewData["StoredDate"]"
+                             data-stored-services="@ViewData["StoredServiceIds"]"></div>
+                        <div id="closingWarning" class="text-danger small mt-1 d-none"></div>
                     </div>
 
                     <div class="col-md-6">
@@ -141,6 +149,7 @@
                                 @{
                                     var items = ViewBag.Services as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
                                     ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+                                    var durations = ViewBag.ServiceDurations as Dictionary<string, int?> ?? new Dictionary<string, int?>();
                                 }
 
                                 @if (!items.Any())
@@ -159,6 +168,7 @@
                                                        type="checkbox"
                                                        name="ServiceOfferingIds"
                                                        value="@s.Value"
+                                                       data-duration-minutes="@durations.GetValueOrDefault(s.Value)"
                                                 @(isChecked ? "checked" : "") />
 
                                                 <div class="flex-grow-1">
@@ -201,6 +211,7 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/appointment-form.js" asp-append-version="true"></script>
     <script>
         (function () {
             const input = document.getElementById('apptDate');
@@ -213,6 +224,8 @@
             // The date the server rendered. It stays as it is, whatever it is (in the past, on a day
             // that is now closed, on a holiday): the rules below only apply to a date the user changes.
             const originalValue = input.value;
+
+            const saveGuard = AppointmentForm.createSaveGuard(input, submitBtn);
 
             const workStart = "@(ViewBag.WorkStart ?? "09:00")";
             const workEnd = "@(ViewBag.WorkEnd ?? "17:00")";
@@ -270,14 +283,12 @@
                     holidayAlert.classList.remove('d-none');
                     holidayAlert.classList.add('d-flex');
                     holidayAlertText.textContent = name ? name : "";
-                    input.setCustomValidity(name ? `Public holiday: ${name}` : "Public holiday");
-                    if (submitBtn) submitBtn.disabled = true;
+                    saveGuard.block("holiday", name ? `Public holiday: ${name}` : "Public holiday");
                 } else {
                     holidayAlert.classList.add('d-none');
                     holidayAlert.classList.remove('d-flex');
                     holidayAlertText.textContent = "";
-                    input.setCustomValidity("");
-                    if (submitBtn) submitBtn.disabled = false;
+                    saveGuard.clear("holiday");
                 }
             }
 
@@ -345,6 +356,9 @@
             input.addEventListener("blur", async function () {
                 await validateHolidayForInput();
             });
+
+            // Registered after the listeners above, so it reads the date after they corrected it.
+            AppointmentForm.initDurationHint(input, saveGuard);
 
         })();
     </script>

@@ -64,6 +64,18 @@ namespace AppointMe.Web.Controllers
                 .ToList();
 
             ViewBag.Services = new MultiSelectList(items, "Id", "Text", selectedIds);
+            ViewBag.ServiceDurations = services.ToDictionary(s => s.Id.ToString(), s => s.DurationMinutes);
+        }
+
+        /// <summary>
+        /// What the appointment has stored right now. The Edit form's script compares against this, and
+        /// not against what was posted, so it stays correct when the form is shown again after a refused save.
+        /// </summary>
+        private void SetStoredValuesForEditForm(AppointmentDTO stored)
+        {
+            ViewData["StoredDurationMinutes"] = stored.DurationMinutes;
+            ViewData["StoredDate"] = stored.AppointmentDate.ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            ViewData["StoredServiceIds"] = string.Join(",", stored.Services.Select(x => x.ServiceId));
         }
 
         private void PopulateStatusSelectList(AppointmentStatus? selected = null)
@@ -202,6 +214,7 @@ namespace AppointMe.Web.Controllers
                 ViewData["AppointmentId"] = id;
                 PopulateStatusSelectList(parsedStatus);
                 await PopulateServicesMultiSelectAsync(tenantId, updateDto.ServiceOfferingIds, updateDto.ServiceOfferingIds);
+                SetStoredValuesForEditForm(appointment);
 
                 return View(updateDto);
             }
@@ -252,6 +265,7 @@ namespace AppointMe.Web.Controllers
                 ViewData["AppointmentId"] = id;
                 PopulateStatusSelectList(dto.Status);
                 await PopulateServicesMultiSelectAsync(tenantId, dto.ServiceOfferingIds, stored.Services.Select(x => x.ServiceId));
+                SetStoredValuesForEditForm(stored);
                 await LoadCalendarConfigAsync(tenantId);
 
                 return View("Edit", dto);
