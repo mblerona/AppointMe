@@ -13,6 +13,7 @@ namespace AppointMe.Domain.DTO
         public string OrderNumber { get; set; } = string.Empty;
 
         public DateTime AppointmentDate { get; set; }
+        public int DurationMinutes { get; set; }
 
         public string Description { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;

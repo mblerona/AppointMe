@@ -1,4 +1,4 @@
-﻿using AppointMe.Domain.DomainModels;
+using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Interface;
@@ -79,11 +79,12 @@ namespace AppointMe.Service.Implementation
 
             var business = await GetBusinessOrThrow(tenantId);
 
-            // Validate: future, open day, working hours, holidays
-            await ValidateAgainstBusinessRulesAsync(dto.AppointmentDate, business);
-
-            // Overlap availability (uses business slot duration)
+            // A new appointment takes the business's current slot length and keeps it from then on.
             var durationMinutes = business.DefaultSlotMinutes <= 0 ? 30 : business.DefaultSlotMinutes;
+
+            // Validate: future, open day, working hours, holidays
+            await ValidateAgainstBusinessRulesAsync(dto.AppointmentDate, durationMinutes, business);
+
             var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(dto.AppointmentDate, durationMinutes, tenantId);
             if (!isAvailable)
                 throw new BusinessRuleException("The selected time overlaps with another appointment.");
@@ -114,6 +115,7 @@ namespace AppointMe.Service.Implementation
                 CustomerId = dto.CustomerId,
                 OrderNumber = dto.OrderNumber,
                 AppointmentDate = dto.AppointmentDate,
+                DurationMinutes = durationMinutes,
                 Description = dto.Description,
                 Status = AppointmentStatus.Scheduled,
                 CreatedAt = DateTime.UtcNow,
@@ -146,7 +148,7 @@ namespace AppointMe.Service.Implementation
 
                 try
                 {
-                    var endTime = appointment.AppointmentDate.AddMinutes(durationMinutes);
+                    var endTime = appointment.AppointmentDate.AddMinutes(appointment.DurationMinutes);
 
                     // ICS attachment
                     var icsBytes = IcsCalendarBuilder.BuildAppointmentIcs(
@@ -187,19 +189,22 @@ namespace AppointMe.Service.Implementation
                 throw new KeyNotFoundException($"Appointment with ID {appointmentId} not found");
 
             var business = await GetBusinessOrThrow(tenantId);
-            var durationMinutes = business.DefaultSlotMinutes <= 0 ? 30 : business.DefaultSlotMinutes;
 
-            if (dto.AppointmentDate != default && dto.AppointmentDate != appointment.AppointmentDate)
+            // The form works in whole minutes, so a stored date with seconds isn't "moved" just by being saved.
+            if (dto.AppointmentDate != default && ToMinute(dto.AppointmentDate) != ToMinute(appointment.AppointmentDate))
             {
-                await ValidateAgainstBusinessRulesAsync(dto.AppointmentDate, business);
+                await ValidateAgainstBusinessRulesAsync(dto.AppointmentDate, appointment.DurationMinutes, business);
 
-                var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(dto.AppointmentDate, durationMinutes, tenantId, appointmentId);
+                // A moved appointment keeps its own length, even if the slot length has changed since booking.
+                var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(dto.AppointmentDate, appointment.DurationMinutes, tenantId, appointmentId);
                 if (!isAvailable)
                     throw new BusinessRuleException("The selected time overlaps with another appointment.");
 
                 appointment.AppointmentDate = dto.AppointmentDate;
-
-
+            }
+            else
+            {
+                await EnsureCanReactivateAsync(appointment, dto.Status, tenantId);
             }
 
             var newOrder = (dto.OrderNumber ?? "").Trim();
@@ -270,6 +275,8 @@ namespace AppointMe.Service.Implementation
             if (appointment == null)
                 throw new KeyNotFoundException("Appointment not found.");
 
+            await EnsureCanReactivateAsync(appointment, status, tenantId);
+
             appointment.Status = status;
             appointment.UpdatedAt = DateTime.UtcNow;
 
@@ -313,7 +320,27 @@ Best regards,
             return biz;
         }
 
-        private async Task ValidateAgainstBusinessRulesAsync(DateTime appointmentDate, Business biz)
+        /// <summary>
+        /// A cancelled appointment frees its time, so another one may have been booked there since.
+        /// Any change away from Cancelled makes it occupy that time again, so it has to pass the overlap
+        /// check, and it has to fit before closing time (the hours or the length may differ from when it was booked).
+        /// </summary>
+        private async Task EnsureCanReactivateAsync(Appointment appointment, AppointmentStatus newStatus, Guid tenantId)
+        {
+            if (appointment.Status != AppointmentStatus.Cancelled || newStatus == AppointmentStatus.Cancelled)
+                return;
+
+            var business = await GetBusinessOrThrow(tenantId);
+            EnsureEndsByClosingTime(appointment.AppointmentDate, appointment.DurationMinutes, business);
+
+            var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(
+                appointment.AppointmentDate, appointment.DurationMinutes, tenantId, appointment.Id);
+            if (!isAvailable)
+                throw new BusinessRuleException(
+                    "This appointment can't be reactivated because its time now overlaps with another appointment. Move it to a free time first.");
+        }
+
+        private async Task ValidateAgainstBusinessRulesAsync(DateTime appointmentDate, int durationMinutes, Business biz)
         {
             // 1) must be future
             if (appointmentDate <= DateTime.Now)
@@ -327,6 +354,8 @@ Best regards,
             var t = appointmentDate.TimeOfDay;
             if (t < biz.WorkDayStart || t >= biz.WorkDayEnd)
                 throw new BusinessRuleException($"Appointment must be between {biz.WorkDayStart:hh\\:mm} and {biz.WorkDayEnd:hh\\:mm}.");
+
+            EnsureEndsByClosingTime(appointmentDate, durationMinutes, biz);
 
             // 4) must NOT be a public holiday (MK)
             var y = appointmentDate.Year;
@@ -342,6 +371,17 @@ Best regards,
                     throw new BusinessRuleException($"Cannot create an appointment on a public holiday: {name}.");
                 throw new BusinessRuleException("Cannot create an appointment on a public holiday.");
             }
+        }
+
+        private static DateTime ToMinute(DateTime value) => value.AddTicks(-(value.Ticks % TimeSpan.TicksPerMinute));
+
+        /// <summary>TimeSpan doesn't wrap at midnight, so a late start can't slip through.</summary>
+        private static void EnsureEndsByClosingTime(DateTime start, int durationMinutes, Business biz)
+        {
+            var end = start.TimeOfDay.Add(TimeSpan.FromMinutes(durationMinutes));
+            if (end > biz.WorkDayEnd)
+                throw new BusinessRuleException(
+                    $"This appointment takes {durationMinutes} minutes and would end after closing time ({biz.WorkDayEnd:hh\\:mm}). Please choose an earlier time.");
         }
 
         private static bool IsOpenDay(DayOfWeek day, Business b)
@@ -378,6 +418,7 @@ Best regards,
                 CustomerName = appointment.Customer != null ? $"{appointment.Customer.FirstName} {appointment.Customer.LastName}" : "",
                 OrderNumber = appointment.OrderNumber,
                 AppointmentDate = appointment.AppointmentDate,
+                DurationMinutes = appointment.DurationMinutes,
                 Description = appointment.Description,
                 Status = appointment.Status.ToString(),
                 CreatedAt = appointment.CreatedAt,

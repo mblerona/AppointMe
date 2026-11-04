@@ -19,6 +19,13 @@ namespace AppointMe.Domain.DomainModels
         public Guid TenantId { get; set; }
         public string OrderNumber { get; set; }
         public DateTime AppointmentDate { get; set; }
+
+        /// <summary>
+        /// Length of this appointment, fixed when it is booked. Changing the business's slot length
+        /// later must not change appointments that already exist (audit B11).
+        /// </summary>
+        public int DurationMinutes { get; set; } = 30;
+
         public string Description { get; set; }
         public AppointmentStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }

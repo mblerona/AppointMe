@@ -346,6 +346,87 @@ namespace AppointMe.Tests.Integration.Repositories
         }
 
         [Fact]
+        public async Task IsTimeSlotAvailableAsync_LongerExistingAppointment_BlocksItsWholeLength()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new AppointmentRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+            var customer = SeedCustomer(db, tenantId);
+
+            var start = DateTime.Today.AddDays(1).AddHours(10);
+            var existing = CreateAppointment(tenantId, customer.Id, start, "ORD-D1");
+            existing.DurationMinutes = 60;
+            db.Appointments.Add(existing);
+            await db.SaveChangesAsync();
+
+            (await repo.IsTimeSlotAvailableAsync(start.AddMinutes(30), 15, tenantId)).Should().BeFalse("10:30 is inside 10:00-11:00");
+            (await repo.IsTimeSlotAvailableAsync(start.AddMinutes(60), 15, tenantId)).Should().BeTrue("11:00 is exactly where it ends");
+        }
+
+        [Fact]
+        public async Task IsTimeSlotAvailableAsync_ShorterExistingAppointment_FreesTheTimeAfterIt()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new AppointmentRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+            var customer = SeedCustomer(db, tenantId);
+
+            var start = DateTime.Today.AddDays(1).AddHours(10);
+            var existing = CreateAppointment(tenantId, customer.Id, start, "ORD-D2");
+            existing.DurationMinutes = 15;
+            db.Appointments.Add(existing);
+            await db.SaveChangesAsync();
+
+            (await repo.IsTimeSlotAvailableAsync(start.AddMinutes(15), 60, tenantId)).Should()
+                .BeTrue("the existing one ends at 10:15, whatever the length of the new one");
+        }
+
+        [Fact]
+        public async Task IsTimeSlotAvailableAsync_NewAppointmentRunningIntoExistingOne_IsRejected()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new AppointmentRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+            var customer = SeedCustomer(db, tenantId);
+
+            var start = DateTime.Today.AddDays(1).AddHours(10);
+            var existing = CreateAppointment(tenantId, customer.Id, start, "ORD-D3");
+            existing.DurationMinutes = 15;
+            db.Appointments.Add(existing);
+            await db.SaveChangesAsync();
+
+            (await repo.IsTimeSlotAvailableAsync(start.AddMinutes(-30), 45, tenantId)).Should().BeFalse("09:30-10:15 runs into 10:00");
+            (await repo.IsTimeSlotAvailableAsync(start.AddMinutes(-30), 30, tenantId)).Should().BeTrue("09:30-10:00 ends where it starts");
+        }
+
+        [Fact]
+        public async Task IsTimeSlotAvailableAsync_AnotherTenantsLongAppointment_DoesNotBlock()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new AppointmentRepository(db);
+
+            var tenantA = Guid.NewGuid();
+            var tenantB = Guid.NewGuid();
+            SeedBusiness(db, tenantA);
+            SeedBusiness(db, tenantB);
+            var customer = SeedCustomer(db, tenantA);
+
+            var start = DateTime.Today.AddDays(1).AddHours(10);
+            var existing = CreateAppointment(tenantA, customer.Id, start, "ORD-D4");
+            existing.DurationMinutes = 120;
+            db.Appointments.Add(existing);
+            await db.SaveChangesAsync();
+
+            (await repo.IsTimeSlotAvailableAsync(start.AddMinutes(30), 30, tenantB)).Should().BeTrue();
+        }
+
+        [Fact]
         public async Task IsTimeSlotAvailableAsync_WhenNewStartsExactlyAtEnd_ShouldReturnTrue()
         {
             var db = DbContextFactory.Create();

@@ -306,6 +306,7 @@ namespace AppointMe.Web.Controllers
                 id = a.Id,
                 title = $"{a.CustomerName} • {a.OrderNumber}",
                 start = a.AppointmentDate.ToString("s"),
+                end = a.AppointmentDate.AddMinutes(a.DurationMinutes).ToString("s"),
                 url = Url.Action("Details", "Appointments", new { id = a.Id }),
                 extendedProps = new { status = a.Status }
             });

@@ -1,4 +1,4 @@
-﻿using AppointMe.Domain.DomainModels;
+using AppointMe.Domain.DomainModels;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -134,11 +134,12 @@ namespace AppointMe.Repository.Implementation
 
             // Overlap rule:
             // existingStart < newEnd AND existingEnd > newStart
+            // durationMinutes is the length of the new booking; each existing one ends by its own stored length.
             var query = _dbSet.Where(a =>
                 a.TenantId == tenantId &&
                 a.Status != AppointmentStatus.Cancelled &&
                 a.AppointmentDate < endTime &&
-                a.AppointmentDate.AddMinutes(durationMinutes) > startTime
+                a.AppointmentDate.AddMinutes(a.DurationMinutes) > startTime
             );
 
             if (excludeAppointmentId.HasValue)

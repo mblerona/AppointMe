@@ -15,6 +15,7 @@ namespace AppointMe.Tests.Integration.SqlServer
         public const string EditOrderNumber = "20251224215944_EditOrderNumber";
         public const string ConfirmExistingUsers = "20261103141300_ConfirmExistingUsers";
         public const string TenantForeignKeys = "20261103152752_TenantForeignKeysAndPerTenantOrderNumber";
+        public const string AddAppointmentDuration = "20261104114652_AddAppointmentDuration";
 
         public static string User(string id, string? tenantSql, bool confirmed) => $@"
 INSERT INTO AspNetUsers (Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
@@ -22,10 +23,15 @@ INSERT INTO AspNetUsers (Id, UserName, NormalizedUserName, Email, NormalizedEmai
 VALUES ('{id}', '{id}@x', UPPER('{id}@X'), '{id}@x', UPPER('{id}@X'), {(confirmed ? 1 : 0)},
     0, 0, 1, 0, 'F', 'L', GETUTCDATE(), GETUTCDATE(), {tenantSql ?? "NULL"});";
 
-        public static string Business(string id, string name) => $@"
+        public static string Business(string id, string name, int slotMinutes = 30) => $@"
 INSERT INTO Businesses (Id, Name, DefaultSlotMinutes, WorkDayStart, WorkDayEnd,
     OpenMon, OpenTue, OpenWed, OpenThu, OpenFri, OpenSat, OpenSun)
-VALUES ('{id}', N'{name}', 30, '09:00', '17:00', 1, 1, 1, 1, 1, 0, 0);";
+VALUES ('{id}', N'{name}', {slotMinutes}, '09:00', '17:00', 1, 1, 1, 1, 1, 0, 0);";
+
+        /// <summary>For migrations after TenantForeignKeys, which removed the shadow BusinessId column.</summary>
+        public static string CustomerWithoutShadowColumn(string id, string tenant, int number) => $@"
+INSERT INTO Customers (Id, TenantId, CustomerNumber, FirstName, LastName, Email, PhoneNumber, State, City)
+VALUES ('{id}', '{tenant}', {number}, 'Ana', 'Doe', '{id}@x.com', '070123456', 'MK', 'Skopje');";
 
         public static string Customer(string id, string tenant, int number, string? shadowBusinessId = null) => $@"
 INSERT INTO Customers (Id, TenantId, CustomerNumber, FirstName, LastName, Email, PhoneNumber, State, City, BusinessId)
@@ -73,6 +79,42 @@ VALUES ('{existingBusiness}', N'Existing', 30, '09:00', '17:00', 1, 1, 1, 1, 1, 
             (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Businesses")).Should().Be(3);
         }
 
+    }
+
+    [Trait("Category", SqlServerCollection.Category)]
+    public class AddAppointmentDurationMigrationTests
+    {
+        [Fact]
+        public async Task BackfillsFromEachBusinessesSlotLength_AndRollsBack()
+        {
+            await using var database = new SqlServerTestDatabase();
+            await database.MigrateToAsync(MigrationSql.TenantForeignKeys);
+
+            const string slot45 = "aaaaaaaa-0000-0000-0000-000000000045";
+            const string slot0 = "aaaaaaaa-0000-0000-0000-000000000000";
+            const string customer45 = "10000000-0000-0000-0000-000000000045";
+            const string customer0 = "10000000-0000-0000-0000-000000000000";
+            const string appointment45 = "30000000-0000-0000-0000-000000000045";
+            const string appointment0 = "30000000-0000-0000-0000-000000000000";
+            await database.ExecuteSqlAsync($@"
+{MigrationSql.Business(slot45, "Slot 45", slotMinutes: 45)}
+{MigrationSql.Business(slot0, "Slot 0", slotMinutes: 0)}
+{MigrationSql.CustomerWithoutShadowColumn(customer45, slot45, 1)}
+{MigrationSql.CustomerWithoutShadowColumn(customer0, slot0, 1)}
+{MigrationSql.Appointment(appointment45, slot45, customer45, "ORD-45")}
+{MigrationSql.Appointment(appointment0, slot0, customer0, "ORD-0")}");
+
+            await database.MigrateToAsync(MigrationSql.AddAppointmentDuration);
+
+            (await database.ScalarAsync($"SELECT DurationMinutes AS Value FROM Appointments WHERE Id = '{appointment45}'")).Should().Be(45);
+            (await database.ScalarAsync($"SELECT DurationMinutes AS Value FROM Appointments WHERE Id = '{appointment0}'")).Should()
+                .Be(30, "a business without a valid slot length gets the same fallback the app uses");
+
+            await database.MigrateToAsync(MigrationSql.TenantForeignKeys);
+
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Appointments' AND COLUMN_NAME = 'DurationMinutes'")).Should().Be(0);
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Appointments")).Should().Be(2, "rolling back keeps the appointments");
+        }
     }
 
     [Trait("Category", SqlServerCollection.Category)]

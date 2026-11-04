@@ -111,7 +111,7 @@
                         <label asp-for="AppointmentDate" class="form-label fw-semibold">
                             <i class="bi bi-clock me-1"></i> Date & Time
                         </label>
-                        <input asp-for="AppointmentDate" id="apptDate" type="datetime-local" class="form-control" />
+                        <input asp-for="AppointmentDate" asp-format="{0:yyyy-MM-ddTHH\:mm}" id="apptDate" type="datetime-local" class="form-control" />
                         <span asp-validation-for="AppointmentDate" class="text-danger"></span>
                         <div class="form-text">Must be inside business hours and not in the past.</div>
                     </div>
@@ -210,6 +210,10 @@
 
             if (!input) return;
 
+            // The date the server rendered. It stays as it is, whatever it is (in the past, on a day
+            // that is now closed, on a holiday): the rules below only apply to a date the user changes.
+            const originalValue = input.value;
+
             const workStart = "@(ViewBag.WorkStart ?? "09:00")";
             const workEnd = "@(ViewBag.WorkEnd ?? "17:00")";
             const hiddenDays = @Html.Raw(ViewBag.HiddenDays ?? "[]");
@@ -278,7 +282,7 @@
             }
 
             async function validateHolidayForInput() {
-                if (!input.value) {
+                if (!input.value || input.value === originalValue) {
                     setHolidayUI(false, "");
                     return;
                 }
@@ -329,14 +333,12 @@
                 return toLocalDatetimeValue(dt);
             }
 
-            input.min = toLocalDatetimeValue(new Date());
-            input.value = clamp(input.value);
-
-            // initial holiday check
-            validateHolidayForInput();
+            // A minimum after the stored date would make the browser refuse to submit the form.
+            const nowValue = toLocalDatetimeValue(new Date());
+            if (originalValue >= nowValue) input.min = nowValue;
 
             input.addEventListener("change", async function () {
-                input.value = clamp(input.value);
+                if (input.value !== originalValue) input.value = clamp(input.value);
                 await validateHolidayForInput();
             });
 
