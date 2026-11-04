@@ -116,12 +116,60 @@ public class AppointmentDurationTests : IClassFixture<HolidaysWebAppFactory>
         var (client, customerId) = await LoginWithCustomerAsync(tenantId, "duration-c@test.com");
         var day = FutureWorkingDay(32);
 
-        var tooLate = await BookAsync(client, customerId, day.AddHours(16).AddMinutes(35), "DUR-C1");
+        var service = await TestData.WithDbAsync(_factory, async db =>
+        {
+            var s = new ServiceOffering { Id = Guid.NewGuid(), BusinessId = tenantId, Name = "One hour", Price = 100, DurationMinutes = 60 };
+            db.ServiceOfferings.Add(s);
+            await db.SaveChangesAsync();
+            return s.Id;
+        });
+
+        Task<HttpResponseMessage> BookWithServiceAsync(DateTime when, string order) =>
+            client.PostFormAsync("/Appointments/Create", "/Appointments/Create", new Dictionary<string, string>
+            {
+                ["CustomerId"] = customerId.ToString(),
+                ["OrderNumber"] = order,
+                ["AppointmentDate"] = when.ToString("yyyy-MM-ddTHH:mm"),
+                ["Description"] = "Duration test",
+                ["ServiceOfferingIds"] = service.ToString()
+            });
+
+        var tooLate = await BookWithServiceAsync(day.AddHours(16).AddMinutes(30), "DUR-C1");
         tooLate.StatusCode.Should().Be(HttpStatusCode.OK);
         (await tooLate.Content.ReadAsStringAsync()).Should().Contain("would end after closing time");
 
-        (await BookAsync(client, customerId, day.AddHours(16).AddMinutes(30), "DUR-C2")).StatusCode
-            .Should().Be(HttpStatusCode.Redirect, "16:30 + 30 minutes ends exactly at closing time");
+        (await BookWithServiceAsync(day.AddHours(16), "DUR-C2")).StatusCode
+            .Should().Be(HttpStatusCode.Redirect, "16:00 + 60 minutes ends exactly at closing time");
+    }
+
+    [Fact]
+    public async Task StartingOffTheInterval_ShowsTheErrorWithSuggestions()
+    {
+        var tenantId = Guid.Parse("0de50000-0000-0000-0000-000000000011");
+        var (client, customerId) = await LoginWithCustomerAsync(tenantId, "duration-h@test.com");
+        var day = FutureWorkingDay(36);
+
+        var refused = await BookAsync(client, customerId, day.AddHours(10).AddMinutes(5), "DUR-H1");
+
+        refused.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await refused.Content.ReadAsStringAsync()).Should()
+            .Contain("Appointments start every 30 minutes from opening time (09:00). Try 10:00 or 10:30.");
+
+        (await BookAsync(client, customerId, day.AddHours(10).AddMinutes(30), "DUR-H2")).StatusCode.Should().Be(HttpStatusCode.Redirect);
+    }
+
+    [Fact]
+    public async Task SettingsPage_CallsItTheTimeSlotInterval()
+    {
+        var tenantId = Guid.Parse("0de50000-0000-0000-0000-000000000012");
+        var (client, _) = await LoginWithCustomerAsync(tenantId, "duration-i@test.com");
+
+        var html = await (await client.GetAsync("/Settings/Business")).Content.ReadAsStringAsync();
+
+        html.Should().Contain("Time slot interval");
+        html.Should().Contain("Appointments start at these intervals from opening time. Without services, this is also the appointment length.");
+        html.Should().NotContain("Appointment slot duration");
+        html.Should().NotContain("must start exactly on this interval");
     }
 
     [Fact]

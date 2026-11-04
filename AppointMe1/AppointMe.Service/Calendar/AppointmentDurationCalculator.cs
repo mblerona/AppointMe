@@ -10,13 +10,17 @@ namespace AppointMe.Service.Calendar
     {
         private const int FallbackSlotMinutes = 30;
 
+        /// <summary>The business's time slot interval, or the fallback if the stored value is invalid.</summary>
+        public static int SlotLength(int defaultSlotMinutes) =>
+            defaultSlotMinutes <= 0 ? FallbackSlotMinutes : defaultSlotMinutes;
+
         /// <summary>
         /// The sum of the services' durations, where a service without one counts as one slot, rounded up
         /// to a multiple of the slot length. Without services it is one slot.
         /// </summary>
         public static int Calculate(int defaultSlotMinutes, IEnumerable<ServiceOffering> services)
         {
-            var slot = defaultSlotMinutes <= 0 ? FallbackSlotMinutes : defaultSlotMinutes;
+            var slot = SlotLength(defaultSlotMinutes);
 
             var total = services.Sum(s => s.DurationMinutes ?? slot);
             if (total <= 0)

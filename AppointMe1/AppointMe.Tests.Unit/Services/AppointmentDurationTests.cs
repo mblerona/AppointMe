@@ -118,6 +118,15 @@ public class AppointmentDurationTests
         return service;
     }
 
+    private async Task SetHoursAsync(TimeSpan open, TimeSpan close)
+    {
+        var business = await _db.Businesses.FirstAsync(b => b.Id == _tenantId);
+        business.WorkDayStart = open;
+        business.WorkDayEnd = close;
+        await _db.SaveChangesAsync();
+        _db.Entry(business).State = EntityState.Detached;
+    }
+
     private async Task DisableServicesAsync()
     {
         var business = await _db.Businesses.FirstAsync(b => b.Id == _tenantId);
@@ -157,7 +166,7 @@ public class AppointmentDurationTests
     {
         await SetSlotLengthAsync(45);
 
-        var result = await BookAsync(Tomorrow(10), "ORD-1");
+        var result = await BookAsync(Tomorrow(9, 45), "ORD-1");
 
         result.DurationMinutes.Should().Be(45);
         (await StoredDurationAsync(result.Id)).Should().Be(45);
@@ -195,11 +204,12 @@ public class AppointmentDurationTests
     public async Task LongerSlotLength_DoesNotLengthenExistingAppointments()
     {
         await SetSlotLengthAsync(15);
-        await BookAsync(Tomorrow(10), "ORD-1");
+        await BookAsync(Tomorrow(9, 45), "ORD-1");
 
         await SetSlotLengthAsync(60);
 
-        var result = await BookAsync(Tomorrow(10, 15), "ORD-2");
+        // The first one still ends at 10:00. With the new length it would have run until 10:45.
+        var result = await BookAsync(Tomorrow(10), "ORD-2");
 
         result.DurationMinutes.Should().Be(60);
     }
@@ -249,18 +259,140 @@ public class AppointmentDurationTests
     }
 
     [Theory]
-    [InlineData(16, 5)]
-    [InlineData(16, 30)]
-    [InlineData(16, 59)]
-    public async Task ClosingTime_AppointmentEndingAfterClose_IsRefused(int hour, int minute)
+    [InlineData(16, 30, 60)]
+    [InlineData(16, 0, 90)]
+    [InlineData(15, 30, 120)]
+    public async Task ClosingTime_AppointmentEndingAfterClose_IsRefused(int hour, int minute, int serviceMinutes)
     {
-        await SetSlotLengthAsync(60);
+        var service = await AddServiceAsync(serviceMinutes);
+
+        var act = () => BookAsync(Tomorrow(hour, minute), "ORD-1", false, service);
+
+        await act.Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage($"This appointment takes {serviceMinutes} minutes and would end after closing time (17:00)*");
+        (await _db.Appointments.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ClosingTime_LastIntervalBeforeAClosingTimeOffTheGrid_IsRefusedWithoutServices()
+    {
+        await SetHoursAsync(new TimeSpan(9, 0, 0), new TimeSpan(17, 10, 0));
+
+        var act = () => BookAsync(Tomorrow(17), "ORD-1");
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*takes 30 minutes*closing time (17:10)*");
+    }
+
+    [Theory]
+    [InlineData(20, 9, 0)]
+    [InlineData(20, 9, 20)]
+    [InlineData(20, 9, 40)]
+    [InlineData(15, 10, 45)]
+    [InlineData(45, 9, 45)]
+    [InlineData(45, 11, 15)]
+    [InlineData(60, 16, 0)]
+    public async Task Interval_StartOnTheInterval_IsAllowed(int slot, int hour, int minute)
+    {
+        await SetSlotLengthAsync(slot);
+
+        var result = await BookAsync(Tomorrow(hour, minute), "ORD-1");
+
+        result.AppointmentDate.Should().Be(Tomorrow(hour, minute));
+    }
+
+    [Theory]
+    [InlineData(20, 9, 15, "Try 09:00 or 09:20.")]
+    [InlineData(30, 10, 5, "Try 10:00 or 10:30.")]
+    [InlineData(30, 10, 29, "Try 10:00 or 10:30.")]
+    [InlineData(45, 10, 0, "Try 09:45 or 10:30.")]
+    [InlineData(60, 10, 30, "Try 10:00 or 11:00.")]
+    public async Task Interval_StartOffTheInterval_IsRefusedAndSuggestsTimes(int slot, int hour, int minute, string suggestion)
+    {
+        await SetSlotLengthAsync(slot);
 
         var act = () => BookAsync(Tomorrow(hour, minute), "ORD-1");
 
         await act.Should().ThrowAsync<BusinessRuleException>()
-            .WithMessage("This appointment takes 60 minutes and would end after closing time (17:00)*");
+            .WithMessage($"Appointments start every {slot} minutes from opening time (09:00). {suggestion}");
         (await _db.Appointments.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Interval_IsCountedFromOpeningTime_NotFromTheHour()
+    {
+        await SetHoursAsync(new TimeSpan(9, 10, 0), new TimeSpan(17, 0, 0));
+
+        (await BookAsync(Tomorrow(9, 40), "ORD-1")).AppointmentDate.Should().Be(Tomorrow(9, 40));
+
+        var onTheHalfHour = () => BookAsync(Tomorrow(10), "ORD-2");
+        await onTheHalfHour.Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("Appointments start every 30 minutes from opening time (09:10). Try 09:40 or 10:10.");
+    }
+
+    [Fact]
+    public async Task Interval_NearClosing_OnlySuggestsATimeBeforeClosing()
+    {
+        var act = () => BookAsync(Tomorrow(16, 45), "ORD-1");
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*Try 16:30.");
+    }
+
+    [Fact]
+    public async Task Interval_WithAnInvalidStoredLength_UsesTheFallback()
+    {
+        await SetSlotLengthAsync(0);
+
+        var act = () => BookAsync(Tomorrow(10, 15), "ORD-1");
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("Appointments start every 30 minutes*");
+    }
+
+    [Fact]
+    public async Task Interval_MovingOffTheInterval_IsRefused()
+    {
+        var booked = await BookAsync(Tomorrow(10), "ORD-1");
+
+        var act = () => MoveAsync(booked.Id, Tomorrow(11, 15), "ORD-1");
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("Appointments start every 30 minutes*");
+    }
+
+    [Fact]
+    public async Task Interval_OlderBookingOffTheInterval_StaysEditable()
+    {
+        var older = await AddAppointmentAsync(Tomorrow(10, 15), 30, AppointmentStatus.Scheduled, "OLD-1");
+
+        // Same date, other fields and services change.
+        var edited = await EditServicesAsync(older.Id, services: await AddServiceAsync(30));
+        edited.AppointmentDate.Should().Be(Tomorrow(10, 15));
+
+        await _service.SetStatusAsync(older.Id, AppointmentStatus.Completed, _tenantId);
+        older.Status.Should().Be(AppointmentStatus.Completed);
+    }
+
+    [Fact]
+    public async Task Interval_ReactivatingAnOlderBookingOffTheInterval_IsAllowed()
+    {
+        var cancelled = await AddAppointmentAsync(Tomorrow(10, 15), 30, AppointmentStatus.Cancelled, "CAN-1");
+
+        await _service.SetStatusAsync(cancelled.Id, AppointmentStatus.Scheduled, _tenantId);
+
+        cancelled.Status.Should().Be(AppointmentStatus.Scheduled);
+    }
+
+    [Fact]
+    public async Task Interval_ChangingTheInterval_DoesNotAffectExistingAppointments_ButMovingUsesTheNewOne()
+    {
+        var booked = await BookAsync(Tomorrow(9, 30), "ORD-1");
+
+        await SetSlotLengthAsync(60); // 09:30 is no longer on the interval
+
+        (await EditServicesAsync(booked.Id)).AppointmentDate.Should().Be(Tomorrow(9, 30));
+
+        var offTheNewInterval = () => MoveAsync(booked.Id, Tomorrow(10, 30), "ORD-1");
+        await offTheNewInterval.Should().ThrowAsync<BusinessRuleException>().WithMessage("Appointments start every 60 minutes*");
+
+        (await MoveAsync(booked.Id, Tomorrow(11), "ORD-1")).AppointmentDate.Should().Be(Tomorrow(11));
     }
 
     [Fact]
@@ -275,12 +407,10 @@ public class AppointmentDurationTests
     public async Task ClosingTime_EndPastMidnight_DoesNotWrapAroundAndSlipThrough()
     {
         await SetSlotLengthAsync(240);
-        var business = await _db.Businesses.FirstAsync(b => b.Id == _tenantId);
-        business.WorkDayEnd = new TimeSpan(23, 30, 0);
-        await _db.SaveChangesAsync();
-        _db.Entry(business).State = EntityState.Detached;
+        await SetHoursAsync(new TimeSpan(9, 0, 0), new TimeSpan(23, 30, 0));
 
-        var act = () => BookAsync(Tomorrow(23), "ORD-1");
+        // 21:00 + 4 hours is 01:00 the next day, which would look earlier than closing if it wrapped.
+        var act = () => BookAsync(Tomorrow(21), "ORD-1");
 
         await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*closing time (23:30)*");
     }
@@ -771,9 +901,9 @@ public class AppointmentDurationTests
             .Callback<EmailMessage, byte[], string, string>((_, bytes, _, _) => ics = bytes)
             .Returns(Task.CompletedTask);
 
-        await BookAsync(Tomorrow(10), "ORD-1", notify: true);
+        await BookAsync(Tomorrow(9, 45), "ORD-1", notify: true);
 
         ics.Should().NotBeNull();
-        Encoding.UTF8.GetString(ics!).Should().Contain($"DTEND:{Tomorrow(10, 45):yyyyMMdd'T'HHmmss}");
+        Encoding.UTF8.GetString(ics!).Should().Contain($"DTEND:{Tomorrow(10, 30):yyyyMMdd'T'HHmmss}");
     }
 }

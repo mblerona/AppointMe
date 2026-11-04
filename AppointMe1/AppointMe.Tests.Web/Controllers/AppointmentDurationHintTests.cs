@@ -111,6 +111,7 @@ public class AppointmentDurationHintTests : IClassFixture<HolidaysWebAppFactory>
 
         var hint = HintElement(html);
         hint.Should().Contain("data-slot-minutes=\"20\"");
+        hint.Should().Contain("data-work-start=\"09:00\"");
         hint.Should().Contain("data-work-end=\"18:30\"");
         hint.Should().Contain("data-services-enabled=\"true\"");
         hint.Should().NotContain("data-stored-duration", "a new booking has nothing stored");
@@ -155,7 +156,7 @@ public class AppointmentDurationHintTests : IClassFixture<HolidaysWebAppFactory>
         var (client, customer) = await LoginWithCustomerAsync(tenant, "hint-d@test.com");
         var when = FutureWorkingDay(51).AddHours(10);
         var id = await AddAppointmentAsync(tenant, customer, when, "HNT-D1", 60);
-        var attempted = when.AddHours(6).AddMinutes(45); // 16:45 + 60 minutes is past closing
+        var attempted = when.AddHours(6).AddMinutes(30); // 16:30 + 60 minutes is past closing
 
         var response = await client.PostFormAsync($"/Appointments/Edit/{id}", $"/Appointments/Edit/{id}", new Dictionary<string, string>
         {
@@ -195,13 +196,32 @@ public class AppointmentDurationHintTests : IClassFixture<HolidaysWebAppFactory>
     }
 
     [Fact]
-    public async Task SharedScript_IsServed()
+    public async Task SharedScript_IsServed_WithItsSafeguards()
     {
         var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/js/appointment-form.js");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("window.AppointmentForm");
+        var script = await response.Content.ReadAsStringAsync();
+        script.Should().Contain("window.AppointmentForm");
+
+        // Text only, because these tests don't run JavaScript. Without this, jquery.validate throws on the
+        // date field's step attribute and an invalid form gets submitted.
+        script.Should().Contain("jQuery.validator.methods.step");
+        // The double-submit guard must wait for jQuery validation, so it listens on the document.
+        script.Should().Contain("document.addEventListener(\"submit\"");
+    }
+
+    [Fact]
+    public async Task Forms_LoadTheSharedScriptAfterJQueryValidation()
+    {
+        var tenant = Guid.Parse("0de90000-0000-0000-0000-00000000000f");
+        var (client, _) = await LoginWithCustomerAsync(tenant, "hint-f@test.com");
+
+        var html = await (await client.GetAsync("/Appointments/Create")).Content.ReadAsStringAsync();
+
+        html.IndexOf("jquery.validate.min.js", StringComparison.Ordinal).Should()
+            .BeGreaterThan(-1).And.BeLessThan(html.IndexOf("/js/appointment-form.js", StringComparison.Ordinal));
     }
 }

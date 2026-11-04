@@ -132,7 +132,7 @@ namespace AppointMe.Service.Implementation
 
             if (settings.DefaultSlotMinutes < MinSlotMinutes || settings.DefaultSlotMinutes > MaxSlotMinutes)
                 throw new BusinessRuleException(
-                    $"Slot length must be between {MinSlotMinutes} and {MaxSlotMinutes} minutes.",
+                    $"Time slot interval must be between {MinSlotMinutes} and {MaxSlotMinutes} minutes.",
                     nameof(BusinessSettingsDTO.DefaultSlotMinutes));
 
             var phone = PhoneNumberNormalizer.NormalizeOptional(settings.Phone, nameof(BusinessSettingsDTO.Phone));

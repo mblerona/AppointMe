@@ -1,4 +1,4 @@
-﻿@model AppointMe.Domain.DTO.CreateAppointmentDTO
+@model AppointMe.Domain.DTO.CreateAppointmentDTO
 @using Microsoft.AspNetCore.Identity
 @using AppointMe.Domain.Identity
 
@@ -136,15 +136,15 @@
                         <input asp-for="AppointmentDate"
                                id="apptDate"
                                type="datetime-local"
-                               step="300"
                                class="form-control" />
                         <span asp-validation-for="AppointmentDate" class="text-danger"></span>
                         <div class="input-hint mt-1">Only future times inside business hours are allowed.</div>
                         <div id="durationHint" class="input-hint fw-semibold mt-1"
                              data-slot-minutes="@ViewBag.SlotMinutes"
+                             data-work-start="@ViewBag.WorkStart"
                              data-work-end="@ViewBag.WorkEnd"
                              data-services-enabled="@(enableServices ? "true" : "false")"></div>
-                        <div id="closingWarning" class="text-danger small mt-1 d-none"></div>
+                        <div id="timeWarning" class="text-danger small mt-1 d-none"></div>
                     </div>
 
                     @if (enableServices)
@@ -244,7 +244,7 @@
             const workEnd = "@(ViewBag.WorkEnd ?? "17:00")";
             const hiddenDays = @Html.Raw(ViewBag.HiddenDays ?? "[]");
 
-            const STEP_MINUTES = 5; // step="300" => 5 minutes
+            const STEP_MINUTES = 5; // only for rounding "now"; the time slot interval is applied below
 
             const holidaysCache = new Map();
 
@@ -371,14 +371,10 @@
                     }
                 }
 
-                
-                const aligned = roundUpToStep(dt, STEP_MINUTES);
-                return toLocalDatetimeValue(aligned);
+                return toLocalDatetimeValue(dt);
             }
 
-            //  min must also be aligned to step
             const minAligned = roundUpToStep(new Date(), STEP_MINUTES);
-            input.min = toLocalDatetimeValue(minAligned);
 
             // initialize value
             if (!input.value) {
@@ -386,6 +382,8 @@
             } else {
                 input.value = clampToBusinessRules(input.value);
             }
+
+            AppointmentForm.prepareNewBookingDate(input);
 
             validateHolidayForInput();
 

@@ -116,12 +116,13 @@
                         <div class="form-text">Must be inside business hours and not in the past.</div>
                         <div id="durationHint" class="form-text fw-semibold"
                              data-slot-minutes="@ViewBag.SlotMinutes"
+                             data-work-start="@ViewBag.WorkStart"
                              data-work-end="@ViewBag.WorkEnd"
                              data-services-enabled="@(enableServices ? "true" : "false")"
                              data-stored-duration="@ViewData["StoredDurationMinutes"]"
                              data-stored-date="@ViewData["StoredDate"]"
                              data-stored-services="@ViewData["StoredServiceIds"]"></div>
-                        <div id="closingWarning" class="text-danger small mt-1 d-none"></div>
+                        <div id="timeWarning" class="text-danger small mt-1 d-none"></div>
                     </div>
 
                     <div class="col-md-6">

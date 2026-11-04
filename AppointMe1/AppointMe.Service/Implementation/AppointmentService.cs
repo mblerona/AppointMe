@@ -369,6 +369,7 @@ Best regards,
             if (t < biz.WorkDayStart || t >= biz.WorkDayEnd)
                 throw new BusinessRuleException($"Appointment must be between {biz.WorkDayStart:hh\\:mm} and {biz.WorkDayEnd:hh\\:mm}.");
 
+            EnsureStartsOnSlotInterval(appointmentDate, biz);
             EnsureEndsByClosingTime(appointmentDate, durationMinutes, biz);
 
             // 4) must NOT be a public holiday (MK)
@@ -406,6 +407,27 @@ Best regards,
         }
 
         private static DateTime ToMinute(DateTime value) => value.AddTicks(-(value.Ticks % TimeSpan.TicksPerMinute));
+
+        /// <summary>
+        /// New and moved appointments start on the interval, counted from opening time. Only called for those,
+        /// so an older booking that isn't on the interval can still be edited as long as its date stays.
+        /// </summary>
+        private static void EnsureStartsOnSlotInterval(DateTime start, Business biz)
+        {
+            var slot = TimeSpan.FromMinutes(AppointmentDurationCalculator.SlotLength(biz.DefaultSlotMinutes));
+            var sinceOpening = start.TimeOfDay - biz.WorkDayStart;
+            if (sinceOpening.Ticks % slot.Ticks == 0)
+                return;
+
+            var earlier = biz.WorkDayStart + TimeSpan.FromTicks(sinceOpening.Ticks / slot.Ticks * slot.Ticks);
+            var later = earlier + slot;
+            var suggestion = later < biz.WorkDayEnd
+                ? $"Try {earlier:hh\\:mm} or {later:hh\\:mm}."
+                : $"Try {earlier:hh\\:mm}.";
+
+            throw new BusinessRuleException(
+                $"Appointments start every {slot.TotalMinutes:0} minutes from opening time ({biz.WorkDayStart:hh\\:mm}). {suggestion}");
+        }
 
         /// <summary>TimeSpan doesn't wrap at midnight, so a late start can't slip through.</summary>
         private static void EnsureEndsByClosingTime(DateTime start, int durationMinutes, Business biz)
