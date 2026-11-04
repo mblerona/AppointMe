@@ -15,6 +15,14 @@ namespace AppointMe.Domain.DTO
         public DateTime AppointmentDate { get; set; }
         public int DurationMinutes { get; set; }
 
+        /// <summary>For display, for example "45 min", "1 h" or "1 h 30 min".</summary>
+        public string DurationDisplay => DurationMinutes switch
+        {
+            < 60 => $"{DurationMinutes} min",
+            _ when DurationMinutes % 60 == 0 => $"{DurationMinutes / 60} h",
+            _ => $"{DurationMinutes / 60} h {DurationMinutes % 60} min"
+        };
+
         public string Description { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
 

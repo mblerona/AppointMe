@@ -73,14 +73,15 @@ public class AppointmentDurationTests
         _db.Entry(business).State = EntityState.Detached;
     }
 
-    private Task<AppointmentDTO> BookAsync(DateTime when, string orderNumber, bool notify = false) =>
+    private Task<AppointmentDTO> BookAsync(DateTime when, string orderNumber, bool notify = false, params ServiceOffering[] services) =>
         _service.CreateAppointmentAsync(new CreateAppointmentDTO
         {
             CustomerId = _customerId,
             OrderNumber = orderNumber,
             AppointmentDate = when,
             Description = "Duration test",
-            NotifyByEmail = notify
+            NotifyByEmail = notify,
+            ServiceOfferingIds = services.Select(s => s.Id).ToList()
         }, _tenantId);
 
     private Task<AppointmentDTO> MoveAsync(Guid id, DateTime when, string orderNumber) =>
@@ -90,6 +91,43 @@ public class AppointmentDurationTests
             OrderNumber = orderNumber,
             Status = AppointmentStatus.Scheduled
         }, _tenantId);
+
+    /// <summary>Saves the Edit form with this selection of services, keeping the date and order number.</summary>
+    private async Task<AppointmentDTO> EditServicesAsync(
+        Guid id, AppointmentStatus status = AppointmentStatus.Scheduled, DateTime? moveTo = null, params ServiceOffering[] services)
+    {
+        var stored = await _db.Appointments.AsNoTracking().FirstAsync(a => a.Id == id);
+        return await _service.UpdateAppointmentAsync(id, new UpdateAppointmentDTO
+        {
+            AppointmentDate = moveTo ?? stored.AppointmentDate,
+            OrderNumber = stored.OrderNumber,
+            Status = status,
+            ServiceOfferingIds = services.Select(s => s.Id).ToList()
+        }, _tenantId);
+    }
+
+    private async Task<ServiceOffering> AddServiceAsync(int? durationMinutes, decimal price = 100, bool isActive = true, Guid? tenantId = null)
+    {
+        var service = new ServiceOffering
+        {
+            Id = Guid.NewGuid(), BusinessId = tenantId ?? _tenantId, Name = $"Service {Guid.NewGuid():N}",
+            Price = price, DurationMinutes = durationMinutes, IsActive = isActive
+        };
+        _db.ServiceOfferings.Add(service);
+        await _db.SaveChangesAsync();
+        return service;
+    }
+
+    private async Task DisableServicesAsync()
+    {
+        var business = await _db.Businesses.FirstAsync(b => b.Id == _tenantId);
+        business.EnableServices = false;
+        await _db.SaveChangesAsync();
+        _db.Entry(business).State = EntityState.Detached;
+    }
+
+    private Task<List<AppointmentServiceModel>> LinesOfAsync(Guid id) =>
+        _db.AppointmentServices.AsNoTracking().Where(x => x.AppointmentId == id).ToListAsync();
 
     /// <summary>Adds a row directly, for states the service would refuse to create now.</summary>
     private async Task<Appointment> AddAppointmentAsync(
@@ -417,6 +455,311 @@ public class AppointmentDurationTests
         var act = () => MoveAsync(cancelled.Id, Tomorrow(12), "CAN-1");
 
         await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("The selected time overlaps*");
+    }
+
+    [Fact]
+    public async Task Book_WithServices_StoresTheRoundedSum()
+    {
+        var result = await BookAsync(Tomorrow(10), "ORD-1", false, await AddServiceAsync(45), await AddServiceAsync(30));
+
+        result.DurationMinutes.Should().Be(90, "45 + 30 = 75, rounded up to the 30-minute grid");
+        (await StoredDurationAsync(result.Id)).Should().Be(90);
+    }
+
+    [Fact]
+    public async Task Book_ServiceWithoutDuration_CountsAsOneSlot()
+    {
+        await SetSlotLengthAsync(15);
+
+        var result = await BookAsync(Tomorrow(10), "ORD-1", false, await AddServiceAsync(null), await AddServiceAsync(20));
+
+        result.DurationMinutes.Should().Be(45, "15 + 20 = 35, rounded up to the 15-minute grid");
+    }
+
+    [Fact]
+    public async Task Book_WithServicesDisabled_IgnoresPostedServices()
+    {
+        var service = await AddServiceAsync(120);
+        await DisableServicesAsync();
+
+        var result = await BookAsync(Tomorrow(10), "ORD-1", false, service);
+
+        result.DurationMinutes.Should().Be(30);
+        (await LinesOfAsync(result.Id)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Book_DurationPastClosing_IsRefused_EndingExactlyAtClosing_IsAllowed()
+    {
+        var service = await AddServiceAsync(120);
+
+        var tooLate = () => BookAsync(Tomorrow(15, 30), "ORD-1", false, service);
+        await tooLate.Should().ThrowAsync<BusinessRuleException>().WithMessage("*takes 120 minutes*closing time*");
+
+        var fits = await BookAsync(Tomorrow(15), "ORD-2", false, service);
+        fits.DurationMinutes.Should().Be(120);
+    }
+
+    [Fact]
+    public async Task Book_DurationRunningIntoTheNextAppointment_IsRefused()
+    {
+        await BookAsync(Tomorrow(11), "ORD-1");
+        var service = await AddServiceAsync(90);
+
+        var clash = () => BookAsync(Tomorrow(10), "ORD-2", false, service);
+
+        await clash.Should().ThrowAsync<BusinessRuleException>().WithMessage("*overlaps*");
+    }
+
+    [Fact]
+    public async Task Book_AnotherTenantsService_IsRefused()
+    {
+        var other = await AddServiceAsync(45, tenantId: Guid.NewGuid());
+
+        var act = () => BookAsync(Tomorrow(10), "ORD-1", false, other);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*services are invalid*");
+    }
+
+    [Fact]
+    public async Task Book_InactiveService_IsRefused()
+    {
+        var inactive = await AddServiceAsync(45, isActive: false);
+
+        var act = () => BookAsync(Tomorrow(10), "ORD-1", false, inactive);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*services are invalid*");
+    }
+
+    [Fact]
+    public async Task EditServices_Adding_Recalculates()
+    {
+        var first = await AddServiceAsync(30);
+        var booked = await BookAsync(Tomorrow(10), "ORD-1", false, first);
+
+        var edited = await EditServicesAsync(booked.Id, services: new[] { first, await AddServiceAsync(45) });
+
+        edited.DurationMinutes.Should().Be(90);
+        (await StoredDurationAsync(booked.Id)).Should().Be(90);
+    }
+
+    [Fact]
+    public async Task EditServices_RemovingAll_GoesBackToTheCurrentSlotLength()
+    {
+        var booked = await BookAsync(Tomorrow(10), "ORD-1", false, await AddServiceAsync(120));
+        await SetSlotLengthAsync(15);
+
+        var edited = await EditServicesAsync(booked.Id);
+
+        edited.DurationMinutes.Should().Be(15);
+        (await LinesOfAsync(booked.Id)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ChangingAServicesDuration_DoesNotAffectExistingAppointments_EvenAfterAnUnrelatedEdit()
+    {
+        var service = await AddServiceAsync(60);
+        var booked = await BookAsync(Tomorrow(10), "ORD-1", false, service);
+
+        service.DurationMinutes = 120;
+        await _db.SaveChangesAsync();
+
+        (await StoredDurationAsync(booked.Id)).Should().Be(60);
+
+        var edited = await EditServicesAsync(booked.Id, services: service);
+
+        edited.DurationMinutes.Should().Be(60, "the selection didn't change, so the snapshot stays");
+        (await StoredDurationAsync(booked.Id)).Should().Be(60);
+    }
+
+    [Fact]
+    public async Task EditServices_WhenTheSelectionChanges_UsesTheServicesCurrentDurations()
+    {
+        var kept = await AddServiceAsync(30);
+        var booked = await BookAsync(Tomorrow(10), "ORD-1", false, kept);
+        kept.DurationMinutes = 60;
+        await _db.SaveChangesAsync();
+
+        var edited = await EditServicesAsync(booked.Id, services: new[] { kept, await AddServiceAsync(30) });
+
+        edited.DurationMinutes.Should().Be(90);
+    }
+
+    [Fact]
+    public async Task EditServices_KeptServicesKeepTheirPrice_NewOnesGetTodaysPrice()
+    {
+        var kept = await AddServiceAsync(30, price: 100);
+        var removed = await AddServiceAsync(30, price: 50);
+        var booked = await BookAsync(Tomorrow(10), "ORD-1", false, kept, removed);
+        kept.Price = 999;
+        await _db.SaveChangesAsync();
+        var added = await AddServiceAsync(30, price: 200);
+
+        await EditServicesAsync(booked.Id, services: new[] { kept, added });
+
+        var lines = await LinesOfAsync(booked.Id);
+        lines.Should().HaveCount(2);
+        lines.Single(x => x.ServiceOfferingId == kept.Id).PriceAtBooking.Should().Be(100);
+        lines.Single(x => x.ServiceOfferingId == added.Id).PriceAtBooking.Should().Be(200);
+    }
+
+    [Fact]
+    public async Task UnrelatedEdit_KeepsThePriceAtBooking()
+    {
+        var service = await AddServiceAsync(30, price: 100);
+        var booked = await BookAsync(Tomorrow(10), "ORD-1", false, service);
+        service.Price = 999;
+        await _db.SaveChangesAsync();
+
+        await EditServicesAsync(booked.Id, services: service);
+
+        (await LinesOfAsync(booked.Id)).Single().PriceAtBooking.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task EditServices_LongerDurationOverlapping_IsRefusedAndChangesNothing()
+    {
+        var first = await AddServiceAsync(30);
+        var booked = await BookAsync(Tomorrow(10), "ORD-1", false, first);
+        await BookAsync(Tomorrow(10, 30), "ORD-2");
+        var tracked = await _db.Appointments.FirstAsync(a => a.Id == booked.Id);
+        var added = await AddServiceAsync(30);
+
+        var act = () => EditServicesAsync(booked.Id, services: new[] { first, added });
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*60 minutes long*overlaps*");
+        tracked.DurationMinutes.Should().Be(30);
+        tracked.AppointmentServices.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task EditServices_LongerDurationPastClosing_IsRefused()
+    {
+        var first = await AddServiceAsync(30);
+        var booked = await BookAsync(Tomorrow(16, 30), "ORD-1", false, first);
+        var added = await AddServiceAsync(30);
+
+        var act = () => EditServicesAsync(booked.Id, services: new[] { first, added });
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*takes 60 minutes*closing time*");
+        (await StoredDurationAsync(booked.Id)).Should().Be(30);
+    }
+
+    [Fact]
+    public async Task EditServices_ShorterDuration_IsAllowedOnAnOlderConflictingBooking()
+    {
+        // Overlaps another booking and runs past closing, from before these checks existed.
+        var existing = await AddAppointmentAsync(Tomorrow(16, 30), 120, AppointmentStatus.Scheduled, "OLD-1");
+        await AddAppointmentAsync(Tomorrow(16, 30), 30, AppointmentStatus.Scheduled, "OLD-2");
+
+        var edited = await EditServicesAsync(existing.Id, services: await AddServiceAsync(60));
+
+        edited.DurationMinutes.Should().Be(60);
+    }
+
+    [Fact]
+    public async Task EditServices_OnAPastAppointment_DoesNotRunTheFutureDateRule()
+    {
+        var past = await AddAppointmentAsync(new DateTime(2025, 3, 10, 10, 0, 0), 30, AppointmentStatus.Scheduled, "OLD-1");
+
+        var edited = await EditServicesAsync(past.Id, services: await AddServiceAsync(45));
+
+        edited.DurationMinutes.Should().Be(60);
+    }
+
+    [Fact]
+    public async Task EditServices_OnACancelledAppointment_IsNotChecked_UntilItIsReactivated()
+    {
+        var cancelled = await AddAppointmentAsync(Tomorrow(10), 30, AppointmentStatus.Cancelled, "CAN-1");
+        await AddAppointmentAsync(Tomorrow(10), 30, AppointmentStatus.Scheduled, "NEW-1");
+        var service = await AddServiceAsync(60);
+
+        var edited = await EditServicesAsync(cancelled.Id, AppointmentStatus.Cancelled, services: service);
+        edited.DurationMinutes.Should().Be(60);
+
+        var reactivate = () => _service.SetStatusAsync(cancelled.Id, AppointmentStatus.Scheduled, _tenantId);
+        await reactivate.Should().ThrowAsync<BusinessRuleException>().WithMessage("*can't be reactivated*");
+    }
+
+    [Fact]
+    public async Task EditServices_ReactivatingAtTheSameTime_ChecksTheNewDuration()
+    {
+        var cancelled = await AddAppointmentAsync(Tomorrow(10), 30, AppointmentStatus.Cancelled, "CAN-1");
+        await AddAppointmentAsync(Tomorrow(10, 30), 30, AppointmentStatus.Scheduled, "NEXT-1");
+        var longer = await AddServiceAsync(60);
+
+        var act = () => EditServicesAsync(cancelled.Id, services: longer);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*can't be reactivated*");
+        (await StoredDurationAsync(cancelled.Id)).Should().Be(30);
+    }
+
+    [Fact]
+    public async Task EditServices_MovingAtTheSameTime_ChecksTheNewDuration()
+    {
+        var booked = await BookAsync(Tomorrow(10), "ORD-1");
+        var longer = await AddServiceAsync(120);
+
+        var tooLate = () => EditServicesAsync(booked.Id, moveTo: Tomorrow(16), services: longer);
+        await tooLate.Should().ThrowAsync<BusinessRuleException>().WithMessage("*takes 120 minutes*closing time*");
+
+        var moved = await EditServicesAsync(booked.Id, moveTo: Tomorrow(15), services: longer);
+        moved.DurationMinutes.Should().Be(120);
+        moved.AppointmentDate.Should().Be(Tomorrow(15));
+    }
+
+    [Fact]
+    public async Task EditServices_MovingAtTheSameTime_ChecksOverlapWithTheNewDuration()
+    {
+        var booked = await BookAsync(Tomorrow(10), "ORD-1");
+        await BookAsync(Tomorrow(14, 30), "ORD-2");
+        var longer = await AddServiceAsync(60);
+
+        // 14:00 + the old 30 minutes would fit, but with this service it runs into 14:30.
+        var clash = () => EditServicesAsync(booked.Id, moveTo: Tomorrow(14), services: longer);
+
+        await clash.Should().ThrowAsync<BusinessRuleException>().WithMessage("The selected time overlaps*");
+        (await StoredDurationAsync(booked.Id)).Should().Be(30);
+    }
+
+    [Fact]
+    public async Task Edit_WithServicesDisabled_KeepsTheServicesAndTheDuration()
+    {
+        var service = await AddServiceAsync(60, price: 100);
+        var booked = await BookAsync(Tomorrow(10), "ORD-1", false, service);
+        await DisableServicesAsync();
+
+        // With services disabled the form has no checkboxes, so it posts an empty list.
+        var edited = await EditServicesAsync(booked.Id);
+
+        edited.DurationMinutes.Should().Be(60);
+        (await LinesOfAsync(booked.Id)).Single().ServiceOfferingId.Should().Be(service.Id);
+    }
+
+    [Fact]
+    public async Task EditServices_AttachedInactiveServiceCanStay_ButCantBeNewlyAdded()
+    {
+        var attached = await AddServiceAsync(30);
+        var booked = await BookAsync(Tomorrow(10), "ORD-1", false, attached);
+        attached.IsActive = false;
+        await _db.SaveChangesAsync();
+
+        (await EditServicesAsync(booked.Id, services: attached)).Id.Should().Be(booked.Id);
+
+        var inactive = await AddServiceAsync(30, isActive: false);
+        var act = () => EditServicesAsync(booked.Id, services: new[] { attached, inactive });
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*services are invalid*");
+    }
+
+    [Fact]
+    public async Task EditServices_AnotherTenantsService_IsRefused()
+    {
+        var booked = await BookAsync(Tomorrow(10), "ORD-1");
+        var other = await AddServiceAsync(45, tenantId: Guid.NewGuid());
+
+        var act = () => EditServicesAsync(booked.Id, services: other);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*services are invalid*");
     }
 
     [Fact]

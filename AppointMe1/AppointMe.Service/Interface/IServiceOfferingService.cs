@@ -12,6 +12,12 @@ namespace AppointMe.Service.Interface
         /// <summary>All services of the tenant (active and inactive), with Category, not tracked.</summary>
         Task<IEnumerable<ServiceOffering>> GetAllAsync(Guid tenantId);
 
+        /// <summary>
+        /// The services an appointment form may offer: the active ones, plus any inactive ones
+        /// already attached to the appointment being edited.
+        /// </summary>
+        Task<IEnumerable<ServiceOffering>> GetSelectableAsync(Guid tenantId, IEnumerable<Guid>? attachedIds = null);
+
         Task<ServiceOffering> GetByIdAsync(Guid id, Guid tenantId);
 
         /// <exception cref="Domain.Exceptions.BusinessRuleException">Invalid input or another tenant's category.</exception>

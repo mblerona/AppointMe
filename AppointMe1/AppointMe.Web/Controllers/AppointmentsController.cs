@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -50,15 +50,16 @@ namespace AppointMe.Web.Controllers
             ViewBag.Customers = new SelectList(items, "Id", "FullName", selectedCustomerId);
         }
 
-        private async Task PopulateServicesMultiSelectAsync(Guid tenantId, IEnumerable<Guid>? selectedIds = null)
+        /// <param name="attachedIds">On the Edit form, the services the appointment already has; they stay listed even if inactive.</param>
+        private async Task PopulateServicesMultiSelectAsync(Guid tenantId, IEnumerable<Guid>? selectedIds = null, IEnumerable<Guid>? attachedIds = null)
         {
-            var services = await _serviceOfferingService.GetAllAsync(tenantId);
+            var services = await _serviceOfferingService.GetSelectableAsync(tenantId, attachedIds);
 
             var items = services
                 .Select(s => new
                 {
                     s.Id,
-                    Text = $"{s.Name} • {s.Price:0.##} ден"
+                    Text = $"{s.Name} • {s.Price:0.##} ден{(s.IsActive ? "" : " (inactive)")}"
                 })
                 .ToList();
 
@@ -200,7 +201,7 @@ namespace AppointMe.Web.Controllers
 
                 ViewData["AppointmentId"] = id;
                 PopulateStatusSelectList(parsedStatus);
-                await PopulateServicesMultiSelectAsync(tenantId, updateDto.ServiceOfferingIds);
+                await PopulateServicesMultiSelectAsync(tenantId, updateDto.ServiceOfferingIds, updateDto.ServiceOfferingIds);
 
                 return View(updateDto);
             }
@@ -217,13 +218,7 @@ namespace AppointMe.Web.Controllers
             var tenantId = TenantId;
 
             if (!ModelState.IsValid)
-            {
-                ViewData["AppointmentId"] = id;
-                PopulateStatusSelectList(dto.Status);
-                await PopulateServicesMultiSelectAsync(tenantId, dto.ServiceOfferingIds);
-                await LoadCalendarConfigAsync(tenantId);
-                return View(dto);
-            }
+                return await RedisplayEditFormAsync(id, dto);
 
             try
             {
@@ -238,13 +233,32 @@ namespace AppointMe.Web.Controllers
             catch (BusinessRuleException ex)
             {
                 ModelState.AddModelError(string.Empty, ex.Message);
+                return await RedisplayEditFormAsync(id, dto);
+            }
+        }
+
+        /// <summary>
+        /// Shows the Edit form again after a refused save. The list of services depends on what the
+        /// appointment has stored, not on what was posted. A missing or other tenant's id is a 404.
+        /// </summary>
+        private async Task<IActionResult> RedisplayEditFormAsync(Guid id, UpdateAppointmentDTO dto)
+        {
+            var tenantId = TenantId;
+
+            try
+            {
+                var stored = await _appointmentService.GetAppointmentByIdAsync(id, tenantId);
 
                 ViewData["AppointmentId"] = id;
                 PopulateStatusSelectList(dto.Status);
-                await PopulateServicesMultiSelectAsync(tenantId, dto.ServiceOfferingIds);
+                await PopulateServicesMultiSelectAsync(tenantId, dto.ServiceOfferingIds, stored.Services.Select(x => x.ServiceId));
                 await LoadCalendarConfigAsync(tenantId);
 
-                return View(dto);
+                return View("Edit", dto);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
             }
         }
 

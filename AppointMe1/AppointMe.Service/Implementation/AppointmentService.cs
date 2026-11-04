@@ -12,6 +12,8 @@ namespace AppointMe.Service.Implementation
 {
     public class AppointmentService : IAppointmentService
     {
+        private const string InvalidServicesMessage = "One or more selected services are invalid.";
+
         private readonly IAppointmentRepository _appointmentRepository;
         private readonly ICustomerRepository _customerRepository;
         private readonly IServiceOfferingRepository _serviceOfferingRepository;
@@ -79,8 +81,16 @@ namespace AppointMe.Service.Implementation
 
             var business = await GetBusinessOrThrow(tenantId);
 
-            // A new appointment takes the business's current slot length and keeps it from then on.
-            var durationMinutes = business.DefaultSlotMinutes <= 0 ? 30 : business.DefaultSlotMinutes;
+            // With services disabled the booking has none, whatever was posted.
+            var selectedServices = business.EnableServices
+                ? await LoadSelectedServicesAsync(dto.ServiceOfferingIds, tenantId)
+                : new List<ServiceOffering>();
+
+            if (selectedServices.Any(s => !s.IsActive))
+                throw new BusinessRuleException(InvalidServicesMessage);
+
+            // Calculated once here and stored, like the price at booking.
+            var durationMinutes = AppointmentDurationCalculator.Calculate(business.DefaultSlotMinutes, selectedServices);
 
             // Validate: future, open day, working hours, holidays
             await ValidateAgainstBusinessRulesAsync(dto.AppointmentDate, durationMinutes, business);
@@ -92,21 +102,6 @@ namespace AppointMe.Service.Implementation
             dto.OrderNumber = dto.OrderNumber?.Trim();
             if (await _appointmentRepository.OrderNumberExistsAsync(dto.OrderNumber, tenantId))
                 throw new BusinessRuleException("Order number already exists. Please use a different order number.");
-
-            var businessId = tenantId;
-
-            var selectedIds = (dto.ServiceOfferingIds ?? new List<Guid>())
-                .Where(x => x != Guid.Empty)
-                .Distinct()
-                .ToList();
-
-            var selectedServices = new List<ServiceOffering>();
-            if (selectedIds.Count > 0)
-            {
-                selectedServices = (await _serviceOfferingRepository.GetByIdsForBusinessAsync(selectedIds, businessId)).ToList();
-                if (selectedServices.Count != selectedIds.Count)
-                    throw new BusinessRuleException("One or more selected services are invalid.");
-            }
 
             var appointment = new Appointment
             {
@@ -190,65 +185,87 @@ namespace AppointMe.Service.Implementation
 
             var business = await GetBusinessOrThrow(tenantId);
 
-            // The form works in whole minutes, so a stored date with seconds isn't "moved" just by being saved.
-            if (dto.AppointmentDate != default && ToMinute(dto.AppointmentDate) != ToMinute(appointment.AppointmentDate))
-            {
-                await ValidateAgainstBusinessRulesAsync(dto.AppointmentDate, appointment.DurationMinutes, business);
-
-                // A moved appointment keeps its own length, even if the slot length has changed since booking.
-                var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(dto.AppointmentDate, appointment.DurationMinutes, tenantId, appointmentId);
-                if (!isAvailable)
-                    throw new BusinessRuleException("The selected time overlaps with another appointment.");
-
-                appointment.AppointmentDate = dto.AppointmentDate;
-            }
-            else
-            {
-                await EnsureCanReactivateAsync(appointment, dto.Status, tenantId);
-            }
+            // ---- Everything is checked first, so a refused edit changes nothing. ----
 
             var newOrder = (dto.OrderNumber ?? "").Trim();
             if (string.IsNullOrWhiteSpace(newOrder))
                 throw new BusinessRuleException("Order number is required.");
 
-            if (!string.Equals(appointment.OrderNumber, newOrder, StringComparison.Ordinal))
-            {
-                var exists = await _appointmentRepository.OrderNumberExistsAsync(newOrder, tenantId, appointmentId);
-                if (exists)
-                    throw new BusinessRuleException("Order number already exists. Please use a different order number.");
+            if (!string.Equals(appointment.OrderNumber, newOrder, StringComparison.Ordinal)
+                && await _appointmentRepository.OrderNumberExistsAsync(newOrder, tenantId, appointmentId))
+                throw new BusinessRuleException("Order number already exists. Please use a different order number.");
 
-                appointment.OrderNumber = newOrder;
+            // With services disabled the form has no checkboxes, so an empty list doesn't mean "remove them".
+            var attachedIds = appointment.AppointmentServices.Select(x => x.ServiceOfferingId).ToHashSet();
+            var selectedServices = business.EnableServices
+                ? await LoadSelectedServicesAsync(dto.ServiceOfferingIds, tenantId)
+                : new List<ServiceOffering>();
+            var servicesChanged = business.EnableServices && !attachedIds.SetEquals(selectedServices.Select(s => s.Id));
+
+            // An inactive service can stay on an appointment that already has it, but can't be added.
+            if (selectedServices.Any(s => !s.IsActive && !attachedIds.Contains(s.Id)))
+                throw new BusinessRuleException(InvalidServicesMessage);
+
+            // The stored duration is a snapshot: it is only recalculated when the services actually change.
+            var durationMinutes = servicesChanged
+                ? AppointmentDurationCalculator.Calculate(business.DefaultSlotMinutes, selectedServices)
+                : appointment.DurationMinutes;
+
+            // The form works in whole minutes, so a stored date with seconds isn't "moved" just by being saved.
+            var moved = dto.AppointmentDate != default && ToMinute(dto.AppointmentDate) != ToMinute(appointment.AppointmentDate);
+            if (moved)
+            {
+                await ValidateAgainstBusinessRulesAsync(dto.AppointmentDate, durationMinutes, business);
+
+                var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(dto.AppointmentDate, durationMinutes, tenantId, appointmentId);
+                if (!isAvailable)
+                    throw new BusinessRuleException("The selected time overlaps with another appointment.");
             }
+            else if (appointment.Status == AppointmentStatus.Cancelled && dto.Status != AppointmentStatus.Cancelled)
+            {
+                await EnsureCanReactivateAsync(appointment, durationMinutes, business);
+            }
+            else if (durationMinutes > appointment.DurationMinutes && dto.Status != AppointmentStatus.Cancelled)
+            {
+                // Only a longer appointment can create a new conflict. Shorter ones skip this, so that an older
+                // booking that already overlaps or runs past closing can still be shortened. A cancelled one
+                // takes up no time, and gets checked if it is reactivated.
+                EnsureEndsByClosingTime(appointment.AppointmentDate, durationMinutes, business);
+
+                var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(appointment.AppointmentDate, durationMinutes, tenantId, appointmentId);
+                if (!isAvailable)
+                    throw new BusinessRuleException($"The selected services make this appointment {durationMinutes} minutes long, which overlaps with another appointment.");
+            }
+
+            // ---- All checks passed. ----
+
+            if (moved)
+                appointment.AppointmentDate = dto.AppointmentDate;
+
+            appointment.OrderNumber = newOrder;
 
             if (!string.IsNullOrWhiteSpace(dto.Description))
                 appointment.Description = dto.Description;
 
             appointment.Status = dto.Status;
+            appointment.DurationMinutes = durationMinutes;
 
-            var businessId = tenantId;
-
-            var selectedIds = (dto.ServiceOfferingIds ?? new List<Guid>())
-                .Where(x => x != Guid.Empty)
-                .Distinct()
-                .ToList();
-
-            var selectedServices = new List<ServiceOffering>();
-            if (selectedIds.Count > 0)
+            if (servicesChanged)
             {
-                selectedServices = (await _serviceOfferingRepository.GetByIdsForBusinessAsync(selectedIds, businessId)).ToList();
-                if (selectedServices.Count != selectedIds.Count)
-                    throw new BusinessRuleException("One or more selected services are invalid.");
-            }
+                // Services that stay keep their price at booking; only newly added ones get today's price.
+                var selectedIds = selectedServices.Select(s => s.Id).ToHashSet();
+                foreach (var removed in appointment.AppointmentServices.Where(x => !selectedIds.Contains(x.ServiceOfferingId)).ToList())
+                    appointment.AppointmentServices.Remove(removed);
 
-            appointment.AppointmentServices.Clear();
-            foreach (var s in selectedServices)
-            {
-                appointment.AppointmentServices.Add(new AppointmentServiceModel
+                foreach (var added in selectedServices.Where(s => !attachedIds.Contains(s.Id)))
                 {
-                    AppointmentId = appointment.Id,
-                    ServiceOfferingId = s.Id,
-                    PriceAtBooking = s.Price
-                });
+                    appointment.AppointmentServices.Add(new AppointmentServiceModel
+                    {
+                        AppointmentId = appointment.Id,
+                        ServiceOfferingId = added.Id,
+                        PriceAtBooking = added.Price
+                    });
+                }
             }
 
             appointment.UpdatedAt = DateTime.UtcNow;
@@ -275,7 +292,8 @@ namespace AppointMe.Service.Implementation
             if (appointment == null)
                 throw new KeyNotFoundException("Appointment not found.");
 
-            await EnsureCanReactivateAsync(appointment, status, tenantId);
+            if (appointment.Status == AppointmentStatus.Cancelled && status != AppointmentStatus.Cancelled)
+                await EnsureCanReactivateAsync(appointment, appointment.DurationMinutes, await GetBusinessOrThrow(tenantId));
 
             appointment.Status = status;
             appointment.UpdatedAt = DateTime.UtcNow;
@@ -325,16 +343,12 @@ Best regards,
         /// Any change away from Cancelled makes it occupy that time again, so it has to pass the overlap
         /// check, and it has to fit before closing time (the hours or the length may differ from when it was booked).
         /// </summary>
-        private async Task EnsureCanReactivateAsync(Appointment appointment, AppointmentStatus newStatus, Guid tenantId)
+        private async Task EnsureCanReactivateAsync(Appointment appointment, int durationMinutes, Business business)
         {
-            if (appointment.Status != AppointmentStatus.Cancelled || newStatus == AppointmentStatus.Cancelled)
-                return;
-
-            var business = await GetBusinessOrThrow(tenantId);
-            EnsureEndsByClosingTime(appointment.AppointmentDate, appointment.DurationMinutes, business);
+            EnsureEndsByClosingTime(appointment.AppointmentDate, durationMinutes, business);
 
             var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(
-                appointment.AppointmentDate, appointment.DurationMinutes, tenantId, appointment.Id);
+                appointment.AppointmentDate, durationMinutes, appointment.TenantId, appointment.Id);
             if (!isAvailable)
                 throw new BusinessRuleException(
                     "This appointment can't be reactivated because its time now overlaps with another appointment. Move it to a free time first.");
@@ -371,6 +385,24 @@ Best regards,
                     throw new BusinessRuleException($"Cannot create an appointment on a public holiday: {name}.");
                 throw new BusinessRuleException("Cannot create an appointment on a public holiday.");
             }
+        }
+
+        /// <summary>The tenant's services with these ids. An unknown id or another tenant's service is refused.</summary>
+        private async Task<List<ServiceOffering>> LoadSelectedServicesAsync(IEnumerable<Guid>? ids, Guid tenantId)
+        {
+            var selectedIds = (ids ?? Enumerable.Empty<Guid>())
+                .Where(x => x != Guid.Empty)
+                .Distinct()
+                .ToList();
+
+            if (selectedIds.Count == 0)
+                return new List<ServiceOffering>();
+
+            var services = (await _serviceOfferingRepository.GetByIdsForBusinessAsync(selectedIds, tenantId)).ToList();
+            if (services.Count != selectedIds.Count)
+                throw new BusinessRuleException(InvalidServicesMessage);
+
+            return services;
         }
 
         private static DateTime ToMinute(DateTime value) => value.AddTicks(-(value.Ticks % TimeSpan.TicksPerMinute));

@@ -23,6 +23,13 @@ namespace AppointMe.Service.Implementation
         public Task<IEnumerable<ServiceOffering>> GetAllAsync(Guid tenantId) =>
             _repository.GetAllByBusinessAsync(tenantId);
 
+        public async Task<IEnumerable<ServiceOffering>> GetSelectableAsync(Guid tenantId, IEnumerable<Guid>? attachedIds = null)
+        {
+            var attached = (attachedIds ?? Enumerable.Empty<Guid>()).ToHashSet();
+            var services = await _repository.GetAllByBusinessAsync(tenantId);
+            return services.Where(s => s.IsActive || attached.Contains(s.Id)).ToList();
+        }
+
         public async Task<ServiceOffering> GetByIdAsync(Guid id, Guid tenantId) =>
             await _repository.GetByIdAsync(id, tenantId)
             ?? throw new KeyNotFoundException("Service not found.");

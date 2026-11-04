@@ -870,6 +870,10 @@ namespace AppointMe.Tests.Unit.Services
             var s1 = new ServiceOffering { Id = Guid.NewGuid(), BusinessId = tenantId, Name = "S1", Price = 100 };
             var s2 = new ServiceOffering { Id = Guid.NewGuid(), BusinessId = tenantId, Name = "S2", Price = 200 };
 
+            // Two services without a duration take two 30-minute slots, which is longer than before.
+            apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(appt.AppointmentDate, 60, tenantId, apptId))
+                .ReturnsAsync(true);
+
             svcRepo.Setup(r => r.GetByIdsForBusinessAsync(
                     It.Is<List<Guid>>(l => l.Count == 2 && l.Contains(s1.Id) && l.Contains(s2.Id)),
                     tenantId))
@@ -890,6 +894,7 @@ namespace AppointMe.Tests.Unit.Services
 
             var result = await service.UpdateAppointmentAsync(apptId, dto, tenantId);
 
+            appt.DurationMinutes.Should().Be(60);
             appt.AppointmentServices.Should().HaveCount(2);
             appt.AppointmentServices.Select(x => x.ServiceOfferingId).Should().BeEquivalentTo(new[] { s1.Id, s2.Id });
             appt.AppointmentServices.First(x => x.ServiceOfferingId == s1.Id).PriceAtBooking.Should().Be(100);

@@ -77,6 +77,18 @@ public class ServiceOfferingServiceTests
     }
 
     [Fact]
+    public async Task GetSelectable_ReturnsActiveServices_AndOnlyTheInactiveOnesAlreadyAttached()
+    {
+        var active = new ServiceOffering { Id = Guid.NewGuid(), Name = "Active", IsActive = true };
+        var attachedInactive = new ServiceOffering { Id = Guid.NewGuid(), Name = "Attached", IsActive = false };
+        var otherInactive = new ServiceOffering { Id = Guid.NewGuid(), Name = "Other", IsActive = false };
+        _repo.Setup(r => r.GetAllByBusinessAsync(Tenant)).ReturnsAsync(new[] { active, attachedInactive, otherInactive });
+
+        (await _sut.GetSelectableAsync(Tenant)).Should().Equal(active);
+        (await _sut.GetSelectableAsync(Tenant, new[] { attachedInactive.Id })).Should().Equal(active, attachedInactive);
+    }
+
+    [Fact]
     public async Task Create_WithoutDuration_StoresNull()
     {
         var created = await _sut.CreateAsync(new CreateServiceOfferingDTO { Name = "X", Price = 1 }, Tenant);
