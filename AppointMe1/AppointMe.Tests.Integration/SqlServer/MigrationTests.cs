@@ -16,6 +16,7 @@ namespace AppointMe.Tests.Integration.SqlServer
         public const string ConfirmExistingUsers = "20261103141300_ConfirmExistingUsers";
         public const string TenantForeignKeys = "20261103152752_TenantForeignKeysAndPerTenantOrderNumber";
         public const string AddAppointmentDuration = "20261104114652_AddAppointmentDuration";
+        public const string AddServiceDuration = "20261104122910_AddServiceDuration";
 
         public static string User(string id, string? tenantSql, bool confirmed) => $@"
 INSERT INTO AspNetUsers (Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
@@ -79,6 +80,35 @@ VALUES ('{existingBusiness}', N'Existing', 30, '09:00', '17:00', 1, 1, 1, 1, 1, 
             (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Businesses")).Should().Be(3);
         }
 
+    }
+
+    [Trait("Category", SqlServerCollection.Category)]
+    public class AddServiceDurationMigrationTests
+    {
+        [Fact]
+        public async Task ExistingServicesGetNoDuration_AndRollsBack()
+        {
+            await using var database = new SqlServerTestDatabase();
+            await database.MigrateToAsync(MigrationSql.AddAppointmentDuration);
+
+            const string business = "aaaaaaaa-0000-0000-0000-000000000001";
+            const string service = "40000000-0000-0000-0000-000000000001";
+            await database.ExecuteSqlAsync($@"
+{MigrationSql.Business(business, "Services")}
+INSERT INTO ServiceOfferings (Id, BusinessId, Name, Price) VALUES ('{service}', '{business}', N'Haircut', 500);");
+
+            await database.MigrateToAsync(MigrationSql.AddServiceDuration);
+
+            (await database.ScalarAsync($"SELECT COUNT(*) AS Value FROM ServiceOfferings WHERE Id = '{service}' AND DurationMinutes IS NULL AND Price = 500 AND Name = N'Haircut'"))
+                .Should().Be(1, "the service is unchanged and has no duration until the business sets one");
+
+            await database.ExecuteSqlAsync($"UPDATE ServiceOfferings SET DurationMinutes = 45 WHERE Id = '{service}'");
+
+            await database.MigrateToAsync(MigrationSql.AddAppointmentDuration);
+
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'ServiceOfferings' AND COLUMN_NAME = 'DurationMinutes'")).Should().Be(0);
+            (await database.ScalarAsync($"SELECT COUNT(*) AS Value FROM ServiceOfferings WHERE Id = '{service}'")).Should().Be(1, "rolling back keeps the service");
+        }
     }
 
     [Trait("Category", SqlServerCollection.Category)]

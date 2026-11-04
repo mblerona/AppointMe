@@ -77,6 +77,66 @@ public class ServiceOfferingServiceTests
     }
 
     [Fact]
+    public async Task Create_WithoutDuration_StoresNull()
+    {
+        var created = await _sut.CreateAsync(new CreateServiceOfferingDTO { Name = "X", Price = 1 }, Tenant);
+
+        created.DurationMinutes.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(45)]
+    [InlineData(480)]
+    public async Task Create_WithDurationInRange_StoresIt(int minutes)
+    {
+        var created = await _sut.CreateAsync(new CreateServiceOfferingDTO { Name = "X", Price = 1, DurationMinutes = minutes }, Tenant);
+
+        created.DurationMinutes.Should().Be(minutes);
+    }
+
+    [Theory]
+    [InlineData(-5)]
+    [InlineData(0)]
+    [InlineData(4)]
+    [InlineData(481)]
+    public async Task Create_WithDurationOutOfRange_Throws_AndSavesNothing(int minutes)
+    {
+        var act = () => _sut.CreateAsync(new CreateServiceOfferingDTO { Name = "X", Price = 1, DurationMinutes = minutes }, Tenant);
+
+        var ex = (await act.Should().ThrowAsync<BusinessRuleException>()).Which;
+        ex.PropertyName.Should().Be("DurationMinutes");
+        ex.Message.Should().Be("Duration must be between 5 and 480 minutes.");
+        _repo.Verify(r => r.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task Update_SetsAndClearsTheDuration()
+    {
+        var existing = ExistingService();
+
+        await _sut.UpdateAsync(existing.Id, new UpdateServiceOfferingDTO { Id = existing.Id, Name = "X", Price = 1, DurationMinutes = 60 }, Tenant);
+        existing.DurationMinutes.Should().Be(60);
+
+        await _sut.UpdateAsync(existing.Id, new UpdateServiceOfferingDTO { Id = existing.Id, Name = "X", Price = 1, DurationMinutes = null }, Tenant);
+        existing.DurationMinutes.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Update_WithDurationOutOfRange_Throws_AndLeavesTheServiceUnchanged()
+    {
+        var existing = ExistingService();
+        existing.DurationMinutes = 30;
+
+        var act = () => _sut.UpdateAsync(existing.Id, new UpdateServiceOfferingDTO { Id = existing.Id, Name = "New", Price = 1, DurationMinutes = 481 }, Tenant);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.PropertyName.Should().Be("DurationMinutes");
+        existing.DurationMinutes.Should().Be(30);
+        existing.Name.Should().Be("Old");
+        _repo.Verify(r => r.SaveChangesAsync(), Times.Never);
+    }
+
+    [Fact]
     public async Task Create_WithNegativePrice_Throws()
     {
         var act = () => _sut.CreateAsync(new CreateServiceOfferingDTO { Name = "X", Price = -1 }, Tenant);

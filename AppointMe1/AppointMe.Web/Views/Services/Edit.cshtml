@@ -91,6 +91,17 @@
                         <span asp-validation-for="Price" class="text-danger"></span>
                     </div>
 
+                    <div class="col-12 col-md-6">
+                        <label asp-for="DurationMinutes" class="form-label fw-semibold">
+                            <i class="bi bi-hourglass-split me-1"></i> Duration (minutes)
+                        </label>
+                        <input asp-for="DurationMinutes" class="form-control" type="number" step="1"
+                               min="@AppointMe.Domain.DomainModels.ServiceOffering.MinDurationMinutes"
+                               max="@AppointMe.Domain.DomainModels.ServiceOffering.MaxDurationMinutes" />
+                        <div class="hint mt-1">Optional. Leave empty to use one appointment slot.</div>
+                        <span asp-validation-for="DurationMinutes" class="text-danger"></span>
+                    </div>
+
                     <div class="col-12 col-md-6 d-flex align-items-end">
                         <div class="form-check form-switch">
                             <input asp-for="IsActive" class="form-check-input" type="checkbox" />

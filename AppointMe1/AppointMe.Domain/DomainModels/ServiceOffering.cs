@@ -6,6 +6,9 @@ namespace AppointMe.Domain.DomainModels
 {
     public class ServiceOffering
     {
+        public const int MinDurationMinutes = 5;
+        public const int MaxDurationMinutes = 480;
+
         [Key]
         public Guid Id { get; set; }
 
@@ -19,6 +22,9 @@ namespace AppointMe.Domain.DomainModels
         public string Name { get; set; }
 
         public decimal Price { get; set; }
+
+        /// <summary>How long this service takes. Null means one slot of the business's slot length.</summary>
+        public int? DurationMinutes { get; set; }
 
         public bool IsActive { get; set; } = true;
         public virtual ICollection<AppointmentServiceModel> AppointmentServices { get; set; } = new List<AppointmentServiceModel>();

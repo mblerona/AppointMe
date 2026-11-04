@@ -1,4 +1,4 @@
-﻿using AppointMe.Domain.DTO;
+using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Service.Interface;
 using Microsoft.AspNetCore.Authorization;
@@ -64,6 +64,7 @@ namespace AppointMe.Web.Controllers
                     Id = entity.Id,
                     Name = entity.Name,
                     Price = entity.Price,
+                    DurationMinutes = entity.DurationMinutes,
                     IsActive = entity.IsActive,
                     CategoryId = entity.CategoryId
                 });

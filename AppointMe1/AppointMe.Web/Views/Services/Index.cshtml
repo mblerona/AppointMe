@@ -80,10 +80,11 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th style="width:40%;">Name</th>
+                                <th style="width:35%;">Name</th>
                                 <th style="width:20%;">Price</th>
-                                <th style="width:20%;">Status</th>
-                                <th class="text-end" style="width:20%;">Actions</th>
+                                <th style="width:15%;">Duration</th>
+                                <th style="width:15%;">Status</th>
+                                <th class="text-end" style="width:15%;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -97,6 +98,10 @@
 
                                     <td class="price fw-semibold">
                                         @s.Price.ToString("0.00") ден
+                                    </td>
+
+                                    <td class="service-duration">
+                                        @(s.DurationMinutes.HasValue ? $"{s.DurationMinutes} min" : "1 slot")
                                     </td>
 
                                     <td>

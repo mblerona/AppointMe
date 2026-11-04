@@ -31,6 +31,7 @@ namespace AppointMe.Service.Implementation
         {
             var name = ValidateName(dto.Name);
             ValidatePrice(dto.Price);
+            ValidateDuration(dto.DurationMinutes);
             await EnsureCategoryBelongsToTenantAsync(dto.CategoryId, tenantId);
 
             var now = DateTime.UtcNow;
@@ -39,6 +40,7 @@ namespace AppointMe.Service.Implementation
                 Id = Guid.NewGuid(),
                 Name = name,
                 Price = dto.Price,
+                DurationMinutes = dto.DurationMinutes,
                 IsActive = dto.IsActive,
                 CategoryId = dto.CategoryId,
                 CreatedAt = now,
@@ -57,10 +59,12 @@ namespace AppointMe.Service.Implementation
 
             var name = ValidateName(dto.Name);
             ValidatePrice(dto.Price);
+            ValidateDuration(dto.DurationMinutes);
             await EnsureCategoryBelongsToTenantAsync(dto.CategoryId, tenantId);
 
             entity.Name = name;
             entity.Price = dto.Price;
+            entity.DurationMinutes = dto.DurationMinutes;
             entity.IsActive = dto.IsActive;
             entity.CategoryId = dto.CategoryId;
             entity.UpdatedAt = DateTime.UtcNow;
@@ -95,6 +99,14 @@ namespace AppointMe.Service.Implementation
         {
             if (price < 0)
                 throw new BusinessRuleException("Price can't be negative.", nameof(CreateServiceOfferingDTO.Price));
+        }
+
+        private static void ValidateDuration(int? minutes)
+        {
+            if (minutes is < ServiceOffering.MinDurationMinutes or > ServiceOffering.MaxDurationMinutes)
+                throw new BusinessRuleException(
+                    $"Duration must be between {ServiceOffering.MinDurationMinutes} and {ServiceOffering.MaxDurationMinutes} minutes.",
+                    nameof(CreateServiceOfferingDTO.DurationMinutes));
         }
 
         /// <summary>
