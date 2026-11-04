@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -100,7 +100,8 @@ namespace AppointMe.Tests.Unit.Services
             return new InvoiceService(
                 invoiceRepo.Object,
                 apptRepo.Object,
-                new BusinessRepository(db)
+                new BusinessRepository(db),
+                TimeProvider.System
             );
         }
 

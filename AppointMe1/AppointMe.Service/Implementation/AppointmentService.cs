@@ -50,32 +50,29 @@ namespace AppointMe.Service.Implementation
             if (appointment == null)
                 throw new KeyNotFoundException($"Appointment with ID {id} not found");
 
-            return MapToAppointmentDto(appointment);
+            return MapToAppointmentDto(appointment, await ZoneOfAsync(tenantId));
         }
 
-        public async Task<IEnumerable<AppointmentDTO>> GetAllAppointmentsAsync(Guid tenantId)
+        public async Task<IEnumerable<AppointmentDTO>> GetAllAppointmentsAsync(Guid tenantId) =>
+            await MapAllAsync(await _appointmentRepository.GetAllByTenantAsync(tenantId), tenantId);
+
+        public async Task<IEnumerable<AppointmentDTO>> GetAppointmentsByCustomerAsync(Guid customerId, Guid tenantId) =>
+            await MapAllAsync(await _appointmentRepository.GetByCustomerIdAsync(customerId, tenantId), tenantId);
+
+        public async Task<IEnumerable<AppointmentDTO>> GetAppointmentsByDateRangeAsync(DateTime startDate, DateTime endDate, Guid tenantId) =>
+            await MapAllAsync(await _appointmentRepository.GetByDateRangeAsync(startDate, endDate, tenantId), tenantId);
+
+        public async Task<IEnumerable<AppointmentDTO>> GetAppointmentsByStatusAsync(AppointmentStatus status, Guid tenantId) =>
+            await MapAllAsync(await _appointmentRepository.GetByStatusAsync(status, tenantId), tenantId);
+
+        private async Task<IEnumerable<AppointmentDTO>> MapAllAsync(IEnumerable<Appointment> appointments, Guid tenantId)
         {
-            var appointments = await _appointmentRepository.GetAllByTenantAsync(tenantId);
-            return appointments.Select(MapToAppointmentDto).ToList();
+            var zone = await ZoneOfAsync(tenantId);
+            return appointments.Select(a => MapToAppointmentDto(a, zone)).ToList();
         }
 
-        public async Task<IEnumerable<AppointmentDTO>> GetAppointmentsByCustomerAsync(Guid customerId, Guid tenantId)
-        {
-            var appointments = await _appointmentRepository.GetByCustomerIdAsync(customerId, tenantId);
-            return appointments.Select(MapToAppointmentDto).ToList();
-        }
-
-        public async Task<IEnumerable<AppointmentDTO>> GetAppointmentsByDateRangeAsync(DateTime startDate, DateTime endDate, Guid tenantId)
-        {
-            var appointments = await _appointmentRepository.GetByDateRangeAsync(startDate, endDate, tenantId);
-            return appointments.Select(MapToAppointmentDto).ToList();
-        }
-
-        public async Task<IEnumerable<AppointmentDTO>> GetAppointmentsByStatusAsync(AppointmentStatus status, Guid tenantId)
-        {
-            var appointments = await _appointmentRepository.GetByStatusAsync(status, tenantId);
-            return appointments.Select(MapToAppointmentDto).ToList();
-        }
+        private async Task<string?> ZoneOfAsync(Guid tenantId) =>
+            (await _businessRepository.GetByIdReadOnlyAsync(tenantId))?.TimeZoneId;
 
         public async Task<AppointmentDTO> CreateAppointmentAsync(CreateAppointmentDTO dto, Guid tenantId)
         {
@@ -134,7 +131,7 @@ namespace AppointMe.Service.Implementation
             await _appointmentRepository.AddAsync(appointment);
             await _appointmentRepository.SaveChangesAsync();
 
-            var result = MapToAppointmentDto(appointment);
+            var result = MapToAppointmentDto(appointment, business.TimeZoneId);
 
             if (dto.NotifyByEmail && !string.IsNullOrWhiteSpace(customer.Email))
             {
@@ -279,7 +276,7 @@ namespace AppointMe.Service.Implementation
             await _appointmentRepository.UpdateAsync(appointment);
             await _appointmentRepository.SaveChangesAsync();
 
-            return MapToAppointmentDto(appointment);
+            return MapToAppointmentDto(appointment, business.TimeZoneId);
         }
 
         public async Task DeleteAppointmentAsync(Guid appointmentId, Guid tenantId)
@@ -459,7 +456,8 @@ Best regards,
             };
         }
 
-        private AppointmentDTO MapToAppointmentDto(Appointment appointment)
+        /// <summary>CreatedAt and UpdatedAt are stored in UTC and converted for display. AppointmentDate already is a clock time.</summary>
+        private static AppointmentDTO MapToAppointmentDto(Appointment appointment, string? zone)
         {
             var services = appointment.AppointmentServices?
                 .Select(x => new ServiceLineDto
@@ -481,8 +479,8 @@ Best regards,
                 DurationMinutes = appointment.DurationMinutes,
                 Description = appointment.Description,
                 Status = appointment.Status.ToString(),
-                CreatedAt = appointment.CreatedAt,
-                UpdatedAt = appointment.UpdatedAt,
+                CreatedAt = BusinessTimeZones.FromUtc(appointment.CreatedAt, zone),
+                UpdatedAt = BusinessTimeZones.FromUtc(appointment.UpdatedAt, zone),
                 Services = services
             };
         }

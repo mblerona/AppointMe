@@ -186,6 +186,8 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 CustomerId = customer.Id,
 
                 InvoiceNumber = $"INV-{year}-0001",
+                InvoiceYear = year,
+                InvoiceSequence = 1,
                 IssuedAt = DateTime.UtcNow,
                 Status = InvoiceStatus.Draft,
 

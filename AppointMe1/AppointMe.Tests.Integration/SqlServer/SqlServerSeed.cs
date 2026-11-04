@@ -14,6 +14,8 @@ namespace AppointMe.Tests.Integration.SqlServer
         public const int UniqueConstraintViolation = 2627;
         public const int ForeignKeyViolation = 547;
 
+        private static int _nextInvoiceSequence;
+
         public static async Task<Business> AddBusinessAsync(ApplicationDbContext db, Guid? id = null)
         {
             var business = new Business { Id = id ?? Guid.NewGuid(), Name = "Test business" };
@@ -53,6 +55,8 @@ namespace AppointMe.Tests.Integration.SqlServer
             AppointmentId = appointmentId,
             CustomerId = customerId,
             InvoiceNumber = number,
+            InvoiceYear = 2026,
+            InvoiceSequence = Interlocked.Increment(ref _nextInvoiceSequence),
             CustomerNameSnapshot = "Ana Doe",
             BusinessNameSnapshot = "Test business"
         };

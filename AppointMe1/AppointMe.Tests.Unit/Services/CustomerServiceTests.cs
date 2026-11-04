@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -20,7 +20,7 @@ namespace AppointMe.Tests.Unit.Services
 
         public CustomerServiceTests()
         {
-            _sut = new CustomerService(_customerRepo.Object);
+            _sut = new CustomerService(_customerRepo.Object, new Mock<IBusinessRepository>().Object);
         }
 
         [Fact]

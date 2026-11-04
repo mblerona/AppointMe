@@ -29,6 +29,15 @@ namespace AppointMe.Domain.DomainModels
         [Required, MaxLength(50)]
         public string InvoiceNumber { get; set; } = default!;
 
+        /// <summary>The year in the number, in the business's time zone.</summary>
+        public int InvoiceYear { get; set; }
+
+        /// <summary>
+        /// The running number within the tenant and year. Stored as a number because sorting the
+        /// text form puts INV-2026-10000 before INV-2026-9999 (audit B10).
+        /// </summary>
+        public int InvoiceSequence { get; set; }
+
         public DateTime IssuedAt { get; set; } = DateTime.UtcNow;
 
         public InvoiceStatus Status { get; set; } = InvoiceStatus.Draft;

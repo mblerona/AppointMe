@@ -1,6 +1,7 @@
-﻿using AppointMe.Domain.DomainModels;
+using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
+using AppointMe.Domain.TimeZones;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -17,29 +18,36 @@ namespace AppointMe.Service.Implementation
         private readonly IInvoiceRepository _invoiceRepository;
         private readonly IAppointmentRepository _appointmentRepository;
         private readonly IBusinessRepository _businessRepository;
+        private readonly TimeProvider _timeProvider;
 
         public InvoiceService(
             IInvoiceRepository invoiceRepository,
             IAppointmentRepository appointmentRepository,
-            IBusinessRepository businessRepository)
+            IBusinessRepository businessRepository,
+            TimeProvider timeProvider)
         {
             _invoiceRepository = invoiceRepository;
             _appointmentRepository = appointmentRepository;
             _businessRepository = businessRepository;
+            _timeProvider = timeProvider;
         }
 
         public async Task<IEnumerable<InvoiceDTO>> GetAllAsync(Guid tenantId)
         {
             var invoices = await _invoiceRepository.GetAllByTenantAsync(tenantId);
-            return invoices.Select(MapToDto).ToList();
+            var zone = await ZoneOfAsync(tenantId);
+            return invoices.Select(i => MapToDto(i, zone)).ToList();
         }
 
         public async Task<InvoiceDTO> GetByIdAsync(Guid invoiceId, Guid tenantId)
         {
             var invoice = await _invoiceRepository.GetByIdAsync(invoiceId, tenantId);
             if (invoice == null) throw new KeyNotFoundException("Invoice not found.");
-            return MapToDto(invoice);
+            return MapToDto(invoice, await ZoneOfAsync(tenantId));
         }
+
+        private async Task<string?> ZoneOfAsync(Guid tenantId) =>
+            (await _businessRepository.GetByIdReadOnlyAsync(tenantId))?.TimeZoneId;
 
         public async Task<InvoiceDTO> CreateOrGetForAppointmentAsync(Guid appointmentId, Guid tenantId)
         {
@@ -50,7 +58,7 @@ namespace AppointMe.Service.Implementation
 
           
             var existing = await _invoiceRepository.GetByAppointmentIdAsync(appointmentId, tenantId);
-            if (existing != null) return MapToDto(existing);
+            if (existing != null) return MapToDto(existing, biz.TimeZoneId);
 
            
             var appt = await _appointmentRepository.GetByIdAsync(appointmentId, tenantId);
@@ -61,8 +69,9 @@ namespace AppointMe.Service.Implementation
 
             
 
-           
-            var year = DateTime.UtcNow.Year;
+            // The business's year: on New Year's Eve it can differ from the year in UTC.
+            var year = BusinessTimeZones.Now(_timeProvider, biz.TimeZoneId).Year;
+            var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
 
            
             for (int attempt = 1; attempt <= 3; attempt++)
@@ -71,7 +80,7 @@ namespace AppointMe.Service.Implementation
                 {
                     // A concurrent request may have created the invoice for this appointment meanwhile.
                     var created = await _invoiceRepository.GetByAppointmentIdAsync(appointmentId, tenantId);
-                    if (created != null) return MapToDto(created);
+                    if (created != null) return MapToDto(created, biz.TimeZoneId);
                 }
 
                 var nextSeq = (await _invoiceRepository.GetMaxInvoiceSequenceForYearAsync(tenantId, year)) + 1;
@@ -89,7 +98,9 @@ namespace AppointMe.Service.Implementation
                     CustomerId = appt.CustomerId,
 
                     InvoiceNumber = number,
-                    IssuedAt = DateTime.UtcNow,
+                    InvoiceYear = year,
+                    InvoiceSequence = nextSeq,
+                    IssuedAt = utcNow,
                     Status = InvoiceStatus.Draft,
 
                     CustomerNameSnapshot = customerName,
@@ -128,14 +139,14 @@ namespace AppointMe.Service.Implementation
                 invoice.Subtotal = invoice.Lines.Sum(x => x.LineTotal);
                 invoice.Total = invoice.Subtotal - invoice.Discount + invoice.Tax;
 
-                invoice.CreatedAt = DateTime.UtcNow;
-                invoice.UpdatedAt = DateTime.UtcNow;
+                invoice.CreatedAt = utcNow;
+                invoice.UpdatedAt = utcNow;
 
                 try
                 {
                     await _invoiceRepository.AddAsync(invoice);
                     await _invoiceRepository.SaveChangesAsync();
-                    return MapToDto(invoice);
+                    return MapToDto(invoice, biz.TimeZoneId);
                 }
                 catch (DbUpdateException)
                 {
@@ -151,7 +162,11 @@ namespace AppointMe.Service.Implementation
             throw new BusinessRuleException("Could not create invoice. Please retry.");
         }
 
-        private static InvoiceDTO MapToDto(Invoice i)
+        /// <summary>
+        /// IssuedAt is stored in UTC, so it is converted for display. AppointmentDateSnapshot isn't:
+        /// appointment times are already the business's clock times.
+        /// </summary>
+        private static InvoiceDTO MapToDto(Invoice i, string? zone)
         {
             return new InvoiceDTO
             {
@@ -160,7 +175,7 @@ namespace AppointMe.Service.Implementation
                 CustomerId = i.CustomerId,
                 InvoiceNumber = i.InvoiceNumber,
                 Status = i.Status.ToString(),
-                IssuedAt = i.IssuedAt,
+                IssuedAt = BusinessTimeZones.FromUtc(i.IssuedAt, zone),
 
                 CustomerName = i.CustomerNameSnapshot,
                 CustomerEmail = i.CustomerEmailSnapshot,

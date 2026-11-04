@@ -283,6 +283,11 @@ namespace AppointMe.Repository.Data
                     .IsUnique()
                     .HasDatabaseName("IX_Invoice_TenantId_InvoiceNumber");
 
+                // Audit B10: the numbers behind it, so two requests can't take the same one.
+                entity.HasIndex(i => new { i.TenantId, i.InvoiceYear, i.InvoiceSequence })
+                    .IsUnique()
+                    .HasDatabaseName("UX_Invoice_TenantId_Year_Sequence");
+
                 entity.HasMany(i => i.Lines)
                     .WithOne(l => l.Invoice)
                     .HasForeignKey(l => l.InvoiceId)

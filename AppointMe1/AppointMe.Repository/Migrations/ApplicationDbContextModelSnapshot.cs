@@ -346,6 +346,12 @@ namespace AppointMe.Repository.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int>("InvoiceSequence")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InvoiceYear")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("IssuedAt")
                         .HasColumnType("datetime2");
 
@@ -380,6 +386,10 @@ namespace AppointMe.Repository.Migrations
                     b.HasIndex("TenantId", "InvoiceNumber")
                         .IsUnique()
                         .HasDatabaseName("IX_Invoice_TenantId_InvoiceNumber");
+
+                    b.HasIndex("TenantId", "InvoiceYear", "InvoiceSequence")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Invoice_TenantId_Year_Sequence");
 
                     b.ToTable("Invoices");
                 });

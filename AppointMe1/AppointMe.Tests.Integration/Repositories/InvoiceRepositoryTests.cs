@@ -32,6 +32,9 @@ namespace AppointMe.Tests.Integration.Repositories
             DateTime? issuedAt = null,
             int linesCount = 0)
         {
+            // "INV-2026-0003" means year 2026, sequence 3.
+            var parts = invoiceNumber.Split('-');
+
             var invoice = new Invoice
             {
                 Id = Guid.NewGuid(),
@@ -40,6 +43,8 @@ namespace AppointMe.Tests.Integration.Repositories
                 CustomerId = Guid.NewGuid(),
 
                 InvoiceNumber = invoiceNumber,
+                InvoiceYear = parts.Length == 3 && int.TryParse(parts[1], out var year) ? year : 0,
+                InvoiceSequence = parts.Length == 3 && int.TryParse(parts[2], out var sequence) ? sequence : 0,
                 IssuedAt = issuedAt ?? DateTime.UtcNow,
                 Status = InvoiceStatus.Draft,
 
@@ -218,6 +223,23 @@ namespace AppointMe.Tests.Integration.Repositories
             var max = await repo.GetMaxInvoiceSequenceForYearAsync(tenantId, year);
 
             max.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task GetMaxInvoiceSequenceForYearAsync_ComparesNumbers_NotText()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new InvoiceRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+
+            // As text, "INV-2026-9999" sorts after "INV-2026-10000" (audit B10).
+            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), "INV-2026-9999"));
+            db.Invoices.Add(CreateInvoice(tenantId, Guid.NewGuid(), "INV-2026-10000"));
+            await db.SaveChangesAsync();
+
+            (await repo.GetMaxInvoiceSequenceForYearAsync(tenantId, 2026)).Should().Be(10000);
         }
 
         [Fact]

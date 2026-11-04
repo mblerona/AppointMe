@@ -18,6 +18,12 @@ namespace AppointMe.Tests.Integration.SqlServer
         public const string AddAppointmentDuration = "20261104114652_AddAppointmentDuration";
         public const string AddServiceDuration = "20261104122910_AddServiceDuration";
         public const string AddBusinessTimeZone = "20261104134128_AddBusinessTimeZone";
+        public const string AddInvoiceYearAndSequence = "20261104140948_AddInvoiceYearAndSequence";
+
+        public static string Invoice(string tenant, string number, string issuedAt) => $@"
+INSERT INTO Invoices (Id, TenantId, AppointmentId, CustomerId, InvoiceNumber, IssuedAt, CustomerNameSnapshot,
+    BusinessNameSnapshot, AppointmentDateSnapshot, Subtotal, Discount, Tax, Total, CreatedAt, UpdatedAt)
+VALUES (NEWID(), '{tenant}', NEWID(), NEWID(), '{number}', '{issuedAt}', 'Ana Doe', 'X', '{issuedAt}', 0, 0, 0, 0, '{issuedAt}', '{issuedAt}');";
 
         public static string User(string id, string? tenantSql, bool confirmed) => $@"
 INSERT INTO AspNetUsers (Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
@@ -81,6 +87,56 @@ VALUES ('{existingBusiness}', N'Existing', 30, '09:00', '17:00', 1, 1, 1, 1, 1, 
             (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Businesses")).Should().Be(3);
         }
 
+    }
+
+    [Trait("Category", SqlServerCollection.Category)]
+    public class AddInvoiceYearAndSequenceMigrationTests
+    {
+        [Fact]
+        public async Task BackfillsFromTheNumbers_CopesWithMessyOnes_AndRollsBack()
+        {
+            await using var database = new SqlServerTestDatabase();
+            await database.MigrateToAsync(MigrationSql.AddBusinessTimeZone);
+
+            const string tenantA = "aaaaaaaa-0000-0000-0000-000000000001";
+            const string tenantB = "aaaaaaaa-0000-0000-0000-000000000002";
+            await database.ExecuteSqlAsync($@"
+{MigrationSql.Business(tenantA, "A")}
+{MigrationSql.Business(tenantB, "B")}
+{MigrationSql.Invoice(tenantA, "INV-2026-0001", "2026-01-01T10:00:00")}
+{MigrationSql.Invoice(tenantA, "INV-2026-9999", "2026-01-02T10:00:00")}
+{MigrationSql.Invoice(tenantA, "INV-2026-10000", "2026-01-03T10:00:00")}
+{MigrationSql.Invoice(tenantA, "INV-2025-0003", "2025-05-01T10:00:00")}
+{MigrationSql.Invoice(tenantA, "INV-2026-1", "2026-01-04T10:00:00")}
+{MigrationSql.Invoice(tenantA, "LEGACY-7", "2026-01-05T10:00:00")}
+{MigrationSql.Invoice(tenantA, "INV-2026-ABCD", "2026-01-06T10:00:00")}
+{MigrationSql.Invoice(tenantA, "OLD", "2024-03-01T10:00:00")}
+{MigrationSql.Invoice(tenantB, "INV-2026-0001", "2026-01-01T10:00:00")}");
+
+            await database.MigrateToAsync(MigrationSql.AddInvoiceYearAndSequence);
+
+            Task<int> Count(string tenant, string number, int year, int sequence) => database.ScalarAsync(
+                $"SELECT COUNT(*) AS Value FROM Invoices WHERE TenantId = '{tenant}' AND InvoiceNumber = '{number}' AND InvoiceYear = {year} AND InvoiceSequence = {sequence}");
+
+            // The usual form keeps its values, compared as numbers.
+            (await Count(tenantA, "INV-2026-0001", 2026, 1)).Should().Be(1);
+            (await Count(tenantA, "INV-2026-9999", 2026, 9999)).Should().Be(1);
+            (await Count(tenantA, "INV-2026-10000", 2026, 10000)).Should().Be(1);
+            (await Count(tenantA, "INV-2025-0003", 2025, 3)).Should().Be(1);
+            (await Count(tenantB, "INV-2026-0001", 2026, 1)).Should().Be(1, "each tenant has its own sequence");
+
+            // The rest continue after the highest of their year, oldest first. Their numbers don't change.
+            (await Count(tenantA, "INV-2026-1", 2026, 10001)).Should().Be(1, "same value as INV-2026-0001, which came first");
+            (await Count(tenantA, "LEGACY-7", 2026, 10002)).Should().Be(1);
+            (await Count(tenantA, "INV-2026-ABCD", 2026, 10003)).Should().Be(1);
+            (await Count(tenantA, "OLD", 2024, 1)).Should().Be(1, "the first of its year");
+
+            await database.MigrateToAsync(MigrationSql.AddBusinessTimeZone);
+
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Invoices' AND COLUMN_NAME IN ('InvoiceYear', 'InvoiceSequence')")).Should().Be(0);
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM sys.indexes WHERE name = 'UX_Invoice_TenantId_Year_Sequence'")).Should().Be(0);
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Invoices")).Should().Be(9, "rolling back keeps the invoices");
+        }
     }
 
     [Trait("Category", SqlServerCollection.Category)]

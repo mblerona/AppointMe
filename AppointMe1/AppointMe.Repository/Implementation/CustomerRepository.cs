@@ -1,4 +1,4 @@
-﻿using AppointMe.Domain.DomainModels;
+using AppointMe.Domain.DomainModels;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +13,9 @@ namespace AppointMe.Repository.Implementation
     public class CustomerRepository : BaseRepository<Customer>, ICustomerRepository
     {
         public CustomerRepository(ApplicationDbContext context) : base(context) { }
+
+        public void Detach(Customer customer) =>
+            _context.Entry(customer).State = EntityState.Detached;
 
         public async Task<Customer> GetByEmailAsync(string email, Guid tenantId)
         {

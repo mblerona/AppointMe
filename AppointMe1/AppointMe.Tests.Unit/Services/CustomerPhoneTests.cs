@@ -23,7 +23,7 @@ public class CustomerPhoneTests
         _repo.Setup(r => r.GetByEmailAsync(It.IsAny<string>(), Tenant)).ReturnsAsync((Customer)null!);
         _repo.Setup(r => r.GetMaxCustomerNumberAsync(Tenant)).ReturnsAsync(0);
         _repo.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
-        _sut = new CustomerService(_repo.Object);
+        _sut = new CustomerService(_repo.Object, new Mock<IBusinessRepository>().Object);
     }
 
     private static CreateCustomerDTO NewCustomer(string phone, string? second = null) => new()

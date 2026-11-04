@@ -1,4 +1,4 @@
-﻿using AppointMe.Domain.DomainModels;
+using AppointMe.Domain.DomainModels;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -46,18 +46,9 @@ namespace AppointMe.Repository.Implementation
 
         public async Task<int> GetMaxInvoiceSequenceForYearAsync(Guid tenantId, int year)
         {
-            var prefix = $"INV-{year}-";
-
-            var last = await _dbSet
-                .Where(i => i.TenantId == tenantId && i.InvoiceNumber.StartsWith(prefix))
-                .OrderByDescending(i => i.InvoiceNumber)
-                .Select(i => i.InvoiceNumber)
-                .FirstOrDefaultAsync();
-
-            if (string.IsNullOrWhiteSpace(last)) return 0;
-
-            var part = last.Replace(prefix, "");
-            return int.TryParse(part, out var n) ? n : 0;
+            return await _dbSet
+                .Where(i => i.TenantId == tenantId && i.InvoiceYear == year)
+                .MaxAsync(i => (int?)i.InvoiceSequence) ?? 0;
         }
     }
 }

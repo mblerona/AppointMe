@@ -54,6 +54,15 @@ namespace AppointMe.Domain.TimeZones
         public static DateTime Now(TimeProvider clock, string? id) =>
             TimeZoneInfo.ConvertTime(clock.GetUtcNow(), Find(id)).DateTime;
 
+        /// <summary>
+        /// A moment stored in UTC (CreatedAt, UpdatedAt, IssuedAt) as the business's clock time, for display.
+        /// Not for appointment times: those already are clock times.
+        /// </summary>
+        public static DateTime FromUtc(DateTime utc, string? id) =>
+            DateTime.SpecifyKind(
+                TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Find(id)),
+                DateTimeKind.Unspecified);
+
         /// <summary>For the Settings dropdown, for example "Europe/Skopje (UTC+01:00)". Standard time, not today's offset.</summary>
         public static string DisplayName(string id)
         {

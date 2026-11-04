@@ -91,7 +91,7 @@ namespace AppointMe.Tests.Unit.Services
         }
 
         private static InvoiceService BuildService(ApplicationDbContext db)
-            => new(new InvoiceRepository(db), new AppointmentRepository(db), new BusinessRepository(db));
+            => new(new InvoiceRepository(db), new AppointmentRepository(db), new BusinessRepository(db), TimeProvider.System);
 
         [Fact]
         public async Task CreateOrGetForAppointmentAsync_AfterOneFailedSave_StoresExactlyOneInvoice()
