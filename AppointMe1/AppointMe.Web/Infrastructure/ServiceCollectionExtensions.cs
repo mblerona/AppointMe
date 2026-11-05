@@ -2,6 +2,7 @@ using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Implementation;
 using AppointMe.Repository.Interface;
+using AppointMe.Service.Admin;
 using AppointMe.Service.Email;
 using AppointMe.Service.Email.Infrastructure;
 using AppointMe.Service.Implementation;
@@ -67,6 +68,16 @@ namespace AppointMe.Web.Infrastructure
             services.Configure<MailSettings>(configuration.GetSection("EmailSettings"));
             services.AddTransient<ISmtpClientFactory, MailKitSmtpClientFactory>();
             services.AddScoped<IEmailService, EmailService>();
+
+            return services;
+        }
+
+        /// <summary>Platform admin account (settings from "PlatformAdmin"; user secrets locally) and the /Admin area's filter.</summary>
+        public static IServiceCollection AddAppointMePlatformAdmin(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.Configure<PlatformAdminOptions>(configuration.GetSection(PlatformAdminOptions.SectionName));
+            services.AddScoped<PlatformAdminSeeder>();
+            services.AddScoped<RequirePlatformAdminFilter>();
 
             return services;
         }

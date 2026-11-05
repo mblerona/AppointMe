@@ -56,6 +56,7 @@ public class CurrentBusinessTests
     [Theory]
     [InlineData(TenantResolutionStatus.NotAuthenticated)]
     [InlineData(TenantResolutionStatus.NoTenant)]
+    [InlineData(TenantResolutionStatus.PlatformAdmin)]
     public async Task WithoutTenant_ReturnsNull_WithoutQuerying(TenantResolutionStatus status)
     {
         var service = new CountingBusinessService();

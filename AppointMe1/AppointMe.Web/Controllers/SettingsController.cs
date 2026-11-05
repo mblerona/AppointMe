@@ -29,6 +29,7 @@ namespace AppointMe.Web.Controllers
         {
             var tenant = await _tenantContext.ResolveAsync();
             if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
+            if (tenant.Status == TenantResolutionStatus.PlatformAdmin) return AdminHome();
             if (tenant.Status == TenantResolutionStatus.NoTenant) return NoBusiness();
 
             var tenantId = tenant.TenantId!.Value;
@@ -40,11 +41,12 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Business(BusinessSettingsVm vm, IFormFile? logoFile)
         {
-            if (!ModelState.IsValid) return View(vm);
-
             var tenant = await _tenantContext.ResolveAsync();
             if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
+            if (tenant.Status == TenantResolutionStatus.PlatformAdmin) return AdminHome();
             if (tenant.Status == TenantResolutionStatus.NoTenant) return NoBusiness();
+
+            if (!ModelState.IsValid) return View(vm);
 
             // The tenant comes from the server; a posted Id for another Business is rejected.
             var tenantId = tenant.TenantId!.Value;
@@ -75,6 +77,9 @@ namespace AppointMe.Web.Controllers
         /// RequireTenantFilter sends such users here, so this must not redirect back (no loop).
         /// </summary>
         private IActionResult NoBusiness() => View("NoBusiness");
+
+        /// <summary>A platform admin never has a Business, so these settings don't apply to them.</summary>
+        private IActionResult AdminHome() => RedirectToAction("Index", "Home", new { area = "Admin" });
 
         private static BusinessSettingsVm ToVm(Guid tenantId, BusinessSettingsDTO s) => new()
         {

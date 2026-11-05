@@ -111,6 +111,65 @@ public class TenantContextTests
         ctx.TenantId.Should().Be(tenantId);
     }
 
+    private async Task AddToRoleAsync(AppointMeAppUser user, string roleName)
+    {
+        var role = new IdentityRole(roleName);
+        _db.Roles.Add(role);
+        _db.UserRoles.Add(new IdentityUserRole<string> { UserId = user.Id, RoleId = role.Id });
+        await _db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task PlatformAdmin_HasNoTenant_AndTenantIdThrows()
+    {
+        var user = await AddUserAsync(tenantId: null, withBusiness: false);
+        await AddToRoleAsync(user, PlatformRoles.Admin);
+        var ctx = CreateContext(Authenticated(user.Id));
+
+        var result = await ctx.ResolveAsync();
+
+        result.Status.Should().Be(TenantResolutionStatus.PlatformAdmin);
+        result.UserId.Should().Be(user.Id);
+        result.TenantId.Should().BeNull();
+        var act = () => ctx.TenantId;
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task PlatformAdmin_WithATenantIdSetByHand_StillNeverActsAsThatTenant()
+    {
+        var tenantId = Guid.NewGuid();
+        var user = await AddUserAsync(tenantId, withBusiness: true);
+        await AddToRoleAsync(user, PlatformRoles.Admin);
+        var ctx = CreateContext(Authenticated(user.Id));
+
+        var result = await ctx.ResolveAsync();
+
+        result.Status.Should().Be(TenantResolutionStatus.PlatformAdmin);
+        result.TenantId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AnotherRole_DoesNotMakeAUserAPlatformAdmin()
+    {
+        var tenantId = Guid.NewGuid();
+        var user = await AddUserAsync(tenantId, withBusiness: true);
+        await AddToRoleAsync(user, "SomethingElse");
+        var ctx = CreateContext(Authenticated(user.Id));
+
+        (await ctx.ResolveAsync()).Status.Should().Be(TenantResolutionStatus.Resolved);
+    }
+
+    [Fact]
+    public async Task AdminRoleClaim_IsIgnored_RoleAlwaysComesFromDatabase()
+    {
+        var tenantId = Guid.NewGuid();
+        var user = await AddUserAsync(tenantId, withBusiness: true);
+        var ctx = CreateContext(Authenticated(user.Id, new Claim(ClaimTypes.Role, PlatformRoles.Admin)));
+
+        (await ctx.ResolveAsync()).Status.Should().Be(TenantResolutionStatus.Resolved);
+    }
+
     [Fact]
     public async Task TenantClaim_IsIgnored_TenantAlwaysComesFromDatabase()
     {

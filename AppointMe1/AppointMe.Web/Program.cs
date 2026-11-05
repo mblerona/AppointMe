@@ -7,6 +7,7 @@ builder.Services
     .AddAppointMeData(builder.Configuration)
     .AddAppointMeIdentity()
     .AddAppointMeEmail(builder.Configuration)
+    .AddAppointMePlatformAdmin(builder.Configuration)
     .AddAppointMeServices()
     .AddAppointMeWeb();
 
@@ -31,10 +32,16 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
+    name: "areas",
+    pattern: "{area:exists}/{controller=Home}/{action=Index}/{id?}");
+
+app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Dashboard}/{action=Index}/{id?}");
 
 app.MapRazorPages();
+
+await app.Services.SeedPlatformAdminAsync();
 
 app.Run();
 public partial class Program { }

@@ -6,7 +6,8 @@ namespace AppointMe.Web.Infrastructure
 {
     /// <summary>
     /// Runs before every action of a tenant controller. Replaces the per-action EnsureTenantAsync calls:
-    /// no user -> challenge (login), no tenant/Business -> Settings/Business, otherwise continue.
+    /// no user -> challenge (login), no tenant/Business -> Settings/Business, platform admin -> /Admin,
+    /// otherwise continue.
     /// Authorization filters run first, so anonymous requests are already redirected to login.
     /// </summary>
     public sealed class RequireTenantFilter : IAsyncActionFilter
@@ -30,6 +31,10 @@ namespace AppointMe.Web.Infrastructure
 
                 case TenantResolutionStatus.NoTenant:
                     context.Result = new RedirectToActionResult("Business", "Settings", null);
+                    return;
+
+                case TenantResolutionStatus.PlatformAdmin:
+                    context.Result = new RedirectToActionResult("Index", "Home", new { area = "Admin" });
                     return;
 
                 default:

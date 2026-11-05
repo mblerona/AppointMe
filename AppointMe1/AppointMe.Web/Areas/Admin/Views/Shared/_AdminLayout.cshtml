@@ -1,0 +1,39 @@
+@* The admin never has a Business, so this layout has no tenant navigation or branding. *@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AppointMe Admin</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+
+<body class="bg-light">
+    <nav class="navbar navbar-expand navbar-dark bg-dark py-3">
+        <div class="container">
+            <a class="navbar-brand fw-bold" asp-area="Admin" asp-controller="Home" asp-action="Index">AppointMe Admin</a>
+
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <a class="btn btn-outline-light btn-sm" asp-area="Identity" asp-page="/Account/Manage/Index">
+                    <i class="bi bi-person"></i> Account
+                </a>
+                <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mt-4">
+        <partial name="_Toast" />
+        @RenderBody()
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

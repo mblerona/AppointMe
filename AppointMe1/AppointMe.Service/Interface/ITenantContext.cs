@@ -9,7 +9,10 @@ namespace AppointMe.Service.Interface
         NoTenant,
 
         /// <summary>The user belongs to an existing Business.</summary>
-        Resolved
+        Resolved,
+
+        /// <summary>The user has the PlatformAdmin role. Admins have no tenant, so TenantId stays unavailable.</summary>
+        PlatformAdmin
     }
 
     public sealed record TenantResolution(TenantResolutionStatus Status, string? UserId, Guid? TenantId);

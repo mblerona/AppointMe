@@ -1,3 +1,4 @@
+using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Service.Interface;
 using Microsoft.AspNetCore.Identity;
@@ -60,12 +61,18 @@ namespace AppointMe.Web.Infrastructure
                 .Select(u => new
                 {
                     u.TenantId,
-                    HasBusiness = u.TenantId != null && _db.Businesses.Any(b => b.Id == u.TenantId)
+                    HasBusiness = u.TenantId != null && _db.Businesses.Any(b => b.Id == u.TenantId),
+                    IsPlatformAdmin = _db.UserRoles.Any(ur => ur.UserId == u.Id
+                        && _db.Roles.Any(r => r.Id == ur.RoleId && r.Name == PlatformRoles.Admin))
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (row == null)
                 return new TenantResolution(TenantResolutionStatus.NotAuthenticated, null, null);
+
+            // Checked first: an admin never acts as a tenant, even if a TenantId was set on the account by hand.
+            if (row.IsPlatformAdmin)
+                return new TenantResolution(TenantResolutionStatus.PlatformAdmin, userId, null);
 
             if (row.TenantId is not { } tenantId || tenantId == Guid.Empty || !row.HasBusiness)
                 return new TenantResolution(TenantResolutionStatus.NoTenant, userId, null);

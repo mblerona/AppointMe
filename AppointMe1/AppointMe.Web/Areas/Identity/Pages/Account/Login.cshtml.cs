@@ -22,6 +22,8 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
         public const string ConfirmEmailMessage =
             "You need to confirm your email before you can log in. Check your inbox for the confirmation link.";
 
+        private const string AdminHomeUrl = "/Admin";
+
         private readonly SignInManager<AppointMeAppUser> _signInManager;
         private readonly UserManager<AppointMeAppUser> _userManager;
         private readonly ILogger<LoginModel> _logger;
@@ -97,6 +99,11 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
             if (result.Succeeded)
             {
                 _logger.LogInformation("User logged in.");
+
+                var user = await _userManager.FindByEmailAsync(Input.Email);
+                if (user != null && await _userManager.IsInRoleAsync(user, PlatformRoles.Admin))
+                    return LocalRedirect(IsAdminUrl(returnUrl) ? returnUrl : AdminHomeUrl);
+
                 return LocalRedirect(returnUrl);
             }
 
@@ -115,6 +122,12 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
             ModelState.AddModelError(string.Empty, "Invalid login attempt.");
             return Page();
         }
+
+        /// <summary>Admins land on /Admin; a return URL is kept only when it already points inside that area.</summary>
+        private bool IsAdminUrl(string url) =>
+            Url.IsLocalUrl(url)
+            && (url.Equals(AdminHomeUrl, StringComparison.OrdinalIgnoreCase)
+                || url.StartsWith(AdminHomeUrl + "/", StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
         /// Identity returns NotAllowed for an unconfirmed account before it checks the password (and before
