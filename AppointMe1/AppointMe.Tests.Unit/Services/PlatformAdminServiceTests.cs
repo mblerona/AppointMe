@@ -141,6 +141,25 @@ public class PlatformAdminServiceTests
     }
 
     [Fact]
+    public async Task LastLogin_IsTheLatestOfTheTenantsAccounts_InSkopjeTime_AndNullWithoutAny()
+    {
+        var withLogins = await AddBusinessAsync("With logins");
+        var withoutLogins = await AddBusinessAsync("Without logins");
+        await AddUserAsync(withLogins.Id, "owner@test.com");
+        await AddUserAsync(withLogins.Id, "staff@test.com");
+        await AddUserAsync(withoutLogins.Id, "never@test.com");
+        (await _db.Users.SingleAsync(u => u.Email == "owner@test.com")).LastLoginAt = new DateTime(2026, 1, 10, 8, 0, 0);
+        (await _db.Users.SingleAsync(u => u.Email == "staff@test.com")).LastLoginAt = new DateTime(2026, 1, 15, 23, 30, 0);
+        await _db.SaveChangesAsync();
+
+        var tenants = await Service().GetTenantsAsync(null, null);
+
+        // 23:30 UTC in January is 00:30 the next day in Skopje.
+        tenants.Single(t => t.Id == withLogins.Id).LastLoginAt.Should().Be(new DateTime(2026, 1, 16, 0, 30, 0));
+        tenants.Single(t => t.Id == withoutLogins.Id).LastLoginAt.Should().BeNull();
+    }
+
+    [Fact]
     public async Task OwnerEmail_IsTheOldestUser_AndNullWithoutUsers()
     {
         var withUsers = await AddBusinessAsync("With users");

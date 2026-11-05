@@ -95,7 +95,7 @@
     </div>
     <div class="col-12">
         <div class="card" id="login-accounts">
-            <div class="card-header">Login accounts</div>
+            <div class="card-header">Login accounts <span class="small text-muted">Times are in Europe/Skopje time</span></div>
             @if (Model.Accounts.Count == 0)
             {
                 <div class="card-body text-muted">This business has no login accounts.</div>
@@ -109,6 +109,7 @@
                                 <th>Email</th>
                                 <th>Email confirmed</th>
                                 <th>Lockout</th>
+                                <th>Last login</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -138,6 +139,7 @@
                                             <span class="text-muted">Not locked</span>
                                         }
                                     </td>
+                                    <td class="last-login text-nowrap">@(account.LastLoginAt?.ToString("d MMM yyyy, HH:mm") ?? "Never")</td>
                                     <td class="text-end text-nowrap">
                                         @if (!account.EmailConfirmed)
                                         {

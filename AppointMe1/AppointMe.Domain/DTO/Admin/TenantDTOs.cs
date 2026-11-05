@@ -24,6 +24,9 @@ namespace AppointMe.Domain.DTO.Admin
 
         /// <summary>Stored in UTC; the admin service converts it for display. Set while a request is pending.</summary>
         public DateTime? DeletionRequestedAt { get; set; }
+
+        /// <summary>The most recent login of the tenant's accounts; null when none has logged in. Stored in UTC; the admin service converts it.</summary>
+        public DateTime? LastLoginAt { get; set; }
     }
 
     public class TenantDetailsDTO : TenantSummaryDTO
@@ -60,6 +63,9 @@ namespace AppointMe.Domain.DTO.Admin
         public DateTime? LockedOutUntil { get; set; }
 
         public bool IsLockedOut => LockedOutUntil != null;
+
+        /// <summary>Null when the account has never logged in. Stored in UTC; the admin service converts it.</summary>
+        public DateTime? LastLoginAt { get; set; }
     }
 
     /// <summary>The only tenant fields the admin can edit.</summary>

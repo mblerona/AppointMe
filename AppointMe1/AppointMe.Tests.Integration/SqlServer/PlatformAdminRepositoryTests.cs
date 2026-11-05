@@ -222,6 +222,42 @@ namespace AppointMe.Tests.Integration.SqlServer
         }
 
         [Fact]
+        public async Task LastLogin_IsTranslated_TheLatestPerTenant_NullWithoutAny_AndNeverAnAdminAccounts()
+        {
+            await using var db = _database.CreateContext();
+            var (tenant, unique) = await AddTenantAsync(db);
+            var (never, neverUnique) = await AddTenantAsync(db);
+
+            var older = new DateTime(2026, 1, 10, 8, 0, 0);
+            var latest = new DateTime(2026, 2, 20, 9, 30, 0);
+            db.Users.Single(u => u.Email == $"owner-{unique}@test.com").LastLoginAt = older;
+            db.Users.Single(u => u.Email == $"staff-{unique}@test.com").LastLoginAt = latest;
+
+            var role = await db.Roles.FirstOrDefaultAsync(r => r.Name == PlatformRoles.Admin);
+            if (role == null)
+            {
+                role = new Microsoft.AspNetCore.Identity.IdentityRole(PlatformRoles.Admin) { NormalizedName = PlatformRoles.Admin.ToUpperInvariant() };
+                db.Roles.Add(role);
+            }
+            await AddUserAsync(db, tenant.Id, $"admin-{unique}@test.com", DateTime.UtcNow);
+            var admin = db.Users.Single(u => u.Email == $"admin-{unique}@test.com");
+            admin.LastLoginAt = latest.AddYears(1);
+            db.UserRoles.Add(new Microsoft.AspNetCore.Identity.IdentityUserRole<string> { UserId = admin.Id, RoleId = role.Id });
+            await db.SaveChangesAsync();
+
+            var repository = new PlatformAdminRepository(db);
+
+            (await repository.GetTenantsAsync(unique, null)).Should().ContainSingle().Which.LastLoginAt.Should().Be(latest);
+            (await repository.GetTenantsAsync(neverUnique, null)).Should().ContainSingle().Which.LastLoginAt.Should().BeNull();
+            (await repository.GetTenantAsync(tenant.Id))!.LastLoginAt.Should().Be(latest);
+            (await repository.GetTenantAsync(never.Id))!.LastLoginAt.Should().BeNull();
+
+            var accounts = await repository.GetTenantAccountsAsync(tenant.Id);
+            accounts.Should().Contain(a => a.Email == $"owner-{unique}@test.com" && a.LastLoginAt == older);
+            accounts.Should().Contain(a => a.Email == $"staff-{unique}@test.com" && a.LastLoginAt == latest);
+        }
+
+        [Fact]
         public async Task UserEmails_AreOnlyThatTenants_OldestFirst()
         {
             await using var db = _database.CreateContext();

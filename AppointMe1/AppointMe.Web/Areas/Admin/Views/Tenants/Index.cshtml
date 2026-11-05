@@ -36,6 +36,7 @@ else
                     <th>Business</th>
                     <th>Owner email</th>
                     <th>Created</th>
+                    <th>Last login</th>
                     <th>Status</th>
                     <th class="text-end">Customers</th>
                     <th class="text-end">Appointments</th>
@@ -51,6 +52,7 @@ else
                         </td>
                         <td>@(tenant.OwnerEmail ?? "—")</td>
                         <td>@tenant.CreatedAt.ToString("d MMM yyyy")</td>
+                        <td class="last-login">@(tenant.LastLoginAt?.ToString("d MMM yyyy, HH:mm") ?? "Never")</td>
                         <td>
                             <partial name="_StatusBadge" model="tenant.Status" />
                             @if (tenant.DeletionRequestedAt != null)

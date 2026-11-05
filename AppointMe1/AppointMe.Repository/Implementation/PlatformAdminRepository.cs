@@ -77,7 +77,8 @@ namespace AppointMe.Repository.Implementation
                     Email = u.Email,
                     EmailConfirmed = u.EmailConfirmed,
                     // Identity ignores LockoutEnd on an account with lockout turned off.
-                    LockoutEnd = u.LockoutEnabled ? u.LockoutEnd : null
+                    LockoutEnd = u.LockoutEnabled ? u.LockoutEnd : null,
+                    LastLoginAt = u.LastLoginAt
                 })
                 .ToListAsync();
 
@@ -251,7 +252,13 @@ namespace AppointMe.Repository.Implementation
                 SuspensionReason = b.SuspensionReason,
                 SuspensionNote = b.SuspensionNote,
                 DeletionRequestedAt = b.DeletionRequestedAt,
-                DeletionRequestReason = b.DeletionRequestReason
+                DeletionRequestReason = b.DeletionRequestReason,
+                // The same accounts as GetTenantAccountsAsync: an admin account is never one of them.
+                LastLoginAt = _context.Users
+                    .Where(u => u.TenantId == b.Id
+                        && !_context.UserRoles.Any(ur => ur.UserId == u.Id
+                            && _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == PlatformRoles.Admin)))
+                    .Max(u => u.LastLoginAt)
             });
     }
 }

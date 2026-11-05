@@ -133,4 +133,13 @@ public class ForgotPasswordTests : IClassFixture<CapturingEmailWebAppFactory>
     {
         (await NewClient().GetAsync(Url)).StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    [Fact]
+    public async Task ThePage_HasItsOwnLeftPanelText()
+    {
+        var html = await (await NewClient().GetAsync(Url)).Content.ReadAsStringAsync();
+
+        html.Should().Contain(WebUtility.HtmlEncode("We'll help you get back in").Replace("&#39;", "&#x27;"));
+        html.Should().NotContain("Welcome back!");
+    }
 }

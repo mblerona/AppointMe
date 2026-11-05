@@ -639,6 +639,7 @@ public class SuspensionTests : IClassFixture<PlatformAdminWebAppFactory>
         foreach (var url in new[] { "/Admin/ActionLog", Details(tenant.Id) })
         {
             var html = await HtmlAsync(client, url);
+            html.Should().Contain("<th>Details</th>").And.NotContain("<th>Why</th>");
             html.Should().Contain(name);
             html.Should().Contain("Fraudulent or fake business").And.Contain("Fake address");
             html.Should().Contain(PlatformAdminWebAppFactory.AdminEmail);

@@ -71,7 +71,11 @@ namespace AppointMe.Service.Implementation
         {
             var tenants = await _adminRepository.GetTenantsAsync(search, status);
             foreach (var tenant in tenants)
+            {
                 tenant.CreatedAt = ToDisplay(tenant.CreatedAt);
+                if (tenant.LastLoginAt is { } lastLogin)
+                    tenant.LastLoginAt = ToDisplay(lastLogin);
+            }
             return tenants;
         }
 
@@ -85,6 +89,8 @@ namespace AppointMe.Service.Implementation
                 tenant.SuspendedAt = ToDisplay(suspendedAt);
             if (tenant.DeletionRequestedAt is { } requestedAt)
                 tenant.DeletionRequestedAt = ToDisplay(requestedAt);
+            if (tenant.LastLoginAt is { } tenantLastLogin)
+                tenant.LastLoginAt = ToDisplay(tenantLastLogin);
             tenant.ActionLog = ToDisplay(await _adminRepository.GetActionLogAsync(tenantId, TenantActionLogLimit));
 
             tenant.Accounts = await _adminRepository.GetTenantAccountsAsync(tenantId);
@@ -93,6 +99,8 @@ namespace AppointMe.Service.Implementation
             {
                 if (account.LockoutEnd is { } end && end > now)
                     account.LockedOutUntil = ToDisplay(end.UtcDateTime);
+                if (account.LastLoginAt is { } accountLastLogin)
+                    account.LastLoginAt = ToDisplay(accountLastLogin);
             }
 
             return tenant;

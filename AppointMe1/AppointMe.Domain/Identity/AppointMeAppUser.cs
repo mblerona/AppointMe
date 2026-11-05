@@ -19,6 +19,9 @@ namespace AppointMe.Domain.Identity
         public string LastName { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+
+        /// <summary>UTC. The last successful sign-in; set only by AppSignInManager, never by a cookie renewal.</summary>
+        public DateTime? LastLoginAt { get; set; }
        
 
 

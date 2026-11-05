@@ -60,7 +60,8 @@ namespace AppointMe.Web.Infrastructure
                     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
                 })
                 .AddRoles<IdentityRole>()
-                .AddEntityFrameworkStores<ApplicationDbContext>();
+                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddSignInManager<AppSignInManager>();
 
             // Must come after AddDefaultIdentity, which sets up the security stamp check on the same Events.
             services.ConfigureApplicationCookie(options =>

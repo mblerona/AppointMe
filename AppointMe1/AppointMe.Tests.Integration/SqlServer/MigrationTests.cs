@@ -21,6 +21,7 @@ namespace AppointMe.Tests.Integration.SqlServer
         public const string AddInvoiceYearAndSequence = "20261104140948_AddInvoiceYearAndSequence";
         public const string AddBusinessSuspensionAndActionLog = "20261105153755_AddBusinessSuspensionAndActionLog";
         public const string AddBusinessDeletionRequest = "20261105162458_AddBusinessDeletionRequest";
+        public const string AddUserLastLogin = "20261105165944_AddUserLastLogin";
 
         public static string Invoice(string tenant, string number, string issuedAt) => $@"
 INSERT INTO Invoices (Id, TenantId, AppointmentId, CustomerId, InvoiceNumber, IssuedAt, CustomerNameSnapshot,
@@ -51,6 +52,31 @@ VALUES ('{id}', '{tenant}', {number}, 'Ana', 'Doe', '{id}@x.com', '070123456', '
         public static string Appointment(string id, string tenant, string customer, string order) => $@"
 INSERT INTO Appointments (Id, TenantId, CustomerId, OrderNumber, AppointmentDate, Description)
 VALUES ('{id}', '{tenant}', '{customer}', '{order}', '2026-12-01T10:00:00', 'Test');";
+    }
+
+    [Trait("Category", SqlServerCollection.Category)]
+    public class AddUserLastLoginMigrationTests
+    {
+        [Fact]
+        public async Task ExistingUsersHaveNoLastLogin_AndRollsBack_KeepingTheUsers()
+        {
+            await using var database = new SqlServerTestDatabase();
+            await database.MigrateToAsync(MigrationSql.AddBusinessDeletionRequest);
+
+            await database.ExecuteSqlAsync(MigrationSql.User("existing", null, confirmed: true));
+
+            await database.MigrateToAsync(MigrationSql.AddUserLastLogin);
+
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM AspNetUsers WHERE Id = 'existing' AND LastLoginAt IS NULL"))
+                .Should().Be(1, "there is no history to fill in");
+
+            await database.ExecuteSqlAsync("UPDATE AspNetUsers SET LastLoginAt = GETUTCDATE() WHERE Id = 'existing'");
+
+            await database.MigrateToAsync(MigrationSql.AddBusinessDeletionRequest);
+
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'AspNetUsers' AND COLUMN_NAME = 'LastLoginAt'")).Should().Be(0);
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM AspNetUsers")).Should().Be(1, "rolling back keeps the users");
+        }
     }
 
     [Trait("Category", SqlServerCollection.Category)]
