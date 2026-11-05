@@ -19,6 +19,7 @@ namespace AppointMe.Tests.Integration.SqlServer
         public const string AddServiceDuration = "20261104122910_AddServiceDuration";
         public const string AddBusinessTimeZone = "20261104134128_AddBusinessTimeZone";
         public const string AddInvoiceYearAndSequence = "20261104140948_AddInvoiceYearAndSequence";
+        public const string AddBusinessSuspensionAndActionLog = "20261105153755_AddBusinessSuspensionAndActionLog";
 
         public static string Invoice(string tenant, string number, string issuedAt) => $@"
 INSERT INTO Invoices (Id, TenantId, AppointmentId, CustomerId, InvoiceNumber, IssuedAt, CustomerNameSnapshot,
@@ -49,6 +50,47 @@ VALUES ('{id}', '{tenant}', {number}, 'Ana', 'Doe', '{id}@x.com', '070123456', '
         public static string Appointment(string id, string tenant, string customer, string order) => $@"
 INSERT INTO Appointments (Id, TenantId, CustomerId, OrderNumber, AppointmentDate, Description)
 VALUES ('{id}', '{tenant}', '{customer}', '{order}', '2026-12-01T10:00:00', 'Test');";
+    }
+
+    [Trait("Category", SqlServerCollection.Category)]
+    public class AddBusinessSuspensionAndActionLogMigrationTests
+    {
+        [Fact]
+        public async Task ExistingBusinessesBecomeActive_LogAcceptsAnyBusinessId_AndRollsBack()
+        {
+            await using var database = new SqlServerTestDatabase();
+            await database.MigrateToAsync(MigrationSql.AddInvoiceYearAndSequence);
+
+            const string existing = "aaaaaaaa-0000-0000-0000-000000000001";
+            const string added = "aaaaaaaa-0000-0000-0000-000000000002";
+            await database.ExecuteSqlAsync(MigrationSql.Business(existing, "Existing"));
+
+            await database.MigrateToAsync(MigrationSql.AddBusinessSuspensionAndActionLog);
+
+            (await database.ScalarAsync($@"SELECT COUNT(*) AS Value FROM Businesses WHERE Id = '{existing}' AND Name = N'Existing'
+                AND Status = 0 AND SuspendedAt IS NULL AND SuspensionReason IS NULL AND SuspensionNote IS NULL"))
+                .Should().Be(1, "existing businesses stay usable");
+
+            await database.ExecuteSqlAsync(MigrationSql.Business(added, "Added by a script"));
+            (await database.ScalarAsync($"SELECT COUNT(*) AS Value FROM Businesses WHERE Id = '{added}' AND Status = 0"))
+                .Should().Be(1, "an insert that doesn't mention the column gets the default");
+
+            await database.ExecuteSqlAsync($@"
+UPDATE Businesses SET Status = 1, SuspendedAt = GETUTCDATE(), SuspensionReason = 4, SuspensionNote = N'A note' WHERE Id = '{existing}';
+INSERT INTO AdminActionLogs (At, Action, BusinessId, BusinessName, AdminEmail, Reason, Note)
+VALUES (GETUTCDATE(), 1, '{existing}', N'Existing', 'admin@x', N'Other', N'A note');
+INSERT INTO AdminActionLogs (At, Action, BusinessId, BusinessName)
+VALUES (GETUTCDATE(), 0, 'dddddddd-0000-0000-0000-000000000009', N'Deleted long ago');");
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM AdminActionLogs"))
+                .Should().Be(2, "the log has no foreign key, so it can outlive a deleted tenant");
+
+            await database.MigrateToAsync(MigrationSql.AddInvoiceYearAndSequence);
+
+            (await database.ScalarAsync(@"SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Businesses'
+                AND COLUMN_NAME IN ('Status', 'SuspendedAt', 'SuspensionReason', 'SuspensionNote')")).Should().Be(0);
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'AdminActionLogs'")).Should().Be(0);
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Businesses")).Should().Be(2, "rolling back keeps the businesses");
+        }
     }
 
     [Trait("Category", SqlServerCollection.Category)]

@@ -31,6 +31,7 @@ namespace AppointMe.Web.Controllers
             var tenant = await _tenantContext.ResolveAsync();
             if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
             if (tenant.Status == TenantResolutionStatus.PlatformAdmin) return AdminHome();
+            if (tenant.Status == TenantResolutionStatus.Suspended) return RedirectToAction("Index", "Suspended");
             if (tenant.Status == TenantResolutionStatus.NoTenant) return NoBusiness();
 
             var tenantId = tenant.TenantId!.Value;
@@ -45,6 +46,7 @@ namespace AppointMe.Web.Controllers
             var tenant = await _tenantContext.ResolveAsync();
             if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
             if (tenant.Status == TenantResolutionStatus.PlatformAdmin) return AdminHome();
+            if (tenant.Status == TenantResolutionStatus.Suspended) return RedirectToAction("Index", "Suspended");
             if (tenant.Status == TenantResolutionStatus.NoTenant) return NoBusiness();
 
             if (!ModelState.IsValid) return View(vm);

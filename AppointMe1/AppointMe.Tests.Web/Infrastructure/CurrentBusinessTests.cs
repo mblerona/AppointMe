@@ -35,6 +35,7 @@ public class CurrentBusinessTests
         public Task<BusinessSettingsDTO> GetSettingsAsync(Guid tenantId) => throw new NotSupportedException();
         public Task UpdateSettingsAsync(Guid tenantId, BusinessSettingsDTO settings, LogoUpload? logo) => throw new NotSupportedException();
         public Task<BusinessCalendarConfigDTO> GetCalendarConfigAsync(Guid tenantId) => throw new NotSupportedException();
+        public Task<SuspensionInfoDTO?> GetSuspensionInfoAsync(Guid tenantId) => throw new NotSupportedException();
     }
 
     [Fact]
@@ -57,6 +58,7 @@ public class CurrentBusinessTests
     [InlineData(TenantResolutionStatus.NotAuthenticated)]
     [InlineData(TenantResolutionStatus.NoTenant)]
     [InlineData(TenantResolutionStatus.PlatformAdmin)]
+    [InlineData(TenantResolutionStatus.Suspended)]
     public async Task WithoutTenant_ReturnsNull_WithoutQuerying(TenantResolutionStatus status)
     {
         var service = new CountingBusinessService();

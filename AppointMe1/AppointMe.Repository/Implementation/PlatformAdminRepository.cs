@@ -19,9 +19,8 @@ namespace AppointMe.Repository.Implementation
         {
             var businesses = _context.Businesses.AsNoTracking();
 
-            // Every Business is Active until suspension exists.
-            if (status != null && status != BusinessStatus.Active)
-                businesses = businesses.Where(b => false);
+            if (status != null)
+                businesses = businesses.Where(b => b.Status == status);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -44,14 +43,51 @@ namespace AppointMe.Repository.Implementation
         public async Task<PlatformTotalsDTO> GetTotalsAsync(DateTime newSinceUtc)
         {
             var total = await _context.Businesses.CountAsync();
+            var suspended = await _context.Businesses.CountAsync(b => b.Status == BusinessStatus.Suspended);
 
             return new PlatformTotalsDTO
             {
                 TotalTenants = total,
-                ActiveTenants = total,
-                SuspendedTenants = 0,
+                ActiveTenants = total - suspended,
+                SuspendedTenants = suspended,
                 NewTenantsLast30Days = await _context.Businesses.CountAsync(b => b.CreatedAt >= newSinceUtc)
             };
+        }
+
+        public async Task<IReadOnlyList<string>> GetUserEmailsAsync(Guid tenantId) =>
+            await _context.Users
+                .AsNoTracking()
+                .Where(u => u.TenantId == tenantId && u.Email != null)
+                .OrderBy(u => u.CreatedAt)
+                .Select(u => u.Email!)
+                .ToListAsync();
+
+        public void AddActionLog(AdminActionLog entry) => _context.AdminActionLogs.Add(entry);
+
+        public async Task<IReadOnlyList<AdminActionLogDTO>> GetActionLogAsync(Guid? businessId, int limit)
+        {
+            var entries = _context.AdminActionLogs.AsNoTracking();
+
+            if (businessId != null)
+                entries = entries.Where(l => l.BusinessId == businessId);
+
+            return await entries
+                .OrderByDescending(l => l.At)
+                .ThenBy(l => l.Id)
+                .Take(limit)
+                .Select(l => new AdminActionLogDTO
+                {
+                    At = l.At,
+                    Action = l.Action,
+                    BusinessId = l.BusinessId,
+                    BusinessName = l.BusinessName,
+                    AdminEmail = l.AdminEmail,
+                    Reason = l.Reason,
+                    Note = l.Note,
+                    ChangedFields = l.ChangedFields,
+                    BusinessExists = _context.Businesses.Any(b => b.Id == l.BusinessId)
+                })
+                .ToListAsync();
         }
 
         private IQueryable<TenantDetailsDTO> ToDetails(IQueryable<Business> businesses) =>
@@ -66,13 +102,16 @@ namespace AppointMe.Repository.Implementation
                     .Select(u => u.Email)
                     .FirstOrDefault(),
                 CreatedAt = b.CreatedAt,
-                Status = BusinessStatus.Active,
+                Status = b.Status,
                 CustomerCount = _context.Customers.Count(c => c.TenantId == b.Id),
                 AppointmentCount = _context.Appointments.Count(a => a.TenantId == b.Id),
                 InvoiceCount = _context.Invoices.Count(i => i.TenantId == b.Id),
                 Email = b.Email,
                 Phone = b.Phone,
-                Address = b.Address
+                Address = b.Address,
+                SuspendedAt = b.SuspendedAt,
+                SuspensionReason = b.SuspensionReason,
+                SuspensionNote = b.SuspensionNote
             });
     }
 }

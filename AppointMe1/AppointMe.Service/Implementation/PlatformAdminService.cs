@@ -5,7 +5,11 @@ using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.TimeZones;
 using AppointMe.Domain.Validation;
 using AppointMe.Repository.Interface;
+using AppointMe.Service.Admin;
+using AppointMe.Service.Email;
 using AppointMe.Service.Interface;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AppointMe.Service.Implementation
 {
@@ -15,28 +19,44 @@ namespace AppointMe.Service.Implementation
         public const int MaxAddressLength = 500;
         public const int NewTenantDays = 30;
 
+        /// <summary>How many actions the tenant details page shows.</summary>
+        public const int TenantActionLogLimit = 50;
+
         private readonly IPlatformAdminRepository _adminRepository;
         private readonly IBusinessRepository _businessRepository;
+        private readonly IEmailService _emailService;
+        private readonly SupportOptions _support;
         private readonly TimeProvider _timeProvider;
+        private readonly ILogger<PlatformAdminService> _logger;
 
         public PlatformAdminService(
             IPlatformAdminRepository adminRepository,
             IBusinessRepository businessRepository,
-            TimeProvider timeProvider)
+            IEmailService emailService,
+            IOptions<SupportOptions> support,
+            TimeProvider timeProvider,
+            ILogger<PlatformAdminService> logger)
         {
             _adminRepository = adminRepository;
             _businessRepository = businessRepository;
+            _emailService = emailService;
+            _support = support.Value;
             _timeProvider = timeProvider;
+            _logger = logger;
         }
 
+        private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
+
+        // ---------------- reading ----------------
+
         public Task<PlatformTotalsDTO> GetTotalsAsync() =>
-            _adminRepository.GetTotalsAsync(_timeProvider.GetUtcNow().UtcDateTime.AddDays(-NewTenantDays));
+            _adminRepository.GetTotalsAsync(UtcNow.AddDays(-NewTenantDays));
 
         public async Task<IReadOnlyList<TenantSummaryDTO>> GetTenantsAsync(string? search, BusinessStatus? status)
         {
             var tenants = await _adminRepository.GetTenantsAsync(search, status);
             foreach (var tenant in tenants)
-                ToDisplayDates(tenant);
+                tenant.CreatedAt = ToDisplay(tenant.CreatedAt);
             return tenants;
         }
 
@@ -44,11 +64,20 @@ namespace AppointMe.Service.Implementation
         {
             var tenant = await _adminRepository.GetTenantAsync(tenantId)
                 ?? throw new KeyNotFoundException("Tenant not found.");
-            ToDisplayDates(tenant);
+
+            tenant.CreatedAt = ToDisplay(tenant.CreatedAt);
+            if (tenant.SuspendedAt is { } suspendedAt)
+                tenant.SuspendedAt = ToDisplay(suspendedAt);
+            tenant.ActionLog = ToDisplay(await _adminRepository.GetActionLogAsync(tenantId, TenantActionLogLimit));
             return tenant;
         }
 
-        public async Task UpdateTenantAsync(Guid tenantId, UpdateTenantDTO update)
+        public async Task<IReadOnlyList<AdminActionLogDTO>> GetActionLogAsync(int limit) =>
+            ToDisplay(await _adminRepository.GetActionLogAsync(null, limit));
+
+        // ---------------- editing ----------------
+
+        public async Task UpdateTenantAsync(Guid tenantId, UpdateTenantDTO update, string? adminEmail)
         {
             var business = await _businessRepository.GetByIdAsync(tenantId)
                 ?? throw new KeyNotFoundException("Tenant not found.");
@@ -59,17 +88,186 @@ namespace AppointMe.Service.Implementation
             var phone = PhoneNumberNormalizer.NormalizeOptional(update.Phone, nameof(UpdateTenantDTO.Phone));
             var address = ValidateAddress(update.Address);
 
+            var changed = new List<string>();
+            if (business.Name != name) changed.Add("Name");
+            if (business.Email != email) changed.Add("Email");
+            if (business.Phone != phone) changed.Add("Phone");
+            if (business.Address != address) changed.Add("Address");
+
+            // Saving an unchanged form is not an action.
+            if (changed.Count == 0)
+                return;
+
             business.Name = name;
             business.Email = email;
             business.Phone = phone;
             business.Address = address;
-            business.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+            business.UpdatedAt = UtcNow;
+
+            AddLog(business, AdminActionType.TenantEdited, adminEmail, changedFields: string.Join(", ", changed));
 
             await _businessRepository.SaveChangesAsync();
         }
 
-        private static void ToDisplayDates(TenantSummaryDTO tenant) =>
-            tenant.CreatedAt = BusinessTimeZones.FromUtc(tenant.CreatedAt, BusinessTimeZones.Default);
+        // ---------------- suspension ----------------
+
+        public void ValidateSuspension(SuspensionReason? reason, string? note) =>
+            ValidatedSuspension(reason, note);
+
+        public async Task<TenantEmailOutcome> SuspendTenantAsync(
+            Guid tenantId, SuspensionReason? reason, string? note, string? adminEmail)
+        {
+            var business = await _businessRepository.GetByIdAsync(tenantId)
+                ?? throw new KeyNotFoundException("Tenant not found.");
+
+            var (validReason, validNote) = ValidatedSuspension(reason, note);
+
+            if (business.Status == BusinessStatus.Suspended)
+                throw new BusinessRuleException("This business is already suspended.");
+
+            var now = UtcNow;
+            business.Status = BusinessStatus.Suspended;
+            business.SuspendedAt = now;
+            business.SuspensionReason = validReason;
+            business.SuspensionNote = validNote;
+            business.UpdatedAt = now;
+
+            AddLog(business, AdminActionType.TenantSuspended, adminEmail, validReason.DisplayText(), validNote);
+
+            await _businessRepository.SaveChangesAsync();
+
+            return await EmailTenantAsync(business, "Your AppointMe account has been suspended", SuspendedEmail(business));
+        }
+
+        public async Task<TenantEmailOutcome> ReactivateTenantAsync(Guid tenantId, string? note, string? adminEmail)
+        {
+            var business = await _businessRepository.GetByIdAsync(tenantId)
+                ?? throw new KeyNotFoundException("Tenant not found.");
+
+            var validNote = ValidateNote(note);
+
+            if (business.Status != BusinessStatus.Suspended)
+                throw new BusinessRuleException("This business is not suspended.");
+
+            business.Status = BusinessStatus.Active;
+            business.SuspendedAt = null;
+            business.SuspensionReason = null;
+            business.SuspensionNote = null;
+            business.UpdatedAt = UtcNow;
+
+            AddLog(business, AdminActionType.TenantReactivated, adminEmail, note: validNote);
+
+            await _businessRepository.SaveChangesAsync();
+
+            return await EmailTenantAsync(business, "Your AppointMe account has been reactivated", ReactivatedEmail(business));
+        }
+
+        // ---------------- helpers ----------------
+
+        private void AddLog(
+            Business business, AdminActionType action, string? adminEmail,
+            string? reason = null, string? note = null, string? changedFields = null) =>
+            _adminRepository.AddActionLog(new AdminActionLog
+            {
+                Id = Guid.NewGuid(),
+                At = UtcNow,
+                Action = action,
+                BusinessId = business.Id,
+                BusinessName = business.Name,
+                AdminEmail = adminEmail,
+                Reason = reason,
+                Note = note,
+                ChangedFields = changedFields
+            });
+
+        /// <summary>The tenant's login emails, or the business email when it has no users.</summary>
+        private async Task<IReadOnlyList<string>> RecipientsAsync(Business business)
+        {
+            var emails = await _adminRepository.GetUserEmailsAsync(business.Id);
+            if (emails.Count > 0)
+                return emails;
+
+            return string.IsNullOrWhiteSpace(business.Email) ? Array.Empty<string>() : new[] { business.Email };
+        }
+
+        /// <summary>The action is already saved, so a failed email only changes the outcome the admin is told.</summary>
+        private async Task<TenantEmailOutcome> EmailTenantAsync(Business business, string subject, string content)
+        {
+            var outcome = TenantEmailOutcome.NoRecipient;
+
+            try
+            {
+                foreach (var recipient in await RecipientsAsync(business))
+                {
+                    await _emailService.SendEmailAsync(new EmailMessage { MailTo = recipient, Subject = subject, Content = content });
+                    outcome = TenantEmailOutcome.Sent;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not send the email \"{Subject}\" for business {BusinessId}.", subject, business.Id);
+                return TenantEmailOutcome.Failed;
+            }
+
+            return outcome;
+        }
+
+        private string SuspendedEmail(Business business)
+        {
+            var lines = new List<string>
+            {
+                $"The AppointMe account for {business.Name} has been suspended, so it can't be used at the moment.",
+                "",
+                $"Reason: {business.SuspensionReason!.Value.DisplayText()}"
+            };
+
+            if (!string.IsNullOrEmpty(business.SuspensionNote))
+                lines.Add($"Note: {business.SuspensionNote}");
+
+            lines.Add("");
+            lines.Add(string.IsNullOrWhiteSpace(_support.Email)
+                ? "Please contact support if you have any questions."
+                : $"If you have any questions, please contact support at {_support.Email}.");
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string ReactivatedEmail(Business business) =>
+            $"The AppointMe account for {business.Name} has been reactivated. You can log in and use it as before.";
+
+        private static (SuspensionReason Reason, string? Note) ValidatedSuspension(SuspensionReason? reason, string? note)
+        {
+            if (reason is not { } value || !Enum.IsDefined(value))
+                throw new BusinessRuleException("Please choose a reason from the list.", "Reason");
+
+            var validNote = ValidateNote(note);
+
+            if (value == SuspensionReason.Other && validNote == null)
+                throw new BusinessRuleException("Please add a note explaining the reason.", "Note");
+
+            return (value, validNote);
+        }
+
+        private static string? ValidateNote(string? input)
+        {
+            var note = input?.Trim();
+            if (string.IsNullOrEmpty(note))
+                return null;
+
+            if (note.Length > AdminActionLog.MaxNoteLength)
+                throw new BusinessRuleException($"The note can be at most {AdminActionLog.MaxNoteLength} characters.", "Note");
+
+            return note;
+        }
+
+        private static DateTime ToDisplay(DateTime utc) => BusinessTimeZones.FromUtc(utc, BusinessTimeZones.Default);
+
+        private static IReadOnlyList<AdminActionLogDTO> ToDisplay(IReadOnlyList<AdminActionLogDTO> entries)
+        {
+            foreach (var entry in entries)
+                entry.At = ToDisplay(entry.At);
+            return entries;
+        }
 
         private static string? ValidateEmail(string? input)
         {

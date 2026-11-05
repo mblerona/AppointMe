@@ -28,6 +28,14 @@ namespace AppointMe.Domain.DTO.Admin
         public string? Email { get; set; }
         public string? Phone { get; set; }
         public string? Address { get; set; }
+
+        /// <summary>Stored in UTC; the admin service converts it for display.</summary>
+        public DateTime? SuspendedAt { get; set; }
+        public SuspensionReason? SuspensionReason { get; set; }
+        public string? SuspensionNote { get; set; }
+
+        /// <summary>Newest first. Filled by the admin service.</summary>
+        public IReadOnlyList<AdminActionLogDTO> ActionLog { get; set; } = Array.Empty<AdminActionLogDTO>();
     }
 
     /// <summary>The only tenant fields the admin can edit.</summary>
@@ -45,5 +53,29 @@ namespace AppointMe.Domain.DTO.Admin
         public int ActiveTenants { get; set; }
         public int SuspendedTenants { get; set; }
         public int NewTenantsLast30Days { get; set; }
+    }
+
+    public class AdminActionLogDTO
+    {
+        /// <summary>Stored in UTC; the admin service converts it for display.</summary>
+        public DateTime At { get; set; }
+        public AdminActionType Action { get; set; }
+        public Guid BusinessId { get; set; }
+        public string BusinessName { get; set; } = "";
+        public string? AdminEmail { get; set; }
+        public string? Reason { get; set; }
+        public string? Note { get; set; }
+        public string? ChangedFields { get; set; }
+
+        /// <summary>False once the tenant has been deleted, so the log page doesn't link to it.</summary>
+        public bool BusinessExists { get; set; }
+    }
+
+    /// <summary>What happened to the email telling the tenant about an action. The action itself is saved either way.</summary>
+    public enum TenantEmailOutcome
+    {
+        Sent,
+        Failed,
+        NoRecipient
     }
 }

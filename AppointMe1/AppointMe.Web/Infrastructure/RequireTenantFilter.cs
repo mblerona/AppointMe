@@ -37,6 +37,11 @@ namespace AppointMe.Web.Infrastructure
                     context.Result = new RedirectToActionResult("Index", "Home", new { area = "Admin" });
                     return;
 
+                // TenantStatusMiddleware normally stops these first; this keeps tenant code safe without it.
+                case TenantResolutionStatus.Suspended:
+                    context.Result = new RedirectToActionResult("Index", "Suspended", null);
+                    return;
+
                 default:
                     await next();
                     return;

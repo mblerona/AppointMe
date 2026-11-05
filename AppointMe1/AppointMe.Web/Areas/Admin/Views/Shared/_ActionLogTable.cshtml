@@ -1,0 +1,47 @@
+@model IReadOnlyList<AdminActionLogDTO>
+<div class="table-responsive">
+    <table class="table align-middle bg-white mb-0">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Business</th>
+                <th>Action</th>
+                <th>Why</th>
+                <th>By</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in Model)
+            {
+                <tr>
+                    <td class="text-nowrap">@entry.At.ToString("d MMM yyyy, HH:mm")</td>
+                    <td>
+                        @if (entry.BusinessExists)
+                        {
+                            <a asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@entry.BusinessId">@entry.BusinessName</a>
+                        }
+                        else
+                        {
+                            @entry.BusinessName
+                        }
+                    </td>
+                    <td>
+                        @entry.Action.DisplayText()
+                        @if (!string.IsNullOrEmpty(entry.ChangedFields))
+                        {
+                            <div class="small text-muted">@entry.ChangedFields</div>
+                        }
+                    </td>
+                    <td>
+                        @(entry.Reason ?? (string.IsNullOrEmpty(entry.Note) ? "—" : ""))
+                        @if (!string.IsNullOrEmpty(entry.Note))
+                        {
+                            <div class="small text-muted" style="white-space: pre-line;">@entry.Note</div>
+                        }
+                    </td>
+                    <td>@(entry.AdminEmail ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

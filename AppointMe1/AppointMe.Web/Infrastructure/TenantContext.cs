@@ -1,3 +1,4 @@
+using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Service.Interface;
@@ -10,7 +11,7 @@ namespace AppointMe.Web.Infrastructure
     /// <summary>
     /// Scoped (one instance per request). Takes the user id from the authentication cookie and reads
     /// the TenantId from the database in a single query, so changes to the user or Business
-    /// (for example a future suspension) take effect on the next request.
+    /// (for example a suspension) take effect on the next request.
     /// </summary>
     public sealed class TenantContext : ITenantContext
     {
@@ -61,7 +62,10 @@ namespace AppointMe.Web.Infrastructure
                 .Select(u => new
                 {
                     u.TenantId,
-                    HasBusiness = u.TenantId != null && _db.Businesses.Any(b => b.Id == u.TenantId),
+                    BusinessStatus = _db.Businesses
+                        .Where(b => b.Id == u.TenantId)
+                        .Select(b => (BusinessStatus?)b.Status)
+                        .FirstOrDefault(),
                     IsPlatformAdmin = _db.UserRoles.Any(ur => ur.UserId == u.Id
                         && _db.Roles.Any(r => r.Id == ur.RoleId && r.Name == PlatformRoles.Admin))
                 })
@@ -74,8 +78,11 @@ namespace AppointMe.Web.Infrastructure
             if (row.IsPlatformAdmin)
                 return new TenantResolution(TenantResolutionStatus.PlatformAdmin, userId, null);
 
-            if (row.TenantId is not { } tenantId || tenantId == Guid.Empty || !row.HasBusiness)
+            if (row.TenantId is not { } tenantId || tenantId == Guid.Empty || row.BusinessStatus == null)
                 return new TenantResolution(TenantResolutionStatus.NoTenant, userId, null);
+
+            if (row.BusinessStatus == BusinessStatus.Suspended)
+                return new TenantResolution(TenantResolutionStatus.Suspended, userId, tenantId);
 
             return new TenantResolution(TenantResolutionStatus.Resolved, userId, tenantId);
         }

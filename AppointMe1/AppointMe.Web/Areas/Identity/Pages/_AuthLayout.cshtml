@@ -110,9 +110,9 @@
 
                              
                              <hr />
-                        <h2 class=" mb-2">Welcome back!</h2>
+                        <h2 class=" mb-2">@(ViewData["AuthHeading"] as string ?? "Welcome back!")</h2>
                         <p class="mb-0 opacity-75">
-                            Manage customers, appointments, and your business settings in one place.
+                            @(ViewData["AuthText"] as string ?? "Manage customers, appointments, and your business settings in one place.")
                         </p>
                     </div>
 

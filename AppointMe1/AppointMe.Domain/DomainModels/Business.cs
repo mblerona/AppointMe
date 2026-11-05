@@ -54,6 +54,18 @@ namespace AppointMe.Domain.DomainModels
         public bool OpenFri { get; set; } = true;
         public bool OpenSat { get; set; } = false;
         public bool OpenSun { get; set; } = false;
+
+        public BusinessStatus Status { get; set; } = BusinessStatus.Active;
+
+        /// <summary>UTC. These three are only set while the Business is suspended.</summary>
+        public DateTime? SuspendedAt { get; set; }
+
+        public SuspensionReason? SuspensionReason { get; set; }
+
+        /// <summary>Shown to the tenant, on the suspended page and in the email.</summary>
+        [MaxLength(AdminActionLog.MaxNoteLength)]
+        public string? SuspensionNote { get; set; }
+
         public ICollection<ServiceOffering> Services { get; set; } = new List<ServiceOffering>();
         public ICollection<Customer> Customers { get; set; } = new List<Customer>();
 

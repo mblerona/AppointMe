@@ -32,4 +32,31 @@ namespace AppointMe.Web.ViewModels.Admin
         [MaxLength(500)]
         public string? Address { get; set; }
     }
+
+    public class TenantSuspendVm
+    {
+        [BindNever]
+        public Guid Id { get; set; }
+
+        [BindNever]
+        public string BusinessName { get; set; } = "";
+
+        [Required(ErrorMessage = "Please choose a reason from the list.")]
+        public SuspensionReason? Reason { get; set; }
+
+        [MaxLength(AdminActionLog.MaxNoteLength)]
+        public string? Note { get; set; }
+    }
+
+    public class TenantReactivateVm
+    {
+        [BindNever]
+        public Guid Id { get; set; }
+
+        [BindNever]
+        public string BusinessName { get; set; } = "";
+
+        [MaxLength(AdminActionLog.MaxNoteLength)]
+        public string? Note { get; set; }
+    }
 }

@@ -1,0 +1,16 @@
+@model IReadOnlyList<AdminActionLogDTO>
+@{
+    ViewData["Title"] = "Action log";
+}
+
+<h1 class="h3 mb-3">Action log</h1>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">No admin actions yet.</div>
+}
+else
+{
+    <partial name="_ActionLogTable" model="Model" />
+    <p class="text-muted small mt-2">Newest first, up to the latest @ViewData["Limit"]. Times are in Europe/Skopje time.</p>
+}

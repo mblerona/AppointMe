@@ -12,7 +12,13 @@ namespace AppointMe.Service.Interface
         Resolved,
 
         /// <summary>The user has the PlatformAdmin role. Admins have no tenant, so TenantId stays unavailable.</summary>
-        PlatformAdmin
+        PlatformAdmin,
+
+        /// <summary>
+        /// The user's Business is suspended. TenantId in the result says which one, for the suspended page,
+        /// but <see cref="ITenantContext.TenantId"/> throws, so tenant code can't run.
+        /// </summary>
+        Suspended
     }
 
     public sealed record TenantResolution(TenantResolutionStatus Status, string? UserId, Guid? TenantId);

@@ -150,6 +150,42 @@ public class TenantContextTests
     }
 
     [Fact]
+    public async Task UserOfASuspendedBusiness_IsSuspended_AndTenantIdThrows()
+    {
+        var tenantId = Guid.NewGuid();
+        var user = await AddUserAsync(tenantId, withBusiness: true);
+        (await _db.Businesses.SingleAsync(b => b.Id == tenantId)).Status = BusinessStatus.Suspended;
+        await _db.SaveChangesAsync();
+        var ctx = CreateContext(Authenticated(user.Id));
+
+        var result = await ctx.ResolveAsync();
+
+        result.Status.Should().Be(TenantResolutionStatus.Suspended);
+        result.TenantId.Should().Be(tenantId, "the suspended page needs to know which business");
+        var act = () => ctx.TenantId;
+        act.Should().Throw<InvalidOperationException>("tenant code must not run");
+    }
+
+    [Fact]
+    public async Task SuspendingAndReactivating_AppliesOnTheNextRequest()
+    {
+        var tenantId = Guid.NewGuid();
+        var user = await AddUserAsync(tenantId, withBusiness: true);
+        var principal = Authenticated(user.Id);
+        var business = await _db.Businesses.SingleAsync(b => b.Id == tenantId);
+
+        (await CreateContext(principal).ResolveAsync()).Status.Should().Be(TenantResolutionStatus.Resolved);
+
+        business.Status = BusinessStatus.Suspended;
+        await _db.SaveChangesAsync();
+        (await CreateContext(principal).ResolveAsync()).Status.Should().Be(TenantResolutionStatus.Suspended);
+
+        business.Status = BusinessStatus.Active;
+        await _db.SaveChangesAsync();
+        (await CreateContext(principal).ResolveAsync()).Status.Should().Be(TenantResolutionStatus.Resolved);
+    }
+
+    [Fact]
     public async Task AnotherRole_DoesNotMakeAUserAPlatformAdmin()
     {
         var tenantId = Guid.NewGuid();

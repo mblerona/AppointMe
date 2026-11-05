@@ -139,6 +139,65 @@ namespace AppointMe.Tests.Integration.SqlServer
             (await repository.GetTenantsAsync(unique, BusinessStatus.Active)).Should().ContainSingle()
                 .Which.Id.Should().Be(tenant.Id);
             (await repository.GetTenantsAsync(unique, BusinessStatus.Suspended)).Should().BeEmpty();
+
+            tenant.Status = BusinessStatus.Suspended;
+            tenant.SuspensionReason = SuspensionReason.Other;
+            tenant.SuspensionNote = "A note";
+            tenant.SuspendedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
+            (await repository.GetTenantsAsync(unique, BusinessStatus.Active)).Should().BeEmpty();
+            var found = (await repository.GetTenantsAsync(unique, BusinessStatus.Suspended)).Should().ContainSingle().Which;
+            found.Status.Should().Be(BusinessStatus.Suspended);
+
+            var details = await repository.GetTenantAsync(tenant.Id);
+            details!.SuspensionReason.Should().Be(SuspensionReason.Other);
+            details.SuspensionNote.Should().Be("A note");
+        }
+
+        [Fact]
+        public async Task ActionLog_IsSaved_FiltersByTenant_AndOutlivesTheBusiness()
+        {
+            await using var db = _database.CreateContext();
+            var (tenant, _) = await AddTenantAsync(db);
+            var deletedId = Guid.NewGuid();
+            var repository = new PlatformAdminRepository(db);
+
+            repository.AddActionLog(new AdminActionLog
+            {
+                Id = Guid.NewGuid(), At = DateTime.UtcNow, Action = AdminActionType.TenantSuspended, BusinessId = tenant.Id,
+                BusinessName = tenant.Name, AdminEmail = "admin@test.com", Reason = "Other", Note = "A note"
+            });
+            repository.AddActionLog(new AdminActionLog
+            {
+                Id = Guid.NewGuid(), At = DateTime.UtcNow, Action = AdminActionType.TenantEdited, BusinessId = deletedId,
+                BusinessName = "No longer here", ChangedFields = "Name"
+            });
+            await db.SaveChangesAsync();
+
+            var forTenant = await repository.GetActionLogAsync(tenant.Id, 10);
+            forTenant.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+            {
+                Action = AdminActionType.TenantSuspended, BusinessId = tenant.Id, AdminEmail = "admin@test.com",
+                Reason = "Other", Note = "A note", BusinessExists = true
+            });
+
+            var forDeleted = await repository.GetActionLogAsync(deletedId, 10);
+            forDeleted.Should().ContainSingle().Which.BusinessExists.Should().BeFalse();
+
+            (await repository.GetActionLogAsync(null, 1)).Should().ContainSingle();
+        }
+
+        [Fact]
+        public async Task UserEmails_AreOnlyThatTenants_OldestFirst()
+        {
+            await using var db = _database.CreateContext();
+            var (tenant, unique) = await AddTenantAsync(db);
+            await AddTenantAsync(db);
+
+            var emails = await new PlatformAdminRepository(db).GetUserEmailsAsync(tenant.Id);
+
+            emails.Should().Equal($"owner-{unique}@test.com", $"staff-{unique}@test.com");
         }
 
         [Fact]
@@ -151,7 +210,7 @@ namespace AppointMe.Tests.Integration.SqlServer
             var totals = await new PlatformAdminRepository(db).GetTotalsAsync(since);
 
             totals.TotalTenants.Should().BeGreaterThan(0);
-            totals.ActiveTenants.Should().Be(totals.TotalTenants);
+            (totals.ActiveTenants + totals.SuspendedTenants).Should().Be(totals.TotalTenants);
             totals.NewTenantsLast30Days.Should().BeInRange(1, totals.TotalTenants);
         }
     }

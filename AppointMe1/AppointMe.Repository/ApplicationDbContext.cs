@@ -19,6 +19,7 @@ namespace AppointMe.Repository.Data
         public DbSet<AppointmentServiceModel> AppointmentServices { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
         public DbSet<InvoiceLine> InvoiceLines { get; set; }
+        public DbSet<AdminActionLog> AdminActionLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -144,6 +145,32 @@ namespace AppointMe.Repository.Data
                     .IsRequired()
                     .HasMaxLength(AppointMe.Domain.TimeZones.BusinessTimeZones.MaxIdLength)
                     .HasDefaultValue(AppointMe.Domain.TimeZones.BusinessTimeZones.Default);
+
+                entity.Property(b => b.Status)
+                    .IsRequired()
+                    .HasConversion<int>()
+                    .HasDefaultValue(BusinessStatus.Active);
+
+                entity.Property(b => b.SuspensionReason).HasConversion<int?>();
+                entity.Property(b => b.SuspensionNote).HasMaxLength(AdminActionLog.MaxNoteLength);
+            });
+
+            // ==================== ADMIN ACTION LOG ====================
+            // No foreign key to Business: the log must outlive a deleted tenant.
+            modelBuilder.Entity<AdminActionLog>(entity =>
+            {
+                entity.HasKey(l => l.Id);
+
+                entity.Property(l => l.Id).HasDefaultValueSql("NEWID()");
+                entity.Property(l => l.Action).IsRequired().HasConversion<int>();
+                entity.Property(l => l.BusinessName).IsRequired().HasMaxLength(200);
+                entity.Property(l => l.AdminEmail).HasMaxLength(256);
+                entity.Property(l => l.Reason).HasMaxLength(AdminActionLog.MaxReasonLength);
+                entity.Property(l => l.Note).HasMaxLength(AdminActionLog.MaxNoteLength);
+                entity.Property(l => l.ChangedFields).HasMaxLength(AdminActionLog.MaxChangedFieldsLength);
+
+                entity.HasIndex(l => l.At).HasDatabaseName("IX_AdminActionLog_At");
+                entity.HasIndex(l => new { l.BusinessId, l.At }).HasDatabaseName("IX_AdminActionLog_BusinessId_At");
             });
 
             // ==================== SERVICE CATEGORY ====================

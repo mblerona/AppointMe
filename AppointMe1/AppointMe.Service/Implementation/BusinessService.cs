@@ -214,6 +214,21 @@ namespace AppointMe.Service.Implementation
             };
         }
 
+        public async Task<SuspensionInfoDTO?> GetSuspensionInfoAsync(Guid tenantId)
+        {
+            var b = await _businessRepository.GetByIdReadOnlyAsync(tenantId);
+            if (b is not { Status: BusinessStatus.Suspended })
+                return null;
+
+            return new SuspensionInfoDTO
+            {
+                BusinessName = b.Name,
+                Reason = b.SuspensionReason?.DisplayText() ?? "",
+                Note = b.SuspensionNote,
+                SuspendedAt = b.SuspendedAt is { } at ? BusinessTimeZones.FromUtc(at, b.TimeZoneId) : null
+            };
+        }
+
         // ---------------- helpers ----------------
 
         internal static string ValidateName(string? input, string? propertyName = null)

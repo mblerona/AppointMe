@@ -96,6 +96,7 @@ namespace AppointMe.Web.Infrastructure
         public static IServiceCollection AddAppointMePlatformAdmin(this IServiceCollection services, IConfiguration configuration)
         {
             services.Configure<PlatformAdminOptions>(configuration.GetSection(PlatformAdminOptions.SectionName));
+            services.Configure<SupportOptions>(configuration.GetSection(SupportOptions.SectionName));
             services.AddScoped<PlatformAdminSeeder>();
             services.AddScoped<RequirePlatformAdminFilter>();
 

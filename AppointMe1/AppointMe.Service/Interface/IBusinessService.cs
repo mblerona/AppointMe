@@ -30,5 +30,8 @@ namespace AppointMe.Service.Interface
 
         /// <summary>Name, logo, colors and nav switches for the layout; null if the tenant has no Business.</summary>
         Task<BusinessBrandingDTO?> GetBrandingAsync(Guid tenantId);
+
+        /// <returns>The tenant's own suspension, or null when the Business isn't suspended.</returns>
+        Task<SuspensionInfoDTO?> GetSuspensionInfoAsync(Guid tenantId);
     }
 }

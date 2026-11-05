@@ -13,8 +13,14 @@ public sealed class CapturingEmailService : IEmailService
     public IReadOnlyList<EmailMessage> SentTo(string email) =>
         _sent.Where(m => string.Equals(m.MailTo, email, StringComparison.OrdinalIgnoreCase)).ToArray();
 
+    /// <summary>While true, sending throws, as it does when the mail server is down.</summary>
+    public bool Fail { get; set; }
+
     public Task SendEmailAsync(EmailMessage message)
     {
+        if (Fail)
+            throw new InvalidOperationException("The mail server is down.");
+
         _sent.Enqueue(message);
         return Task.CompletedTask;
     }

@@ -11,5 +11,7 @@ namespace AppointMe.Web.Areas.Admin.Controllers
     [ServiceFilter(typeof(RequirePlatformAdminFilter))]
     public abstract class BaseAdminController : Controller
     {
+        /// <summary>The logged-in admin, for the action log. The user name is the email.</summary>
+        protected string? AdminEmail => User.Identity?.Name;
     }
 }

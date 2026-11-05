@@ -1,0 +1,42 @@
+@model TenantSuspendVm
+@{
+    ViewData["Title"] = "Suspend business";
+}
+
+<div class="mb-3">
+    <a asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@Model.Id"><i class="bi bi-arrow-left"></i> Back to details</a>
+</div>
+
+<h1 class="h3 mb-3">Suspend @Model.BusinessName</h1>
+
+<form method="post" asp-area="Admin" asp-controller="Tenants" asp-action="Suspend" asp-route-id="@Model.Id" class="card">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+
+        <div class="mb-3">
+            <label asp-for="Reason" class="form-label"></label>
+            <select asp-for="Reason" class="form-select">
+                <option value="">Choose a reason</option>
+                @foreach (var reason in SuspensionReasons.All)
+                {
+                    <option value="@reason">@reason.DisplayText()</option>
+                }
+            </select>
+            <span asp-validation-for="Reason" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Note" class="form-label">Note</label>
+            <textarea asp-for="Note" class="form-control" rows="3" maxlength="@AdminActionLog.MaxNoteLength"></textarea>
+            <span asp-validation-for="Note" class="text-danger"></span>
+            <div class="form-text">Required for "Other", optional for the rest.</div>
+        </div>
+
+        <div class="alert alert-warning" role="alert">
+            <i class="bi bi-eye me-1"></i>
+            <strong>The tenant will see this note</strong>, on their suspended page and in the email.
+        </div>
+
+        <button type="submit" class="btn btn-primary">Continue</button>
+    </div>
+</form>
