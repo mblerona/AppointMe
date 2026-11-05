@@ -7,9 +7,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.InMemory.Storage;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AppointMe.Tests.Web;
 
@@ -37,6 +39,9 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
         {
             var dbDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
             if (dbDescriptor != null) services.Remove(dbDescriptor);
+
+            // Since EF 9, AddDbContext also keeps the provider choice here. Left in place, EF sees SQL Server and InMemory.
+            services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
 
             services.AddSingleton(_dbRoot);
 

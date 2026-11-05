@@ -1,7 +1,7 @@
 # AppointMe
 
 **Advanced Project – Integrated Systems**  
-A multi-tenant appointment management web application built with **.NET 8 MVC** and **Onion Architecture**.
+A multi-tenant appointment management web application built with **.NET 10 MVC** and **Onion Architecture**.
 
 - 🌐 Hosted application: https://appointmeweb20260112125147.azurewebsites.net
 
