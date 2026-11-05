@@ -1,6 +1,6 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Tests.Web.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 using Xunit;

@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using AppointMe.Service.Email;
 using AppointMe.Service.Email.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;

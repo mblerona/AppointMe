@@ -1,7 +1,7 @@
-using AppointMe.Service.Email;
+﻿using AppointMe.Service.Email;
 using AppointMe.Service.Interface;
 using AppointMe.Web.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

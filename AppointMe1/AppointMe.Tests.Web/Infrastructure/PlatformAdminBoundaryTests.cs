@@ -1,8 +1,8 @@
-using System.Reflection;
+﻿using System.Reflection;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Implementation;
 using AppointMe.Service.Interface;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace AppointMe.Tests.Web.Infrastructure;

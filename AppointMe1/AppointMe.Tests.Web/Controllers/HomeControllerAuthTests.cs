@@ -1,5 +1,5 @@
 ﻿using AppointMe.Tests.Web.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using System.Net;
 using System.Threading.Tasks;
 using Xunit;

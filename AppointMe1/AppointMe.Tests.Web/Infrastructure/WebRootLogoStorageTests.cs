@@ -1,5 +1,5 @@
-using AppointMe.Web.Infrastructure;
-using FluentAssertions;
+﻿using AppointMe.Web.Infrastructure;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Xunit;

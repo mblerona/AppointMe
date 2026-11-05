@@ -1,5 +1,5 @@
-using AppointMe.Domain.DomainModels;
-using FluentAssertions;
+﻿using AppointMe.Domain.DomainModels;
+using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using static AppointMe.Tests.Integration.SqlServer.SqlServerSeed;

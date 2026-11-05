@@ -1,5 +1,5 @@
-using AppointMe.Repository.Implementation;
-using FluentAssertions;
+﻿using AppointMe.Repository.Implementation;
+using AwesomeAssertions;
 using Xunit;
 using static AppointMe.Tests.Integration.SqlServer.SqlServerSeed;
 

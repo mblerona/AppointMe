@@ -1,5 +1,5 @@
-using AppointMe.Domain.TimeZones;
-using FluentAssertions;
+﻿using AppointMe.Domain.TimeZones;
+using AwesomeAssertions;
 using Xunit;
 
 namespace AppointMe.Tests.Unit.Services;

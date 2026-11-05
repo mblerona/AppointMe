@@ -1,10 +1,10 @@
-using AppointMe.Domain.DomainModels;
+﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Implementation;
 using AppointMe.Service.Implementation;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;

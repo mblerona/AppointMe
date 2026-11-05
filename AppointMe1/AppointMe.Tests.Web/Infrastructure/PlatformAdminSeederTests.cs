@@ -1,8 +1,8 @@
-using AppointMe.Domain.Identity;
+﻿using AppointMe.Domain.Identity;
 using AppointMe.Service.Admin;
 using AppointMe.Tests.Web.Factories;
 using AppointMe.Web.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

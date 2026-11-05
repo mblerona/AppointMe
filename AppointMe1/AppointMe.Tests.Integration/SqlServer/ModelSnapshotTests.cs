@@ -1,5 +1,5 @@
-using AppointMe.Repository.Data;
-using FluentAssertions;
+﻿using AppointMe.Repository.Data;
+using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;

@@ -1,8 +1,8 @@
-using System.Net;
+﻿using System.Net;
 using AppointMe.Domain.DomainModels;
 using AppointMe.Tests.Web.Factories;
 using AppointMe.Tests.Web.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Xunit;

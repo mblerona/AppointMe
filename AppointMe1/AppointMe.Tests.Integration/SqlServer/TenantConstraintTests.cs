@@ -1,6 +1,6 @@
-using AppointMe.Domain.DomainModels;
+﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.Identity;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Xunit;

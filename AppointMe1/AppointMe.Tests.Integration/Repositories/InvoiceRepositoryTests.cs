@@ -1,7 +1,7 @@
 ﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Implementation;
-using FluentAssertions;
+using AwesomeAssertions;
 using System;
 using System.Linq;
 using System.Threading.Tasks;

@@ -1,9 +1,9 @@
-using AppointMe.Domain.DomainModels;
+﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Implementation;
-using FluentAssertions;
+using AwesomeAssertions;
 using Moq;
 using Xunit;
 

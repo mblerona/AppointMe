@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.RegularExpressions;
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.Identity;
@@ -6,7 +6,7 @@ using AppointMe.Service.Email;
 using AppointMe.Tests.Web.Factories;
 using AppointMe.Tests.Web.Infrastructure;
 using AppointMe.Web.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;

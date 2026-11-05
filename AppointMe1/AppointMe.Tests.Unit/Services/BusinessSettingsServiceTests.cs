@@ -1,4 +1,4 @@
-using AppointMe.Domain.DomainModels;
+﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.Identity;
@@ -6,7 +6,7 @@ using AppointMe.Repository.Data;
 using AppointMe.Repository.Implementation;
 using AppointMe.Service.Implementation;
 using AppointMe.Service.Interface;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Moq;

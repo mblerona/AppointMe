@@ -1,6 +1,6 @@
-using AppointMe.Domain.Identity;
+﻿using AppointMe.Domain.Identity;
 using AppointMe.Tests.Web.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

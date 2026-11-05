@@ -1,7 +1,7 @@
-using AppointMe.Domain.DomainModels;
+﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Implementation;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace AppointMe.Tests.Integration.Repositories

@@ -1,7 +1,7 @@
-using AppointMe.Domain.DomainModels;
+﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO;
 using AppointMe.Service.Calendar;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace AppointMe.Tests.Unit.Services;

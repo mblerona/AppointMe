@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -8,7 +8,7 @@ using AppointMe.Repository.Data;
 using AppointMe.Repository.Implementation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Implementation;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;

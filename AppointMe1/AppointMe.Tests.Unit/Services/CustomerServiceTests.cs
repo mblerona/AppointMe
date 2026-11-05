@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -7,7 +7,7 @@ using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Implementation;
-using FluentAssertions;
+using AwesomeAssertions;
 using Moq;
 using Xunit;
 

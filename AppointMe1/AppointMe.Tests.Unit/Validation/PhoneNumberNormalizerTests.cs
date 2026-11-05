@@ -1,6 +1,6 @@
-using AppointMe.Domain.Exceptions;
+﻿using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.Validation;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace AppointMe.Tests.Unit.Validation;

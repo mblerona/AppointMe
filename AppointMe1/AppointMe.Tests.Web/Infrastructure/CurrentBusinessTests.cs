@@ -1,8 +1,8 @@
-using AppointMe.Domain.DTO;
+﻿using AppointMe.Domain.DTO;
 using AppointMe.Domain.Identity;
 using AppointMe.Service.Interface;
 using AppointMe.Web.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Identity;
 using Xunit;
 

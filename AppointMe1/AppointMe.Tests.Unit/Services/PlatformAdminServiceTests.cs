@@ -1,4 +1,4 @@
-using AppointMe.Domain.DomainModels;
+﻿using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO.Admin;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.Identity;
@@ -7,7 +7,7 @@ using AppointMe.Repository.Implementation;
 using AppointMe.Service.Admin;
 using AppointMe.Service.Email;
 using AppointMe.Service.Implementation;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;

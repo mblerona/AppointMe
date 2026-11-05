@@ -1,7 +1,7 @@
-using AppointMe.Tests.Web.Factories;
+﻿using AppointMe.Tests.Web.Factories;
 using AppointMe.Tests.Web.Infrastructure;
 using AppointMe.Tests.Web.TestDoubles;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 using Xunit;

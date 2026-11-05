@@ -2,7 +2,7 @@
 using System.Text.Json;
 using AppointMe.Tests.Web.Factories;
 using AppointMe.Tests.Web.Infrastructure;   
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace AppointMe.Tests.Web.Api;

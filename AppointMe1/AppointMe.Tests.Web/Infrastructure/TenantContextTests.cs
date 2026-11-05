@@ -1,10 +1,10 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Service.Interface;
 using AppointMe.Web.Infrastructure;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;

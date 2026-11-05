@@ -1,5 +1,5 @@
-using AppointMe.Service.Interface;
-using FluentAssertions;
+﻿using AppointMe.Service.Interface;
+using AwesomeAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
