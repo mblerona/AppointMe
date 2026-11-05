@@ -116,6 +116,7 @@ namespace AppointMe.Web.Infrastructure
             services.AddScoped<IInvoiceService, InvoiceService>();
             services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<IPlatformAdminService, PlatformAdminService>();
+            services.AddScoped<ITenantDeletionRequestService, TenantDeletionRequestService>();
 
             services.AddHttpClient<IHolidayService, HolidayService>(client =>
                 client.Timeout = TimeSpan.FromSeconds(10));

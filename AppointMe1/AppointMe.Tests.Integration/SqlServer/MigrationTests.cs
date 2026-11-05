@@ -20,6 +20,7 @@ namespace AppointMe.Tests.Integration.SqlServer
         public const string AddBusinessTimeZone = "20261104134128_AddBusinessTimeZone";
         public const string AddInvoiceYearAndSequence = "20261104140948_AddInvoiceYearAndSequence";
         public const string AddBusinessSuspensionAndActionLog = "20261105153755_AddBusinessSuspensionAndActionLog";
+        public const string AddBusinessDeletionRequest = "20261105162458_AddBusinessDeletionRequest";
 
         public static string Invoice(string tenant, string number, string issuedAt) => $@"
 INSERT INTO Invoices (Id, TenantId, AppointmentId, CustomerId, InvoiceNumber, IssuedAt, CustomerNameSnapshot,
@@ -50,6 +51,33 @@ VALUES ('{id}', '{tenant}', {number}, 'Ana', 'Doe', '{id}@x.com', '070123456', '
         public static string Appointment(string id, string tenant, string customer, string order) => $@"
 INSERT INTO Appointments (Id, TenantId, CustomerId, OrderNumber, AppointmentDate, Description)
 VALUES ('{id}', '{tenant}', '{customer}', '{order}', '2026-12-01T10:00:00', 'Test');";
+    }
+
+    [Trait("Category", SqlServerCollection.Category)]
+    public class AddBusinessDeletionRequestMigrationTests
+    {
+        [Fact]
+        public async Task ExistingBusinessesHaveNoRequest_AndRollsBack()
+        {
+            await using var database = new SqlServerTestDatabase();
+            await database.MigrateToAsync(MigrationSql.AddBusinessSuspensionAndActionLog);
+
+            const string existing = "aaaaaaaa-0000-0000-0000-000000000001";
+            await database.ExecuteSqlAsync(MigrationSql.Business(existing, "Existing"));
+
+            await database.MigrateToAsync(MigrationSql.AddBusinessDeletionRequest);
+
+            (await database.ScalarAsync($@"SELECT COUNT(*) AS Value FROM Businesses WHERE Id = '{existing}' AND Name = N'Existing'
+                AND DeletionRequestedAt IS NULL AND DeletionRequestReason IS NULL")).Should().Be(1);
+
+            await database.ExecuteSqlAsync($"UPDATE Businesses SET DeletionRequestedAt = GETUTCDATE(), DeletionRequestReason = N'Closing' WHERE Id = '{existing}'");
+
+            await database.MigrateToAsync(MigrationSql.AddBusinessSuspensionAndActionLog);
+
+            (await database.ScalarAsync(@"SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Businesses'
+                AND COLUMN_NAME IN ('DeletionRequestedAt', 'DeletionRequestReason')")).Should().Be(0);
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Businesses")).Should().Be(1, "rolling back keeps the businesses");
+        }
     }
 
     [Trait("Category", SqlServerCollection.Category)]

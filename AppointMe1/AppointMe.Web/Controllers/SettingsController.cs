@@ -17,24 +17,25 @@ namespace AppointMe.Web.Controllers
     public class SettingsController : Controller
     {
         private readonly IBusinessService _businessService;
+        private readonly ITenantDeletionRequestService _deletionRequests;
         private readonly ITenantContext _tenantContext;
 
-        public SettingsController(IBusinessService businessService, ITenantContext tenantContext)
+        public SettingsController(
+            IBusinessService businessService,
+            ITenantDeletionRequestService deletionRequests,
+            ITenantContext tenantContext)
         {
             _businessService = businessService;
+            _deletionRequests = deletionRequests;
             _tenantContext = tenantContext;
         }
 
         [HttpGet]
         public async Task<IActionResult> Business()
         {
-            var tenant = await _tenantContext.ResolveAsync();
-            if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
-            if (tenant.Status == TenantResolutionStatus.PlatformAdmin) return AdminHome();
-            if (tenant.Status == TenantResolutionStatus.Suspended) return RedirectToAction("Index", "Suspended");
-            if (tenant.Status == TenantResolutionStatus.NoTenant) return NoBusiness();
+            var (tenantId, stop) = await ResolveTenantAsync();
+            if (stop != null) return stop;
 
-            var tenantId = tenant.TenantId!.Value;
             var settings = await _businessService.GetSettingsAsync(tenantId);
             return View(ToVm(tenantId, settings));
         }
@@ -43,16 +44,16 @@ namespace AppointMe.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Business(BusinessSettingsVm vm, IFormFile? logoFile)
         {
-            var tenant = await _tenantContext.ResolveAsync();
-            if (tenant.Status == TenantResolutionStatus.NotAuthenticated) return Challenge();
-            if (tenant.Status == TenantResolutionStatus.PlatformAdmin) return AdminHome();
-            if (tenant.Status == TenantResolutionStatus.Suspended) return RedirectToAction("Index", "Suspended");
-            if (tenant.Status == TenantResolutionStatus.NoTenant) return NoBusiness();
+            var (tenantId, stop) = await ResolveTenantAsync();
+            if (stop != null) return stop;
 
-            if (!ModelState.IsValid) return View(vm);
+            if (!ModelState.IsValid)
+            {
+                vm.DeletionRequestedAt = (await _businessService.GetSettingsAsync(tenantId)).DeletionRequestedAt;
+                return View(vm);
+            }
 
             // The tenant comes from the server; a posted Id for another Business is rejected.
-            var tenantId = tenant.TenantId!.Value;
             if (tenantId != vm.Id)
                 return Forbid();
 
@@ -66,12 +67,98 @@ namespace AppointMe.Web.Controllers
             catch (BusinessRuleException ex)
             {
                 ModelState.AddModelError(ex.PropertyName ?? string.Empty, ex.Message);
-                vm.LogoUrl = (await _businessService.GetSettingsAsync(tenantId)).LogoUrl;
+                var current = await _businessService.GetSettingsAsync(tenantId);
+                vm.LogoUrl = current.LogoUrl;
+                vm.DeletionRequestedAt = current.DeletionRequestedAt;
                 return View(vm);
             }
 
             TempData["Success"] = "Business settings saved.";
             return RedirectToAction(nameof(Business));
+        }
+
+        // ---------------- deletion request: optional reason, confirm, done. Always the tenant's own Business. ----------------
+
+        [HttpGet]
+        public async Task<IActionResult> RequestDeletion()
+        {
+            var (tenantId, stop) = await ResolveTenantAsync();
+            if (stop != null) return stop;
+
+            if ((await _businessService.GetSettingsAsync(tenantId)).DeletionRequestedAt != null)
+                return RedirectToAction(nameof(Business));
+
+            return View(new DeletionRequestVm());
+        }
+
+        /// <summary>Checks the reason and shows the confirmation step. Nothing is requested yet.</summary>
+        [HttpPost]
+        public async Task<IActionResult> RequestDeletion(DeletionRequestVm vm)
+        {
+            var (_, stop) = await ResolveTenantAsync();
+            if (stop != null) return stop;
+
+            return View(ModelState.IsValid ? "ConfirmDeletionRequest" : "RequestDeletion", vm);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ConfirmDeletionRequest(DeletionRequestVm vm)
+        {
+            var (tenantId, stop) = await ResolveTenantAsync();
+            if (stop != null) return stop;
+
+            if (!ModelState.IsValid)
+                return View("RequestDeletion", vm);
+
+            try
+            {
+                await _deletionRequests.RequestAsync(tenantId, vm.Reason);
+                TempData["SuccessMessage"] = "Your deletion request has been sent for review.";
+            }
+            catch (BusinessRuleException ex) when (ex.PropertyName != null)
+            {
+                ModelState.AddModelError(ex.PropertyName, ex.Message);
+                return View("RequestDeletion", vm);
+            }
+            catch (BusinessRuleException ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Business));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CancelDeletionRequest()
+        {
+            var (tenantId, stop) = await ResolveTenantAsync();
+            if (stop != null) return stop;
+
+            try
+            {
+                await _deletionRequests.CancelAsync(tenantId);
+                TempData["SuccessMessage"] = "Your deletion request has been cancelled.";
+            }
+            catch (BusinessRuleException ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Business));
+        }
+
+        /// <returns>The tenant, or the result to return instead when there is no tenant to work on.</returns>
+        private async Task<(Guid TenantId, IActionResult? Stop)> ResolveTenantAsync()
+        {
+            var tenant = await _tenantContext.ResolveAsync();
+            return tenant.Status switch
+            {
+                TenantResolutionStatus.NotAuthenticated => (Guid.Empty, Challenge()),
+                TenantResolutionStatus.PlatformAdmin => (Guid.Empty, AdminHome()),
+                TenantResolutionStatus.Suspended => (Guid.Empty, RedirectToAction("Index", "Suspended")),
+                TenantResolutionStatus.NoTenant => (Guid.Empty, NoBusiness()),
+                _ => (tenant.TenantId!.Value, null)
+            };
         }
 
         /// <summary>
@@ -107,7 +194,8 @@ namespace AppointMe.Web.Controllers
             OpenSat = s.OpenSat,
             OpenSun = s.OpenSun,
             EnableServices = s.EnableServices,
-            EnableInvoices = s.EnableInvoices
+            EnableInvoices = s.EnableInvoices,
+            DeletionRequestedAt = s.DeletionRequestedAt
         };
 
         private static BusinessSettingsDTO ToDto(BusinessSettingsVm vm) => new()

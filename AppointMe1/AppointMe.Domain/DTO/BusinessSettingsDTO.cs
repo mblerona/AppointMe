@@ -31,6 +31,9 @@ namespace AppointMe.Domain.DTO
         public bool OpenFri { get; set; }
         public bool OpenSat { get; set; }
         public bool OpenSun { get; set; }
+
+        /// <summary>Read-only here. In the business's time zone; set while a deletion request is pending.</summary>
+        public DateTime? DeletionRequestedAt { get; set; }
     }
 
     /// <summary>What the appointment forms and the calendar need to know about the business.</summary>

@@ -1,4 +1,4 @@
-@model PlatformTotalsDTO
+@model AdminHomeVm
 @{
     ViewData["Title"] = "Platform administration";
 }
@@ -11,7 +11,7 @@
         <div class="card h-100">
             <div class="card-body">
                 <div class="text-muted small">Total tenants</div>
-                <div class="h3 mb-0" id="total-tenants">@Model.TotalTenants</div>
+                <div class="h3 mb-0" id="total-tenants">@Model.Totals.TotalTenants</div>
             </div>
         </div>
     </div>
@@ -19,7 +19,7 @@
         <div class="card h-100">
             <div class="card-body">
                 <div class="text-muted small">Active</div>
-                <div class="h3 mb-0" id="active-tenants">@Model.ActiveTenants</div>
+                <div class="h3 mb-0" id="active-tenants">@Model.Totals.ActiveTenants</div>
             </div>
         </div>
     </div>
@@ -27,7 +27,7 @@
         <div class="card h-100">
             <div class="card-body">
                 <div class="text-muted small">Suspended</div>
-                <div class="h3 mb-0" id="suspended-tenants">@Model.SuspendedTenants</div>
+                <div class="h3 mb-0" id="suspended-tenants">@Model.Totals.SuspendedTenants</div>
             </div>
         </div>
     </div>
@@ -35,10 +35,58 @@
         <div class="card h-100">
             <div class="card-body">
                 <div class="text-muted small">New in the last 30 days</div>
-                <div class="h3 mb-0" id="new-tenants">@Model.NewTenantsLast30Days</div>
+                <div class="h3 mb-0" id="new-tenants">@Model.Totals.NewTenantsLast30Days</div>
             </div>
         </div>
     </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2">
+        Pending deletion requests
+        <span class="badge @(Model.PendingDeletionRequests.Count > 0 ? "text-bg-danger" : "text-bg-secondary")" id="pending-deletions">@Model.PendingDeletionRequests.Count</span>
+    </div>
+    @if (Model.PendingDeletionRequests.Count == 0)
+    {
+        <div class="card-body text-muted">No pending requests.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Business</th>
+                        <th>Owner email</th>
+                        <th>Requested</th>
+                        <th>Reason</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var request in Model.PendingDeletionRequests)
+                    {
+                        <tr>
+                            <td>
+                                <a asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@request.TenantId">@request.BusinessName</a>
+                                @if (request.Status == BusinessStatus.Suspended)
+                                {
+                                    <partial name="/Areas/Admin/Views/Tenants/_StatusBadge.cshtml" model="request.Status" />
+                                }
+                            </td>
+                            <td>@(request.OwnerEmail ?? "—")</td>
+                            <td class="text-nowrap">@request.RequestedAt.ToString("d MMM yyyy")</td>
+                            <td style="white-space: pre-line;">@(request.Reason ?? "—")</td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-outline-danger" asp-area="Admin" asp-controller="Tenants" asp-action="Approve" asp-route-id="@request.TenantId">Approve</a>
+                                <a class="btn btn-sm btn-outline-secondary" asp-area="Admin" asp-controller="Tenants" asp-action="Dismiss" asp-route-id="@request.TenantId">Dismiss</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 </div>
 
 <a class="btn btn-primary" asp-area="Admin" asp-controller="Tenants" asp-action="Index">

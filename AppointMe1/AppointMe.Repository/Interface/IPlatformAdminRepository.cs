@@ -27,5 +27,21 @@ namespace AppointMe.Repository.Interface
         /// <param name="businessId">Null means every tenant.</param>
         /// <returns>Newest first.</returns>
         Task<IReadOnlyList<AdminActionLogDTO>> GetActionLogAsync(Guid? businessId, int limit);
+
+        /// <returns>Oldest first, so the longest-waiting request is on top.</returns>
+        Task<IReadOnlyList<DeletionRequestDTO>> GetPendingDeletionRequestsAsync();
+
+        /// <summary>
+        /// True when another tenant's rows point at this tenant's. It should never happen, but the database
+        /// cascades from a customer to its appointments, so deleting could take another tenant's data with it.
+        /// </summary>
+        Task<bool> HasCrossTenantLinksAsync(Guid tenantId);
+
+        /// <summary>
+        /// Permanently deletes the tenant in one transaction. Its action log rows stay, reduced to the minimum,
+        /// and <paramref name="deletionEntry"/> is added in the same transaction. An account with the
+        /// PlatformAdmin role is never deleted; it only loses the TenantId.
+        /// </summary>
+        Task DeleteTenantAsync(Guid tenantId, AdminActionLog deletionEntry);
     }
 }

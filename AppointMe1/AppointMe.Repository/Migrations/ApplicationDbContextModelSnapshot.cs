@@ -170,6 +170,13 @@ namespace AppointMe.Repository.Migrations
                     b.Property<int>("DefaultSlotMinutes")
                         .HasColumnType("int");
 
+                    b.Property<string>("DeletionRequestReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("DeletionRequestedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
 

@@ -231,6 +231,157 @@ namespace AppointMe.Web.Areas.Admin.Controllers
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        // ---------------- deletion: dismiss a request, approve it, or delete without one ----------------
+
+        /// <summary>This page is the confirmation step.</summary>
+        [HttpGet]
+        public async Task<IActionResult> Dismiss(Guid id)
+        {
+            TenantDetailsDTO tenant;
+            try
+            {
+                tenant = await _adminService.GetTenantAsync(id);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+
+            if (tenant.DeletionRequestedAt == null)
+                return NoPendingRequest(id);
+
+            return View(new TenantDismissVm { Id = id, BusinessName = tenant.Name });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Dismiss([FromRoute] Guid id, TenantDismissVm vm)
+        {
+            vm.Id = id;
+            try
+            {
+                vm.BusinessName = (await _adminService.GetTenantAsync(id)).Name;
+
+                if (!ModelState.IsValid)
+                    return View(vm);
+
+                var email = await _adminService.DismissDeletionRequestAsync(id, vm.Note, AdminEmail);
+                ReportOutcome("The deletion request has been dismissed.", email);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (BusinessRuleException ex) when (ex.PropertyName != null)
+            {
+                ModelState.AddModelError(ex.PropertyName, ex.Message);
+                return View(vm);
+            }
+            catch (BusinessRuleException ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Approve(Guid id)
+        {
+            var vm = new TenantDeleteVm { Id = id, IsApproval = true };
+            if (!await FillAsync(vm))
+                return NotFound();
+
+            if (vm.Tenant.DeletionRequestedAt == null)
+                return NoPendingRequest(id);
+
+            return View("Delete", vm);
+        }
+
+        [HttpPost]
+        public Task<IActionResult> Approve([FromRoute] Guid id, TenantDeleteVm vm)
+        {
+            vm.Id = id;
+            vm.IsApproval = true;
+            return DeleteAsync(vm, () => _adminService.ApproveDeletionRequestAsync(id, vm.ConfirmName, AdminEmail));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            var vm = new TenantDeleteVm { Id = id };
+            return await FillAsync(vm) ? View(vm) : NotFound();
+        }
+
+        [HttpPost]
+        public Task<IActionResult> Delete([FromRoute] Guid id, TenantDeleteVm vm)
+        {
+            vm.Id = id;
+            return DeleteAsync(vm, () => _adminService.DeleteTenantAsync(id, vm.ConfirmName, vm.Reason, AdminEmail));
+        }
+
+        private async Task<IActionResult> DeleteAsync(TenantDeleteVm vm, Func<Task<TenantDeletionResult>> delete)
+        {
+            if (!await FillAsync(vm))
+                return NotFound();
+
+            if (!ModelState.IsValid)
+                return View("Delete", vm);
+
+            try
+            {
+                var result = await delete();
+                ReportDeletion(vm.Tenant.Name, result);
+                return RedirectToAction(nameof(Index));
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (BusinessRuleException ex) when (ex.PropertyName != null)
+            {
+                ModelState.AddModelError(ex.PropertyName, ex.Message);
+                return View("Delete", vm);
+            }
+            catch (BusinessRuleException ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
+                return RedirectToAction(nameof(Details), new { id = vm.Id });
+            }
+        }
+
+        private IActionResult NoPendingRequest(Guid id)
+        {
+            TempData["ErrorMessage"] = "This business has no pending deletion request.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        private void ReportDeletion(string name, TenantDeletionResult result)
+        {
+            var problems = new List<string>();
+            if (result.Email == TenantEmailOutcome.Failed) problems.Add("The final email to the tenant could not be sent.");
+            if (result.Email == TenantEmailOutcome.NoRecipient) problems.Add("The tenant had no email address to notify.");
+            if (!result.LogoRemoved) problems.Add("The logo file could not be removed.");
+
+            var done = $"{name} has been permanently deleted.";
+            if (problems.Count == 0)
+                TempData["SuccessMessage"] = $"{done} The tenant has been emailed.";
+            else
+                TempData["WarningMessage"] = $"{done} {string.Join(" ", problems)}";
+        }
+
+        private async Task<bool> FillAsync(TenantDeleteVm vm)
+        {
+            try
+            {
+                vm.Tenant = await _adminService.GetTenantAsync(vm.Id);
+                return true;
+            }
+            catch (KeyNotFoundException)
+            {
+                return false;
+            }
+        }
+
         // ---------------- helpers ----------------
 
         private async Task<bool> FillAsync(Guid id, TenantSuspendVm vm)

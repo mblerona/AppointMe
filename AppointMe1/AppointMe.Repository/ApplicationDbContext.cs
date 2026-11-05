@@ -153,6 +153,7 @@ namespace AppointMe.Repository.Data
 
                 entity.Property(b => b.SuspensionReason).HasConversion<int?>();
                 entity.Property(b => b.SuspensionNote).HasMaxLength(AdminActionLog.MaxNoteLength);
+                entity.Property(b => b.DeletionRequestReason).HasMaxLength(Business.MaxDeletionRequestReasonLength);
             });
 
             // ==================== ADMIN ACTION LOG ====================

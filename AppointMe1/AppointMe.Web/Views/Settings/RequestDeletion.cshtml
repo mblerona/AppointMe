@@ -1,0 +1,23 @@
+@model AppointMe.Web.ViewModels.DeletionRequestVm
+@{
+    ViewData["Title"] = "Request account deletion";
+}
+
+<h2>Request account deletion</h2>
+
+<p>Tell us why, if you like. You can still cancel the request until it has been reviewed.</p>
+
+<form asp-action="RequestDeletion" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+
+    <div class="mb-3">
+        <label asp-for="Reason" class="form-label"></label>
+        <textarea asp-for="Reason" class="form-control" rows="3" maxlength="@AppointMe.Domain.DomainModels.Business.MaxDeletionRequestReasonLength"></textarea>
+        <span asp-validation-for="Reason" class="text-danger"></span>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">Continue</button>
+        <a class="btn btn-outline-secondary" asp-action="Business">Back to settings</a>
+    </div>
+</form>

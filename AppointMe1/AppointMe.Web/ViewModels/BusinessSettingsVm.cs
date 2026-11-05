@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using AppointMe.Domain.Validation;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace AppointMe.Web.ViewModels
 {
@@ -49,5 +50,15 @@ namespace AppointMe.Web.ViewModels
         public bool OpenSat { get; set; } = false;
         public bool OpenSun { get; set; } = false;
 
+        /// <summary>Display only: set while a deletion request is pending.</summary>
+        [BindNever]
+        public DateTime? DeletionRequestedAt { get; set; }
+    }
+
+    public class DeletionRequestVm
+    {
+        [MaxLength(AppointMe.Domain.DomainModels.Business.MaxDeletionRequestReasonLength)]
+        [Display(Name = "Reason (optional)")]
+        public string? Reason { get; set; }
     }
 }

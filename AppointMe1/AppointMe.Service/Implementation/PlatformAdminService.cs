@@ -8,6 +8,7 @@ using AppointMe.Repository.Interface;
 using AppointMe.Service.Admin;
 using AppointMe.Service.Email;
 using AppointMe.Service.Interface;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -22,9 +23,13 @@ namespace AppointMe.Service.Implementation
         /// <summary>How many actions the tenant details page shows.</summary>
         public const int TenantActionLogLimit = 50;
 
+        /// <summary>The log's reason for an approved request. The tenant's own text isn't kept after deletion.</summary>
+        public const string ApprovedRequestReason = "Requested by the tenant";
+
         private readonly IPlatformAdminRepository _adminRepository;
         private readonly IBusinessRepository _businessRepository;
         private readonly IEmailService _emailService;
+        private readonly ILogoStorage _logoStorage;
         private readonly SupportOptions _support;
         private readonly TimeProvider _timeProvider;
         private readonly ILogger<PlatformAdminService> _logger;
@@ -33,6 +38,7 @@ namespace AppointMe.Service.Implementation
             IPlatformAdminRepository adminRepository,
             IBusinessRepository businessRepository,
             IEmailService emailService,
+            ILogoStorage logoStorage,
             IOptions<SupportOptions> support,
             TimeProvider timeProvider,
             ILogger<PlatformAdminService> logger)
@@ -40,6 +46,7 @@ namespace AppointMe.Service.Implementation
             _adminRepository = adminRepository;
             _businessRepository = businessRepository;
             _emailService = emailService;
+            _logoStorage = logoStorage;
             _support = support.Value;
             _timeProvider = timeProvider;
             _logger = logger;
@@ -68,6 +75,8 @@ namespace AppointMe.Service.Implementation
             tenant.CreatedAt = ToDisplay(tenant.CreatedAt);
             if (tenant.SuspendedAt is { } suspendedAt)
                 tenant.SuspendedAt = ToDisplay(suspendedAt);
+            if (tenant.DeletionRequestedAt is { } requestedAt)
+                tenant.DeletionRequestedAt = ToDisplay(requestedAt);
             tenant.ActionLog = ToDisplay(await _adminRepository.GetActionLogAsync(tenantId, TenantActionLogLimit));
             return tenant;
         }
@@ -162,6 +171,120 @@ namespace AppointMe.Service.Implementation
             return await EmailTenantAsync(business, "Your AppointMe account has been reactivated", ReactivatedEmail(business));
         }
 
+        // ---------------- deletion ----------------
+
+        public async Task<IReadOnlyList<DeletionRequestDTO>> GetPendingDeletionRequestsAsync()
+        {
+            var requests = await _adminRepository.GetPendingDeletionRequestsAsync();
+            foreach (var request in requests)
+                request.RequestedAt = ToDisplay(request.RequestedAt);
+            return requests;
+        }
+
+        public async Task<TenantEmailOutcome> DismissDeletionRequestAsync(Guid tenantId, string? note, string? adminEmail)
+        {
+            var business = await _businessRepository.GetByIdAsync(tenantId)
+                ?? throw new KeyNotFoundException("Tenant not found.");
+
+            var validNote = ValidateNote(note);
+
+            if (business.DeletionRequestedAt == null)
+                throw new BusinessRuleException("This business has no pending deletion request.");
+
+            business.DeletionRequestedAt = null;
+            business.DeletionRequestReason = null;
+            business.UpdatedAt = UtcNow;
+
+            AddLog(business, AdminActionType.DeletionRequestDismissed, adminEmail, note: validNote);
+
+            await _businessRepository.SaveChangesAsync();
+
+            return await EmailTenantAsync(business, "Your AppointMe deletion request was not approved", DismissedEmail(business));
+        }
+
+        public async Task<TenantDeletionResult> ApproveDeletionRequestAsync(Guid tenantId, string? typedName, string? adminEmail)
+        {
+            var business = await _businessRepository.GetByIdAsync(tenantId)
+                ?? throw new KeyNotFoundException("Tenant not found.");
+
+            EnsureNameMatches(business, typedName);
+
+            // The tenant may have cancelled while the admin had this page open.
+            if (business.DeletionRequestedAt == null)
+                throw new BusinessRuleException("This business no longer has a pending deletion request, so nothing was deleted.");
+
+            return await DeleteAsync(business, AdminActionType.DeletionRequestApproved, ApprovedRequestReason, adminEmail);
+        }
+
+        public async Task<TenantDeletionResult> DeleteTenantAsync(Guid tenantId, string? typedName, string? reason, string? adminEmail)
+        {
+            var business = await _businessRepository.GetByIdAsync(tenantId)
+                ?? throw new KeyNotFoundException("Tenant not found.");
+
+            EnsureNameMatches(business, typedName);
+
+            var validReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+            if (validReason?.Length > AdminActionLog.MaxReasonLength)
+                throw new BusinessRuleException($"The reason can be at most {AdminActionLog.MaxReasonLength} characters.", "Reason");
+
+            return await DeleteAsync(business, AdminActionType.TenantDeleted, validReason, adminEmail);
+        }
+
+        private async Task<TenantDeletionResult> DeleteAsync(Business business, AdminActionType action, string? reason, string? adminEmail)
+        {
+            if (await _adminRepository.HasCrossTenantLinksAsync(business.Id))
+            {
+                _logger.LogError("Business {BusinessId} was not deleted: another tenant's rows point at its rows.", business.Id);
+                throw new BusinessRuleException(
+                    "This business has data linked to another business, so nothing was deleted. This needs fixing in the database first.");
+            }
+
+            // Everything needed afterwards, because the rows are about to go.
+            var (id, name) = (business.Id, business.Name);
+            var recipients = await RecipientsAsync(business);
+
+            try
+            {
+                await _adminRepository.DeleteTenantAsync(id, new AdminActionLog
+                {
+                    Id = Guid.NewGuid(),
+                    At = UtcNow,
+                    Action = action,
+                    BusinessId = id,
+                    BusinessName = name,
+                    AdminEmail = adminEmail,
+                    Reason = reason
+                });
+            }
+            catch (DbUpdateException ex)
+            {
+                // For example the tenant saved a new appointment during the delete. The transaction rolled back.
+                _logger.LogError(ex, "Business {BusinessId} could not be deleted.", id);
+                throw new BusinessRuleException("The business could not be deleted, and nothing was changed. Please try again.");
+            }
+
+            // The tenant is gone, so a failure in either of these must not look like the delete failed.
+            var logoRemoved = true;
+            try
+            {
+                await _logoStorage.DeleteAllAsync(id);
+            }
+            catch (Exception ex)
+            {
+                logoRemoved = false;
+                _logger.LogError(ex, "The logo files of deleted business {BusinessId} could not be removed.", id);
+            }
+
+            var email = await EmailAsync(id, recipients, "Your AppointMe account has been deleted", DeletedEmail(name));
+            return new TenantDeletionResult(email, logoRemoved);
+        }
+
+        private static void EnsureNameMatches(Business business, string? typedName)
+        {
+            if (!string.Equals(typedName?.Trim(), business.Name.Trim(), StringComparison.Ordinal))
+                throw new BusinessRuleException("The name you typed doesn't match the business name.", "ConfirmName");
+        }
+
         // ---------------- helpers ----------------
 
         private void AddLog(
@@ -191,13 +314,17 @@ namespace AppointMe.Service.Implementation
         }
 
         /// <summary>The action is already saved, so a failed email only changes the outcome the admin is told.</summary>
-        private async Task<TenantEmailOutcome> EmailTenantAsync(Business business, string subject, string content)
+        private async Task<TenantEmailOutcome> EmailTenantAsync(Business business, string subject, string content) =>
+            await EmailAsync(business.Id, await RecipientsAsync(business), subject, content);
+
+        private async Task<TenantEmailOutcome> EmailAsync(
+            Guid businessId, IReadOnlyList<string> recipients, string subject, string content)
         {
             var outcome = TenantEmailOutcome.NoRecipient;
 
             try
             {
-                foreach (var recipient in await RecipientsAsync(business))
+                foreach (var recipient in recipients)
                 {
                     await _emailService.SendEmailAsync(new EmailMessage { MailTo = recipient, Subject = subject, Content = content });
                     outcome = TenantEmailOutcome.Sent;
@@ -205,12 +332,26 @@ namespace AppointMe.Service.Implementation
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Could not send the email \"{Subject}\" for business {BusinessId}.", subject, business.Id);
+                _logger.LogError(ex, "Could not send the email \"{Subject}\" for business {BusinessId}.", subject, businessId);
                 return TenantEmailOutcome.Failed;
             }
 
             return outcome;
         }
+
+        private string SupportSentence() => string.IsNullOrWhiteSpace(_support.Email)
+            ? "Please contact support if you have any questions."
+            : $"If you have any questions, please contact support at {_support.Email}.";
+
+        private string DismissedEmail(Business business) => string.Join(Environment.NewLine,
+            $"Your request to delete the AppointMe account for {business.Name} was not approved, so the account stays as it is.",
+            "",
+            SupportSentence());
+
+        private string DeletedEmail(string businessName) => string.Join(Environment.NewLine,
+            $"The AppointMe account for {businessName} has been permanently deleted, together with its customers, appointments, services and invoices.",
+            "",
+            SupportSentence());
 
         private string SuspendedEmail(Business business)
         {
@@ -225,9 +366,7 @@ namespace AppointMe.Service.Implementation
                 lines.Add($"Note: {business.SuspensionNote}");
 
             lines.Add("");
-            lines.Add(string.IsNullOrWhiteSpace(_support.Email)
-                ? "Please contact support if you have any questions."
-                : $"If you have any questions, please contact support at {_support.Email}.");
+            lines.Add(SupportSentence());
 
             return string.Join(Environment.NewLine, lines);
         }

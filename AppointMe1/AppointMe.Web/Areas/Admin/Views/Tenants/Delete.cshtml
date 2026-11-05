@@ -1,0 +1,51 @@
+@model TenantDeleteVm
+@{
+    ViewData["Title"] = "Delete business";
+}
+
+<div class="mb-3">
+    <a asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@Model.Id"><i class="bi bi-arrow-left"></i> Back to details</a>
+</div>
+
+<h1 class="h3 mb-3">Permanently delete @Model.Tenant.Name?</h1>
+
+<div class="alert alert-danger" role="alert">
+    <strong>This can't be undone.</strong> It removes all customers (@Model.Tenant.CustomerCount),
+    appointments (@Model.Tenant.AppointmentCount) and invoices (@Model.Tenant.InvoiceCount),
+    all services and categories, the logo and the users of this business. The tenant gets a final email.
+</div>
+
+@if (Model.IsApproval && !string.IsNullOrEmpty(Model.Tenant.DeletionRequestReason))
+{
+    <div class="card mb-3">
+        <div class="card-header">The tenant's reason</div>
+        <div class="card-body" style="white-space: pre-line;">@Model.Tenant.DeletionRequestReason</div>
+    </div>
+}
+
+<form method="post" asp-area="Admin" asp-controller="Tenants" asp-action="@(Model.IsApproval ? "Approve" : "Delete")" asp-route-id="@Model.Id" class="card">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+
+        @if (!Model.IsApproval)
+        {
+            <div class="mb-3">
+                <label asp-for="Reason" class="form-label"></label>
+                <input asp-for="Reason" class="form-control" maxlength="@AdminActionLog.MaxReasonLength" />
+                <span asp-validation-for="Reason" class="text-danger"></span>
+                <div class="form-text">This stays in the action log after the business is gone, so don't include personal details.</div>
+            </div>
+        }
+
+        <div class="mb-3">
+            <label asp-for="ConfirmName" class="form-label">To confirm, type the business name: <strong>@Model.Tenant.Name</strong></label>
+            <input asp-for="ConfirmName" class="form-control" autocomplete="off" />
+            <span asp-validation-for="ConfirmName" class="text-danger"></span>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-danger">Permanently delete this business</button>
+            <a class="btn btn-outline-secondary" asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@Model.Id">Cancel</a>
+        </div>
+    </div>
+</form>

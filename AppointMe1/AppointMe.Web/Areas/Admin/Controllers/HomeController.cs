@@ -1,4 +1,5 @@
 using AppointMe.Service.Interface;
+using AppointMe.Web.ViewModels.Admin;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppointMe.Web.Areas.Admin.Controllers
@@ -12,6 +13,10 @@ namespace AppointMe.Web.Areas.Admin.Controllers
             _adminService = adminService;
         }
 
-        public async Task<IActionResult> Index() => View(await _adminService.GetTotalsAsync());
+        public async Task<IActionResult> Index() => View(new AdminHomeVm
+        {
+            Totals = await _adminService.GetTotalsAsync(),
+            PendingDeletionRequests = await _adminService.GetPendingDeletionRequestsAsync()
+        });
     }
 }

@@ -21,10 +21,15 @@ namespace AppointMe.Domain.DTO.Admin
         public int CustomerCount { get; set; }
         public int AppointmentCount { get; set; }
         public int InvoiceCount { get; set; }
+
+        /// <summary>Stored in UTC; the admin service converts it for display. Set while a request is pending.</summary>
+        public DateTime? DeletionRequestedAt { get; set; }
     }
 
     public class TenantDetailsDTO : TenantSummaryDTO
     {
+        public string? DeletionRequestReason { get; set; }
+
         public string? Email { get; set; }
         public string? Phone { get; set; }
         public string? Address { get; set; }
@@ -71,6 +76,18 @@ namespace AppointMe.Domain.DTO.Admin
         public bool BusinessExists { get; set; }
     }
 
+    public class DeletionRequestDTO
+    {
+        public Guid TenantId { get; set; }
+        public string BusinessName { get; set; } = "";
+        public string? OwnerEmail { get; set; }
+
+        /// <summary>Stored in UTC; the admin service converts it for display.</summary>
+        public DateTime RequestedAt { get; set; }
+        public string? Reason { get; set; }
+        public BusinessStatus Status { get; set; }
+    }
+
     /// <summary>What happened to the email telling the tenant about an action. The action itself is saved either way.</summary>
     public enum TenantEmailOutcome
     {
@@ -78,4 +95,7 @@ namespace AppointMe.Domain.DTO.Admin
         Failed,
         NoRecipient
     }
+
+    /// <summary>The tenant is gone either way; these two steps can't be rolled back, so they run after the commit.</summary>
+    public sealed record TenantDeletionResult(TenantEmailOutcome Email, bool LogoRemoved);
 }

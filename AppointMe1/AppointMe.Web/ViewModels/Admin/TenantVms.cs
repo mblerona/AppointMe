@@ -48,6 +48,45 @@ namespace AppointMe.Web.ViewModels.Admin
         public string? Note { get; set; }
     }
 
+    public class AdminHomeVm
+    {
+        public PlatformTotalsDTO Totals { get; set; } = new();
+        public IReadOnlyList<DeletionRequestDTO> PendingDeletionRequests { get; set; } = Array.Empty<DeletionRequestDTO>();
+    }
+
+    /// <summary>The same page for approving a request and for deleting without one.</summary>
+    public class TenantDeleteVm
+    {
+        [BindNever]
+        public Guid Id { get; set; }
+
+        [BindNever]
+        public bool IsApproval { get; set; }
+
+        [BindNever]
+        public TenantDetailsDTO Tenant { get; set; } = new();
+
+        [Required(ErrorMessage = "Type the business name to confirm.")]
+        [Display(Name = "Business name")]
+        public string? ConfirmName { get; set; }
+
+        [MaxLength(AdminActionLog.MaxReasonLength)]
+        [Display(Name = "Reason (optional)")]
+        public string? Reason { get; set; }
+    }
+
+    public class TenantDismissVm
+    {
+        [BindNever]
+        public Guid Id { get; set; }
+
+        [BindNever]
+        public string BusinessName { get; set; } = "";
+
+        [MaxLength(AdminActionLog.MaxNoteLength)]
+        public string? Note { get; set; }
+    }
+
     public class TenantReactivateVm
     {
         [BindNever]

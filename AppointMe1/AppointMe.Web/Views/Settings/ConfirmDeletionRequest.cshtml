@@ -1,0 +1,17 @@
+@model AppointMe.Web.ViewModels.DeletionRequestVm
+@{
+    ViewData["Title"] = "Confirm deletion request";
+}
+
+<h2>Are you sure?</h2>
+
+<div class="alert alert-danger" role="alert">
+    If this request is approved, your account is permanently deleted with all its customers, appointments,
+    services and invoices. This can't be undone. You can use the app as normal, and cancel the request, until then.
+</div>
+
+<form asp-action="ConfirmDeletionRequest" method="post" class="d-flex gap-2">
+    <input type="hidden" asp-for="Reason" />
+    <button type="submit" class="btn btn-danger">Send the deletion request</button>
+    <a class="btn btn-outline-secondary" asp-action="Business">Back to settings</a>
+</form>

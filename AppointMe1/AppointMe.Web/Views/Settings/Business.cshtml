@@ -197,6 +197,27 @@
     <button class="btn btn-primary" type="submit">Save</button>
 </form>
 
+<!-- ACCOUNT DELETION (outside the form above, because forms can't be nested) -->
+<hr class="my-4" />
+<h5 class="mb-3">Delete account</h5>
+
+@if (Model.DeletionRequestedAt is { } requestedAt)
+{
+    <div class="alert alert-warning" id="deletion-pending" role="alert">
+        Deletion requested on @requestedAt.ToString("d MMM yyyy"), pending review.
+    </div>
+    <form asp-action="CancelDeletionRequest" method="post" class="mb-4">
+        <button class="btn btn-outline-secondary" type="submit">Cancel the request</button>
+    </form>
+}
+else
+{
+    <p class="mb-3">
+        Ask us to permanently delete this account with all its customers, appointments, services and invoices.
+    </p>
+    <a class="btn btn-outline-danger mb-4" asp-action="RequestDeletion">Request account deletion</a>
+}
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 }

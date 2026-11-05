@@ -38,5 +38,28 @@ namespace AppointMe.Service.Interface
 
         /// <param name="limit">At most this many, newest first.</param>
         Task<IReadOnlyList<AdminActionLogDTO>> GetActionLogAsync(int limit);
+
+        /// <returns>Oldest first.</returns>
+        Task<IReadOnlyList<DeletionRequestDTO>> GetPendingDeletionRequestsAsync();
+
+        /// <param name="note">Optional and only for the action log; the tenant doesn't see it.</param>
+        /// <exception cref="KeyNotFoundException">No such tenant.</exception>
+        /// <exception cref="Domain.Exceptions.BusinessRuleException">No pending request, or the note is too long.</exception>
+        Task<TenantEmailOutcome> DismissDeletionRequestAsync(Guid tenantId, string? note, string? adminEmail);
+
+        /// <summary>Permanently deletes a tenant that asked for it.</summary>
+        /// <param name="typedName">Must match the business name exactly.</param>
+        /// <param name="adminEmail">The admin doing this, for the action log.</param>
+        /// <exception cref="KeyNotFoundException">No such tenant.</exception>
+        /// <exception cref="Domain.Exceptions.BusinessRuleException">No pending request, the wrong name, or it could not be deleted; nothing is changed.</exception>
+        Task<TenantDeletionResult> ApproveDeletionRequestAsync(Guid tenantId, string? typedName, string? adminEmail);
+
+        /// <summary>Permanently deletes a tenant without a request.</summary>
+        /// <param name="typedName">Must match the business name exactly.</param>
+        /// <param name="reason">Optional. It stays in the log after the tenant is gone.</param>
+        /// <param name="adminEmail">The admin doing this, for the action log.</param>
+        /// <exception cref="KeyNotFoundException">No such tenant.</exception>
+        /// <exception cref="Domain.Exceptions.BusinessRuleException">The wrong name, a reason that is too long, or it could not be deleted; nothing is changed.</exception>
+        Task<TenantDeletionResult> DeleteTenantAsync(Guid tenantId, string? typedName, string? reason, string? adminEmail);
     }
 }

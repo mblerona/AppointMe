@@ -7,7 +7,10 @@ namespace AppointMe.Domain.DomainModels
     {
         TenantEdited = 0,
         TenantSuspended = 1,
-        TenantReactivated = 2
+        TenantReactivated = 2,
+        DeletionRequestDismissed = 3,
+        DeletionRequestApproved = 4,
+        TenantDeleted = 5
     }
 
     public static class AdminActionTypes
@@ -17,14 +20,18 @@ namespace AppointMe.Domain.DomainModels
             AdminActionType.TenantEdited => "Edited business details",
             AdminActionType.TenantSuspended => "Suspended",
             AdminActionType.TenantReactivated => "Reactivated",
+            AdminActionType.DeletionRequestDismissed => "Dismissed the deletion request",
+            AdminActionType.DeletionRequestApproved => "Deleted (request approved)",
+            AdminActionType.TenantDeleted => "Deleted by the admin",
             _ => action.ToString()
         };
     }
 
     /// <summary>
     /// Who did what to which tenant, when and why. It has no foreign key to Business on purpose, because
-    /// it must outlive a deleted tenant. Deleting a tenant keeps only BusinessId, BusinessName, Action,
-    /// Reason and At on its rows, and clears AdminEmail, Note and ChangedFields.
+    /// it must outlive a deleted tenant. Deleting a tenant keeps BusinessId, BusinessName, Action, Reason,
+    /// At and AdminEmail on its rows, and clears Note and ChangedFields: the minimum rule applies to the
+    /// tenant's data, not to who performed the action.
     /// </summary>
     public class AdminActionLog
     {

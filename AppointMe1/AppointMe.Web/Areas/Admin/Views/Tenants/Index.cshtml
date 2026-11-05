@@ -51,7 +51,13 @@ else
                         </td>
                         <td>@(tenant.OwnerEmail ?? "—")</td>
                         <td>@tenant.CreatedAt.ToString("d MMM yyyy")</td>
-                        <td><partial name="_StatusBadge" model="tenant.Status" /></td>
+                        <td>
+                            <partial name="_StatusBadge" model="tenant.Status" />
+                            @if (tenant.DeletionRequestedAt != null)
+                            {
+                                <span class="badge text-bg-warning">Deletion requested</span>
+                            }
+                        </td>
                         <td class="text-end">@tenant.CustomerCount</td>
                         <td class="text-end">@tenant.AppointmentCount</td>
                         <td class="text-end">@tenant.InvoiceCount</td>

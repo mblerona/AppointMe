@@ -29,5 +29,17 @@ namespace AppointMe.Web.Infrastructure
 
             return $"/uploads/logos/{fileName}";
         }
+
+        public Task DeleteAllAsync(Guid businessId)
+        {
+            var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "logos");
+            if (Directory.Exists(uploadsDir))
+            {
+                foreach (var file in Directory.EnumerateFiles(uploadsDir, $"{businessId}.*"))
+                    File.Delete(file);
+            }
+
+            return Task.CompletedTask;
+        }
     }
 }

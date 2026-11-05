@@ -18,6 +18,7 @@ public sealed class PlatformAdminWebAppFactory : CustomWebAppFactory
     public const string SupportEmail = "support@appointme.local";
 
     public CapturingEmailService Emails { get; } = new();
+    public RecordingLogoStorage Logos { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -34,6 +35,9 @@ public sealed class PlatformAdminWebAppFactory : CustomWebAppFactory
 
             services.RemoveAll<IHolidayService>();
             services.AddSingleton<IHolidayService, FakeHolidayService>();
+
+            services.RemoveAll<ILogoStorage>();
+            services.AddSingleton<ILogoStorage>(Logos);
         });
     }
 }

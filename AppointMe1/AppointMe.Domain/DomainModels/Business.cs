@@ -66,6 +66,14 @@ namespace AppointMe.Domain.DomainModels
         [MaxLength(AdminActionLog.MaxNoteLength)]
         public string? SuspensionNote { get; set; }
 
+        /// <summary>UTC. Set while the tenant's request to delete the account is waiting for review.</summary>
+        public DateTime? DeletionRequestedAt { get; set; }
+
+        [MaxLength(MaxDeletionRequestReasonLength)]
+        public string? DeletionRequestReason { get; set; }
+
+        public const int MaxDeletionRequestReasonLength = 500;
+
         public ICollection<ServiceOffering> Services { get; set; } = new List<ServiceOffering>();
         public ICollection<Customer> Customers { get; set; } = new List<Customer>();
 

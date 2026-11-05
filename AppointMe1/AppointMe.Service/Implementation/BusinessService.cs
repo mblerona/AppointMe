@@ -120,7 +120,10 @@ namespace AppointMe.Service.Implementation
                 OpenThu = b.OpenThu,
                 OpenFri = b.OpenFri,
                 OpenSat = b.OpenSat,
-                OpenSun = b.OpenSun
+                OpenSun = b.OpenSun,
+                DeletionRequestedAt = b.DeletionRequestedAt is { } requestedAt
+                    ? BusinessTimeZones.FromUtc(requestedAt, b.TimeZoneId)
+                    : null
             };
         }
 

@@ -1,0 +1,24 @@
+@page
+@model AppointMe.Web.Areas.Identity.Pages.Account.Manage.PersonalDataModel
+@{
+    ViewData["Title"] = "Personal data";
+}
+
+<h1 class="h3 mb-3">Personal data</h1>
+
+<p>You can download the personal data stored with your login.</p>
+
+<form asp-page="DownloadPersonalData" method="post" class="mb-4">
+    <button class="btn btn-primary" type="submit">Download</button>
+</form>
+
+@if (Model.IsPlatformAdmin)
+{
+    <p class="mb-0">Admin accounts can't be deleted here.</p>
+}
+else
+{
+    <p class="mb-0">
+        To delete your account, use <a asp-area="" asp-controller="Settings" asp-action="Business">Business Settings</a>.
+    </p>
+}

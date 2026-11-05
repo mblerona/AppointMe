@@ -33,6 +33,7 @@ public class PlatformAdminServiceTests
 
     private PlatformAdminService Service(string? supportEmail = "support@test.com") => new(
         new PlatformAdminRepository(_db), new BusinessRepository(_db), _email.Object,
+        Mock.Of<AppointMe.Service.Interface.ILogoStorage>(),
         Options.Create(new SupportOptions { Email = supportEmail }), new FixedClock(Now),
         NullLogger<PlatformAdminService>.Instance);
 
