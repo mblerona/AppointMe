@@ -17,6 +17,12 @@ namespace AppointMe.Web.Infrastructure
     /// <summary>Service registrations, grouped by layer, so Program.cs stays short (audit A11).</summary>
     public static class ServiceCollectionExtensions
     {
+        /// <summary>A normal login ends after this long without activity (renewed once half of it has passed).</summary>
+        public static readonly TimeSpan SessionIdleTimeout = TimeSpan.FromMinutes(60);
+
+        /// <summary>The same, for a login with "Remember me" ticked.</summary>
+        public static readonly TimeSpan RememberMeDuration = TimeSpan.FromDays(14);
+
         /// <summary>DbContext (SQL Server LocalDB) and repositories.</summary>
         public static IServiceCollection AddAppointMeData(this IServiceCollection services, IConfiguration configuration)
         {
@@ -54,6 +60,19 @@ namespace AppointMe.Web.Infrastructure
                 })
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>();
+
+            // Must come after AddDefaultIdentity, which sets up the security stamp check on the same Events.
+            services.ConfigureApplicationCookie(options =>
+            {
+                options.ExpireTimeSpan = SessionIdleTimeout;
+                options.SlidingExpiration = true;
+                options.Events.OnSigningIn = context =>
+                {
+                    if (context.Properties.IsPersistent)
+                        context.Properties.ExpiresUtc = context.Properties.IssuedUtc?.Add(RememberMeDuration);
+                    return Task.CompletedTask;
+                };
+            });
 
             // Identity emails (confirmation, password reset) go through our MailKit service.
             services.AddTransient<IEmailSender, IdentityEmailSender>();

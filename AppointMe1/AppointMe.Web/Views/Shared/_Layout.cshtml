@@ -33,8 +33,8 @@
     // CurrentBusiness (injected in _ViewImports) is cached per request and shared with the page.
     var biz = await CurrentBusiness.GetAsync();
 
-    var navbarColor = biz?.PrimaryColor ?? "#212529";
-    var bgColor = biz?.SecondaryColor ?? "#ffffff";
+    var navbarColor = biz?.PrimaryColor ?? BusinessBrandingDefaults.NavbarColor;
+    var bgColor = biz?.SecondaryColor ?? BusinessBrandingDefaults.BackgroundColor;
     var hasTenant = biz != null;
 
     var isLightNavbar = IsLightColor(navbarColor);
@@ -186,6 +186,11 @@ h1, h2, h3, h4, h5, h6,
 p, label, .form-label, .form-text,
 span, small, .text-muted {
     color: var(--biz-text) !important;
+}
+
+/* The rule above colors every span for the page background; the navbar has its own background. */
+.topbar span {
+    color: var(--biz-nav-text) !important;
 }
 
 

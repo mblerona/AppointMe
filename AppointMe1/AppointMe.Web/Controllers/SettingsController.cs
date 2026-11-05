@@ -1,4 +1,5 @@
-﻿using AppointMe.Domain.DTO;
+﻿using AppointMe.Domain.DomainModels;
+using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Service.Interface;
 using AppointMe.Web.Infrastructure;
@@ -89,8 +90,9 @@ namespace AppointMe.Web.Controllers
             Phone = string.IsNullOrEmpty(s.Phone) ? null : s.Phone.ToDisplayPhone(),
             Address = s.Address,
             LogoUrl = s.LogoUrl,
-            PrimaryColor = s.PrimaryColor,
-            SecondaryColor = s.SecondaryColor,
+            // A color input can't be empty: without a value the browser shows and posts black.
+            PrimaryColor = s.PrimaryColor ?? BusinessBrandingDefaults.NavbarColor,
+            SecondaryColor = s.SecondaryColor ?? BusinessBrandingDefaults.BackgroundColor,
             DefaultSlotMinutes = s.DefaultSlotMinutes,
             WorkDayStart = s.WorkDayStart,
             WorkDayEnd = s.WorkDayEnd,

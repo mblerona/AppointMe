@@ -85,6 +85,6 @@ public class LayoutBusinessTests : IClassFixture<HolidaysWebAppFactory>
         var res = await client.GetAsync("/Home/Privacy");
 
         res.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await res.Content.ReadAsStringAsync()).Should().Contain("--biz-navbar: #212529");
+        (await res.Content.ReadAsStringAsync()).Should().Contain($"--biz-navbar: {AppointMe.Domain.DomainModels.BusinessBrandingDefaults.NavbarColor}");
     }
 }
