@@ -216,7 +216,7 @@ namespace AppointMe.Service.Implementation
 
         // ---------------- helpers ----------------
 
-        private static string ValidateName(string? input, string? propertyName = null)
+        internal static string ValidateName(string? input, string? propertyName = null)
         {
             var name = input?.Trim();
             if (string.IsNullOrEmpty(name))

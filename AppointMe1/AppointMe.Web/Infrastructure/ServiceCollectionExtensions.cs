@@ -37,6 +37,7 @@ namespace AppointMe.Web.Infrastructure
             services.AddScoped<IAppointmentRepository, AppointmentRepository>();
             services.AddScoped<IServiceOfferingRepository, ServiceOfferingRepository>();
             services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+            services.AddScoped<IPlatformAdminRepository, PlatformAdminRepository>();
 
             return services;
         }
@@ -113,6 +114,7 @@ namespace AppointMe.Web.Infrastructure
             services.AddScoped<IServiceOfferingService, ServiceOfferingService>();
             services.AddScoped<IInvoiceService, InvoiceService>();
             services.AddScoped<IDashboardService, DashboardService>();
+            services.AddScoped<IPlatformAdminService, PlatformAdminService>();
 
             services.AddHttpClient<IHolidayService, HolidayService>(client =>
                 client.Timeout = TimeSpan.FromSeconds(10));

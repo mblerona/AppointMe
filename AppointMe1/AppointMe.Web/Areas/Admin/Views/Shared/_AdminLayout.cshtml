@@ -15,6 +15,12 @@
         <div class="container">
             <a class="navbar-brand fw-bold" asp-area="Admin" asp-controller="Home" asp-action="Index">AppointMe Admin</a>
 
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" asp-area="Admin" asp-controller="Tenants" asp-action="Index">Tenants</a>
+                </li>
+            </ul>
+
             <div class="ms-auto d-flex align-items-center gap-2">
                 <a class="btn btn-outline-light btn-sm" asp-area="Identity" asp-page="/Account/Manage/Index">
                     <i class="bi bi-person"></i> Account

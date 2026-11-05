@@ -1,0 +1,47 @@
+@model TenantEditVm
+@{
+    ViewData["Title"] = "Edit business";
+}
+
+<div class="mb-3">
+    <a asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@Model.Id"><i class="bi bi-arrow-left"></i> Back to details</a>
+</div>
+
+<h1 class="h3 mb-3">Edit business</h1>
+
+<form method="post" asp-area="Admin" asp-controller="Tenants" asp-action="Edit" asp-route-id="@Model.Id" class="card">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" class="form-control" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="Phone" class="form-label"></label>
+                <input asp-for="Phone" class="form-control" />
+                <span asp-validation-for="Phone" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Address" class="form-label"></label>
+            <input asp-for="Address" class="form-control" />
+            <span asp-validation-for="Address" class="text-danger"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

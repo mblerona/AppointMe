@@ -1,0 +1,61 @@
+@model TenantDetailsDTO
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<div class="mb-3">
+    <a asp-area="Admin" asp-controller="Tenants" asp-action="Index"><i class="bi bi-arrow-left"></i> All tenants</a>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">@Model.Name <partial name="_StatusBadge" model="Model.Status" /></h1>
+    <a class="btn btn-outline-primary" asp-area="Admin" asp-controller="Tenants" asp-action="Edit" asp-route-id="@Model.Id">
+        <i class="bi bi-pencil me-1"></i> Edit
+    </a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">Account</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Owner email</dt>
+                    <dd class="col-sm-8">@(Model.OwnerEmail ?? "—")</dd>
+                    <dt class="col-sm-4">Created</dt>
+                    <dd class="col-sm-8">@Model.CreatedAt.ToString("d MMM yyyy, HH:mm") <span class="text-muted small">Europe/Skopje</span></dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">Business contact details</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Email</dt>
+                    <dd class="col-sm-8">@(Model.Email ?? "—")</dd>
+                    <dt class="col-sm-4">Phone</dt>
+                    <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.Phone) ? "—" : Model.Phone.ToDisplayPhone())</dd>
+                    <dt class="col-sm-4">Address</dt>
+                    <dd class="col-sm-8">@(Model.Address ?? "—")</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">Usage</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-2">Customers</dt>
+                    <dd class="col-sm-2" id="customer-count">@Model.CustomerCount</dd>
+                    <dt class="col-sm-2">Appointments</dt>
+                    <dd class="col-sm-2" id="appointment-count">@Model.AppointmentCount</dd>
+                    <dt class="col-sm-2">Invoices</dt>
+                    <dd class="col-sm-2" id="invoice-count">@Model.InvoiceCount</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>

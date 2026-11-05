@@ -5,7 +5,8 @@ namespace AppointMe.Repository.Interface
 {
     /// <summary>
     /// Access to the Business (tenant) row. Every read takes the tenant id, which is the Business id;
-    /// there is deliberately no "get all" here (only a future admin service may read across tenants).
+    /// there is deliberately no "get all" here (only the admin service may read across tenants, through
+    /// <see cref="IPlatformAdminRepository"/>).
     /// </summary>
     public interface IBusinessRepository
     {
