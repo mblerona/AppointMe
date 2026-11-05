@@ -21,6 +21,9 @@ namespace AppointMe.Repository.Interface
         /// <summary>The login emails of a tenant's users.</summary>
         Task<IReadOnlyList<string>> GetUserEmailsAsync(Guid tenantId);
 
+        /// <summary>The tenant's login accounts, oldest first, without any account that has the PlatformAdmin role.</summary>
+        Task<IReadOnlyList<TenantAccountDTO>> GetTenantAccountsAsync(Guid tenantId);
+
         /// <summary>Saved by the next SaveChanges on this request's context, together with the action it records.</summary>
         void AddActionLog(AdminActionLog entry);
 

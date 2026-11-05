@@ -41,6 +41,25 @@ namespace AppointMe.Domain.DTO.Admin
 
         /// <summary>Newest first. Filled by the admin service.</summary>
         public IReadOnlyList<AdminActionLogDTO> ActionLog { get; set; } = Array.Empty<AdminActionLogDTO>();
+
+        /// <summary>The tenant's login accounts, oldest first. Filled by the admin service.</summary>
+        public IReadOnlyList<TenantAccountDTO> Accounts { get; set; } = Array.Empty<TenantAccountDTO>();
+    }
+
+    /// <summary>A login account's health. Never add a password hash, security stamp or token to this type.</summary>
+    public class TenantAccountDTO
+    {
+        public string Id { get; set; } = "";
+        public string? Email { get; set; }
+        public bool EmailConfirmed { get; set; }
+
+        /// <summary>The stored value, which can be in the past. Pages use <see cref="LockedOutUntil"/>.</summary>
+        public DateTimeOffset? LockoutEnd { get; set; }
+
+        /// <summary>Set only while the account is locked out. The admin service fills it, for display.</summary>
+        public DateTime? LockedOutUntil { get; set; }
+
+        public bool IsLockedOut => LockedOutUntil != null;
     }
 
     /// <summary>The only tenant fields the admin can edit.</summary>

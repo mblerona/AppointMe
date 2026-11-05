@@ -469,7 +469,9 @@ public class SuspensionTests : IClassFixture<PlatformAdminWebAppFactory>
 
     private static bool AllowedWhileSuspended(string url) =>
         url.StartsWith("/Suspended/") || url.StartsWith("/Home/Error/")
-        || url == "/Identity/Account/Login" || url == "/Identity/Account/Logout";
+        || url == "/Identity/Account/Login" || url == "/Identity/Account/Logout"
+        || url == "/Identity/Account/ResetPassword" || url == "/Identity/Account/ResetPasswordConfirmation"
+        || url == "/Identity/Account/ConfirmEmail";
 
     [Fact]
     public async Task SuspendedTenant_CantReachOrPostToAnyPage_ExceptTheShortAllowedList()

@@ -2,12 +2,14 @@ using System.ComponentModel.DataAnnotations;
 using AppointMe.Domain.DomainModels;
 using AppointMe.Domain.DTO.Admin;
 using AppointMe.Domain.Exceptions;
+using AppointMe.Domain.Identity;
 using AppointMe.Domain.TimeZones;
 using AppointMe.Domain.Validation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Admin;
 using AppointMe.Service.Email;
 using AppointMe.Service.Interface;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -30,6 +32,8 @@ namespace AppointMe.Service.Implementation
         private readonly IBusinessRepository _businessRepository;
         private readonly IEmailService _emailService;
         private readonly ILogoStorage _logoStorage;
+        private readonly UserManager<AppointMeAppUser> _userManager;
+        private readonly IAccountEmails _accountEmails;
         private readonly SupportOptions _support;
         private readonly TimeProvider _timeProvider;
         private readonly ILogger<PlatformAdminService> _logger;
@@ -39,6 +43,8 @@ namespace AppointMe.Service.Implementation
             IBusinessRepository businessRepository,
             IEmailService emailService,
             ILogoStorage logoStorage,
+            UserManager<AppointMeAppUser> userManager,
+            IAccountEmails accountEmails,
             IOptions<SupportOptions> support,
             TimeProvider timeProvider,
             ILogger<PlatformAdminService> logger)
@@ -47,6 +53,8 @@ namespace AppointMe.Service.Implementation
             _businessRepository = businessRepository;
             _emailService = emailService;
             _logoStorage = logoStorage;
+            _userManager = userManager;
+            _accountEmails = accountEmails;
             _support = support.Value;
             _timeProvider = timeProvider;
             _logger = logger;
@@ -78,6 +86,15 @@ namespace AppointMe.Service.Implementation
             if (tenant.DeletionRequestedAt is { } requestedAt)
                 tenant.DeletionRequestedAt = ToDisplay(requestedAt);
             tenant.ActionLog = ToDisplay(await _adminRepository.GetActionLogAsync(tenantId, TenantActionLogLimit));
+
+            tenant.Accounts = await _adminRepository.GetTenantAccountsAsync(tenantId);
+            var now = _timeProvider.GetUtcNow();
+            foreach (var account in tenant.Accounts)
+            {
+                if (account.LockoutEnd is { } end && end > now)
+                    account.LockedOutUntil = ToDisplay(end.UtcDateTime);
+            }
+
             return tenant;
         }
 
@@ -169,6 +186,78 @@ namespace AppointMe.Service.Implementation
             await _businessRepository.SaveChangesAsync();
 
             return await EmailTenantAsync(business, "Your AppointMe account has been reactivated", ReactivatedEmail(business));
+        }
+
+        // ---------------- login accounts ----------------
+
+        public async Task<bool> ResendConfirmationAsync(Guid tenantId, string? accountId, string? adminEmail)
+        {
+            var (business, account) = await FindAccountAsync(tenantId, accountId);
+
+            if (account.EmailConfirmed)
+                throw new BusinessRuleException("This account's email is already confirmed.");
+
+            await LogAccountActionAsync(business, account, AdminActionType.AccountConfirmationResent, adminEmail);
+
+            return await _accountEmails.TrySendConfirmationAsync(account);
+        }
+
+        public async Task UnlockAccountAsync(Guid tenantId, string? accountId, string? adminEmail)
+        {
+            var (business, account) = await FindAccountAsync(tenantId, accountId);
+
+            if (!await _userManager.IsLockedOutAsync(account))
+                throw new BusinessRuleException("This account isn't locked out.");
+
+            // Identity saves after each call, so the transaction keeps the unlock and its log entry together.
+            await using var transaction = await _businessRepository.BeginTransactionAsync();
+
+            EnsureSucceeded(await _userManager.SetLockoutEndDateAsync(account, null));
+            EnsureSucceeded(await _userManager.ResetAccessFailedCountAsync(account));
+            await LogAccountActionAsync(business, account, AdminActionType.AccountUnlocked, adminEmail);
+
+            await transaction.CommitAsync();
+        }
+
+        public async Task<bool> SendPasswordResetAsync(Guid tenantId, string? accountId, string? adminEmail)
+        {
+            var (business, account) = await FindAccountAsync(tenantId, accountId);
+
+            if (!account.EmailConfirmed)
+                throw new BusinessRuleException("This account's email isn't confirmed yet, so resend the confirmation email instead.");
+
+            await LogAccountActionAsync(business, account, AdminActionType.AccountPasswordResetSent, adminEmail);
+
+            return await _accountEmails.TrySendPasswordResetAsync(account);
+        }
+
+        /// <summary>Anything but an account of this tenant counts as missing, so a tampered id gets a 404.</summary>
+        private async Task<(Business Business, AppointMeAppUser Account)> FindAccountAsync(Guid tenantId, string? accountId)
+        {
+            var business = await _businessRepository.GetByIdAsync(tenantId)
+                ?? throw new KeyNotFoundException("Tenant not found.");
+
+            var account = string.IsNullOrEmpty(accountId) ? null : await _userManager.FindByIdAsync(accountId);
+
+            if (account == null || account.TenantId != tenantId || await _userManager.IsInRoleAsync(account, PlatformRoles.Admin))
+                throw new KeyNotFoundException("Account not found.");
+
+            return (business, account);
+        }
+
+        /// <summary>Only ever names the account. The token and the link stay inside the email.</summary>
+        private async Task LogAccountActionAsync(
+            Business business, AppointMeAppUser account, AdminActionType action, string? adminEmail)
+        {
+            AddLog(business, action, adminEmail, note: $"Account: {account.Email}");
+            await _businessRepository.SaveChangesAsync();
+        }
+
+        private static void EnsureSucceeded(IdentityResult result)
+        {
+            if (!result.Succeeded)
+                throw new InvalidOperationException(
+                    "Could not unlock the account: " + string.Join(" ", result.Errors.Select(e => e.Description)));
         }
 
         // ---------------- deletion ----------------

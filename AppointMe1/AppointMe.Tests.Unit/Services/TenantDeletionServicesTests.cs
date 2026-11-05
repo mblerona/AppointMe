@@ -47,6 +47,7 @@ public class TenantDeletionServicesTests
 
     private PlatformAdminService Admin(IPlatformAdminRepository? repository = null) => new(
         repository ?? new PlatformAdminRepository(_db), new BusinessRepository(_db), _email.Object, _logos.Object,
+        null!, Mock.Of<IAccountEmails>(),
         Options.Create(new SupportOptions { Email = "support@test.com" }), new FixedClock(Now),
         NullLogger<PlatformAdminService>.Instance);
 

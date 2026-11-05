@@ -17,7 +17,12 @@ namespace AppointMe.Web.Infrastructure
             SuspendedPath,
             "/Identity/Account/Logout",
             "/Identity/Account/Login",
-            "/Home/Error"
+            "/Home/Error",
+
+            // The links in the admin's emails must work for someone who is still logged in. They need a valid token anyway.
+            "/Identity/Account/ResetPassword",
+            "/Identity/Account/ResetPasswordConfirmation",
+            "/Identity/Account/ConfirmEmail"
         };
 
         private readonly RequestDelegate _next;

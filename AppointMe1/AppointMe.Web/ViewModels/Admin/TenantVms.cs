@@ -48,6 +48,22 @@ namespace AppointMe.Web.ViewModels.Admin
         public string? Note { get; set; }
     }
 
+    /// <summary>The one confirmation page for the three actions on a login account.</summary>
+    public class TenantAccountActionVm
+    {
+        public Guid TenantId { get; set; }
+        public string BusinessName { get; set; } = "";
+        public string AccountId { get; set; } = "";
+        public string? AccountEmail { get; set; }
+
+        /// <summary>The controller action the form posts to.</summary>
+        public string Action { get; set; } = "";
+
+        public string Heading { get; set; } = "";
+        public string Explanation { get; set; } = "";
+        public string Button { get; set; } = "";
+    }
+
     public class AdminHomeVm
     {
         public PlatformTotalsDTO Totals { get; set; } = new();

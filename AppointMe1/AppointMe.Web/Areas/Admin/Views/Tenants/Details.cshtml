@@ -94,6 +94,73 @@
         </div>
     </div>
     <div class="col-12">
+        <div class="card" id="login-accounts">
+            <div class="card-header">Login accounts</div>
+            @if (Model.Accounts.Count == 0)
+            {
+                <div class="card-body text-muted">This business has no login accounts.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Email confirmed</th>
+                                <th>Lockout</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var account in Model.Accounts)
+                            {
+                                <tr>
+                                    <td>@(account.Email ?? "—")</td>
+                                    <td>
+                                        @if (account.EmailConfirmed)
+                                        {
+                                            <span class="badge text-bg-success">Confirmed</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge text-bg-warning">Not confirmed</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (account.LockedOutUntil is { } lockedUntil)
+                                        {
+                                            <span class="badge text-bg-danger">Locked out</span>
+                                            <span class="small text-muted">until @lockedUntil.ToString("d MMM yyyy, HH:mm")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Not locked</span>
+                                        }
+                                    </td>
+                                    <td class="text-end text-nowrap">
+                                        @if (!account.EmailConfirmed)
+                                        {
+                                            <a class="btn btn-sm btn-outline-primary" asp-area="Admin" asp-controller="TenantAccounts" asp-action="ResendConfirmation" asp-route-id="@Model.Id" asp-route-accountId="@account.Id">Resend confirmation email</a>
+                                        }
+                                        @if (account.IsLockedOut)
+                                        {
+                                            <a class="btn btn-sm btn-outline-primary" asp-area="Admin" asp-controller="TenantAccounts" asp-action="Unlock" asp-route-id="@Model.Id" asp-route-accountId="@account.Id">Unlock</a>
+                                        }
+                                        @if (account.EmailConfirmed)
+                                        {
+                                            <a class="btn btn-sm btn-outline-primary" asp-area="Admin" asp-controller="TenantAccounts" asp-action="SendPasswordReset" asp-route-id="@Model.Id" asp-route-accountId="@account.Id">Send password reset email</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="col-12">
         <div class="card">
             <div class="card-header">Usage</div>
             <div class="card-body">

@@ -3,6 +3,7 @@ using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Implementation;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace AppointMe.Tests.Integration.SqlServer
@@ -186,6 +187,38 @@ namespace AppointMe.Tests.Integration.SqlServer
             forDeleted.Should().ContainSingle().Which.BusinessExists.Should().BeFalse();
 
             (await repository.GetActionLogAsync(null, 1)).Should().ContainSingle();
+        }
+
+        [Fact]
+        public async Task Accounts_AreTranslated_OnlyThatTenants_WithoutAnAdminAccount()
+        {
+            await using var db = _database.CreateContext();
+            var (tenant, unique) = await AddTenantAsync(db);
+            await AddTenantAsync(db);
+
+            var owner = db.Users.Single(u => u.Email == $"owner-{unique}@test.com");
+            owner.EmailConfirmed = true;
+            owner.LockoutEnabled = true;
+            owner.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(10);
+
+            var role = await db.Roles.FirstOrDefaultAsync(r => r.Name == PlatformRoles.Admin);
+            if (role == null)
+            {
+                role = new Microsoft.AspNetCore.Identity.IdentityRole(PlatformRoles.Admin) { NormalizedName = PlatformRoles.Admin.ToUpperInvariant() };
+                db.Roles.Add(role);
+            }
+            await AddUserAsync(db, tenant.Id, $"admin-{unique}@test.com", DateTime.UtcNow);
+            var admin = db.Users.Single(u => u.Email == $"admin-{unique}@test.com");
+            db.UserRoles.Add(new Microsoft.AspNetCore.Identity.IdentityUserRole<string> { UserId = admin.Id, RoleId = role.Id });
+            await db.SaveChangesAsync();
+
+            var accounts = await new PlatformAdminRepository(db).GetTenantAccountsAsync(tenant.Id);
+
+            accounts.Select(a => a.Email).Should().Equal($"owner-{unique}@test.com", $"staff-{unique}@test.com");
+            accounts[0].EmailConfirmed.Should().BeTrue();
+            accounts[0].LockoutEnd.Should().NotBeNull();
+            accounts[1].EmailConfirmed.Should().BeFalse();
+            accounts[1].LockoutEnd.Should().BeNull();
         }
 
         [Fact]

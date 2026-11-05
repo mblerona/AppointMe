@@ -59,7 +59,7 @@ namespace AppointMe.Tests.Integration.SqlServer
         private readonly RecordingLogos _logos = new();
 
         private PlatformAdminService Service(ApplicationDbContext db) => new(
-            new PlatformAdminRepository(db), new BusinessRepository(db), _email, _logos,
+            new PlatformAdminRepository(db), new BusinessRepository(db), _email, _logos, null!, null!,
             Options.Create(new SupportOptions()), TimeProvider.System, NullLogger<PlatformAdminService>.Instance);
 
         /// <summary>The ids of one tenant's rows in every table, including those without a tenant column.</summary>

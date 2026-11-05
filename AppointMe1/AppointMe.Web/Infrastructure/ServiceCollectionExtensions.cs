@@ -78,6 +78,8 @@ namespace AppointMe.Web.Infrastructure
             // Identity emails (confirmation, password reset) go through our MailKit service.
             services.AddTransient<IEmailSender, IdentityEmailSender>();
             services.AddScoped<AccountConfirmationEmail>();
+            services.AddScoped<PasswordResetEmail>();
+            services.AddScoped<IAccountEmails, WebAccountEmails>();
 
             return services;
         }

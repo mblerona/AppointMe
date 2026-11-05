@@ -10,7 +10,10 @@ namespace AppointMe.Domain.DomainModels
         TenantReactivated = 2,
         DeletionRequestDismissed = 3,
         DeletionRequestApproved = 4,
-        TenantDeleted = 5
+        TenantDeleted = 5,
+        AccountConfirmationResent = 6,
+        AccountUnlocked = 7,
+        AccountPasswordResetSent = 8
     }
 
     public static class AdminActionTypes
@@ -23,6 +26,9 @@ namespace AppointMe.Domain.DomainModels
             AdminActionType.DeletionRequestDismissed => "Dismissed the deletion request",
             AdminActionType.DeletionRequestApproved => "Deleted (request approved)",
             AdminActionType.TenantDeleted => "Deleted by the admin",
+            AdminActionType.AccountConfirmationResent => "Resent the confirmation email",
+            AdminActionType.AccountUnlocked => "Unlocked an account",
+            AdminActionType.AccountPasswordResetSent => "Sent a password reset email",
             _ => action.ToString()
         };
     }
@@ -31,7 +37,8 @@ namespace AppointMe.Domain.DomainModels
     /// Who did what to which tenant, when and why. It has no foreign key to Business on purpose, because
     /// it must outlive a deleted tenant. Deleting a tenant keeps BusinessId, BusinessName, Action, Reason,
     /// At and AdminEmail on its rows, and clears Note and ChangedFields: the minimum rule applies to the
-    /// tenant's data, not to who performed the action.
+    /// tenant's data, not to who performed the action. An action on a login account names the account's email
+    /// in Note, so that goes too. Never put a password, token or link in this table.
     /// </summary>
     public class AdminActionLog
     {

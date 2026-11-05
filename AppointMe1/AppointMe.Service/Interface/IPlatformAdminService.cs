@@ -39,6 +39,23 @@ namespace AppointMe.Service.Interface
         /// <param name="limit">At most this many, newest first.</param>
         Task<IReadOnlyList<AdminActionLogDTO>> GetActionLogAsync(int limit);
 
+        /// <summary>Sends the same email as registration to an unconfirmed account of this tenant.</summary>
+        /// <returns><c>true</c> if the email went out. The action is logged either way.</returns>
+        /// <exception cref="KeyNotFoundException">No such tenant, or the account isn't one of this tenant's.</exception>
+        /// <exception cref="Domain.Exceptions.BusinessRuleException">The email is already confirmed.</exception>
+        Task<bool> ResendConfirmationAsync(Guid tenantId, string? accountId, string? adminEmail);
+
+        /// <summary>Clears the lockout and resets the failed-attempt count of an account of this tenant.</summary>
+        /// <exception cref="KeyNotFoundException">No such tenant, or the account isn't one of this tenant's.</exception>
+        /// <exception cref="Domain.Exceptions.BusinessRuleException">The account isn't locked out.</exception>
+        Task UnlockAccountAsync(Guid tenantId, string? accountId, string? adminEmail);
+
+        /// <summary>Sends the same email as Forgot password to a confirmed account of this tenant. The admin never sees or sets a password.</summary>
+        /// <returns><c>true</c> if the email went out. The action is logged either way.</returns>
+        /// <exception cref="KeyNotFoundException">No such tenant, or the account isn't one of this tenant's.</exception>
+        /// <exception cref="Domain.Exceptions.BusinessRuleException">The email isn't confirmed, as on the Forgot password page.</exception>
+        Task<bool> SendPasswordResetAsync(Guid tenantId, string? accountId, string? adminEmail);
+
         /// <returns>Oldest first.</returns>
         Task<IReadOnlyList<DeletionRequestDTO>> GetPendingDeletionRequestsAsync();
 

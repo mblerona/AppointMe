@@ -63,6 +63,24 @@ namespace AppointMe.Repository.Implementation
                 .Select(u => u.Email!)
                 .ToListAsync();
 
+        public async Task<IReadOnlyList<TenantAccountDTO>> GetTenantAccountsAsync(Guid tenantId) =>
+            await _context.Users
+                .AsNoTracking()
+                .Where(u => u.TenantId == tenantId
+                    && !_context.UserRoles.Any(ur => ur.UserId == u.Id
+                        && _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == PlatformRoles.Admin)))
+                .OrderBy(u => u.CreatedAt)
+                .ThenBy(u => u.Id)
+                .Select(u => new TenantAccountDTO
+                {
+                    Id = u.Id,
+                    Email = u.Email,
+                    EmailConfirmed = u.EmailConfirmed,
+                    // Identity ignores LockoutEnd on an account with lockout turned off.
+                    LockoutEnd = u.LockoutEnabled ? u.LockoutEnd : null
+                })
+                .ToListAsync();
+
         public void AddActionLog(AdminActionLog entry) => _context.AdminActionLogs.Add(entry);
 
         public async Task<IReadOnlyList<AdminActionLogDTO>> GetActionLogAsync(Guid? businessId, int limit)

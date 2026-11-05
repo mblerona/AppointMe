@@ -1,0 +1,26 @@
+@model TenantAccountActionVm
+@{
+    ViewData["Title"] = Model.Heading;
+}
+
+<h1 class="h3 mb-3">@Model.Heading</h1>
+
+<form method="post" asp-area="Admin" asp-controller="TenantAccounts" asp-action="@Model.Action" asp-route-id="@Model.TenantId" class="card">
+    <div class="card-body">
+        <dl class="row mb-3">
+            <dt class="col-sm-2">Business</dt>
+            <dd class="col-sm-10">@Model.BusinessName</dd>
+            <dt class="col-sm-2">Account</dt>
+            <dd class="col-sm-10">@(Model.AccountEmail ?? "—")</dd>
+        </dl>
+
+        <p>@Model.Explanation</p>
+
+        <input type="hidden" name="accountId" value="@Model.AccountId" />
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">@Model.Button</button>
+            <a class="btn btn-outline-secondary" asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@Model.TenantId">Cancel</a>
+        </div>
+    </div>
+</form>
