@@ -129,7 +129,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId)).ReturnsAsync((Customer?)null);
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId)).ReturnsAsync((Customer?)null);
 
             var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
 
@@ -161,7 +161,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId));
 
             var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
@@ -194,7 +194,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId));
 
             // holiday call will happen during validation
@@ -233,7 +233,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId));
 
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
@@ -274,7 +274,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId));
 
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
@@ -312,7 +312,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId));
 
             var holidayDate = NextWorkingDayAt(10, 0);
@@ -352,7 +352,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId));
 
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
@@ -391,7 +391,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId));
 
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
@@ -433,7 +433,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId));
 
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
@@ -487,7 +487,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId, "x@y.com"));
 
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
@@ -545,7 +545,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId, "customer@test.com"));
 
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
@@ -1045,7 +1045,7 @@ namespace AppointMe.Tests.Unit.Services
             var email = new Mock<IEmailService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId, "customer@test.com"));
 
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
@@ -1124,7 +1124,7 @@ namespace AppointMe.Tests.Unit.Services
             var holiday = new Mock<IHolidayService>(MockBehavior.Strict);
 
             var customerId = Guid.NewGuid();
-            custRepo.Setup(r => r.GetByIdAsync(customerId))
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(MakeCustomer(customerId, tenantId, "customer@test.com"));
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
                 .ReturnsAsync(new List<HolidayDTO>());

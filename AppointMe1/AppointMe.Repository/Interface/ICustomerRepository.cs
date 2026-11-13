@@ -14,6 +14,8 @@ namespace AppointMe.Repository.Interface
         /// <summary>Stops tracking a customer whose save failed, so a retry doesn't try to insert it again.</summary>
         void Detach(Customer customer);
 
+        /// <summary>Null when the customer doesn't exist or belongs to another tenant.</summary>
+        Task<Customer?> GetByIdAsync(Guid id, Guid tenantId);
         Task<Customer> GetByEmailAsync(string email, Guid tenantId);
         /// <param name="normalizedPhone">The search term in E.164 if it is a valid phone number, else null.</param>
         Task<IEnumerable<Customer>> SearchAsync(string searchTerm, Guid tenantId, string? normalizedPhone);

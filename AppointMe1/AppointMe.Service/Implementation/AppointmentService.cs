@@ -76,8 +76,8 @@ namespace AppointMe.Service.Implementation
 
         public async Task<AppointmentDTO> CreateAppointmentAsync(CreateAppointmentDTO dto, Guid tenantId)
         {
-            var customer = await _customerRepository.GetByIdAsync(dto.CustomerId);
-            if (customer == null || customer.TenantId != tenantId)
+            var customer = await _customerRepository.GetByIdAsync(dto.CustomerId, tenantId);
+            if (customer == null)
                 throw new KeyNotFoundException($"Customer with ID {dto.CustomerId} not found");
 
             var business = await GetBusinessOrThrow(tenantId);

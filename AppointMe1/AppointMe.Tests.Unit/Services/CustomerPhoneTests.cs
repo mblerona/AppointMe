@@ -44,7 +44,7 @@ public class CustomerPhoneTests
             Id = Guid.NewGuid(), TenantId = Tenant, FirstName = "Ana", LastName = "Doe", Email = "ana@test.com",
             PhoneNumber = phone, SecondPhoneNumber = second, State = "MK", City = "Skopje"
         };
-        _repo.Setup(r => r.GetByIdAsync(c.Id)).ReturnsAsync(c);
+        _repo.Setup(r => r.GetByIdAsync(c.Id, Tenant)).ReturnsAsync(c);
         return c;
     }
 

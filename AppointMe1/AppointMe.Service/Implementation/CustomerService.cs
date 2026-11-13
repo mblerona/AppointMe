@@ -32,8 +32,8 @@ namespace AppointMe.Service.Implementation
 
         public async Task<CustomerDTO> GetCustomerByIdAsync(Guid id, Guid tenantId)
         {
-            var customer = await _customerRepository.GetByIdAsync(id);
-            if (customer == null || customer.TenantId != tenantId)
+            var customer = await _customerRepository.GetByIdAsync(id, tenantId);
+            if (customer == null)
                 throw new KeyNotFoundException($"Customer with ID {id} not found");
 
             return MapToCustomerDto(customer, await ZoneOfAsync(tenantId));
@@ -150,8 +150,8 @@ namespace AppointMe.Service.Implementation
 
         public async Task<CustomerDTO> UpdateCustomerAsync(Guid customerId, UpdateCustomerDTO updateCustomerDto, Guid tenantId)
         {
-            var customer = await _customerRepository.GetByIdAsync(customerId);
-            if (customer == null || customer.TenantId != tenantId)
+            var customer = await _customerRepository.GetByIdAsync(customerId, tenantId);
+            if (customer == null)
                 throw new KeyNotFoundException($"Customer with ID {customerId} not found");
 
             // null = keep the stored number (validate before changing anything).
@@ -187,8 +187,8 @@ namespace AppointMe.Service.Implementation
 
         public async Task DeleteCustomerAsync(Guid customerId, Guid tenantId)
         {
-            var customer = await _customerRepository.GetByIdAsync(customerId);
-            if (customer == null || customer.TenantId != tenantId)
+            var customer = await _customerRepository.GetByIdAsync(customerId, tenantId);
+            if (customer == null)
                 throw new KeyNotFoundException($"Customer with ID {customerId} not found");
 
             await _customerRepository.DeleteAsync(customer);

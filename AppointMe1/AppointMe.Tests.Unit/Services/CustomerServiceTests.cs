@@ -30,7 +30,7 @@ namespace AppointMe.Tests.Unit.Services
             var tenantId = Guid.NewGuid();
             var id = Guid.NewGuid();
 
-            _customerRepo.Setup(r => r.GetByIdAsync(id))
+            _customerRepo.Setup(r => r.GetByIdAsync(id, tenantId))
                 .ReturnsAsync((Customer)null!);
 
             // act
@@ -50,7 +50,8 @@ namespace AppointMe.Tests.Unit.Services
 
             var customer = BuildCustomer(id, tenantId: Guid.NewGuid()); // mismatch
 
-            _customerRepo.Setup(r => r.GetByIdAsync(id))
+            // The repository filters by tenant: it finds the customer only for its owner.
+            _customerRepo.Setup(r => r.GetByIdAsync(id, customer.TenantId))
                 .ReturnsAsync(customer);
 
             // act
@@ -70,7 +71,7 @@ namespace AppointMe.Tests.Unit.Services
 
             var customer = BuildCustomer(id, tenantId, number: 12, first: "Ana", last: "Doe", email: "ana@test.com");
 
-            _customerRepo.Setup(r => r.GetByIdAsync(id))
+            _customerRepo.Setup(r => r.GetByIdAsync(id, tenantId))
                 .ReturnsAsync(customer);
 
             // act
@@ -211,7 +212,7 @@ namespace AppointMe.Tests.Unit.Services
             var tenantId = Guid.NewGuid();
             var customerId = Guid.NewGuid();
 
-            _customerRepo.Setup(r => r.GetByIdAsync(customerId))
+            _customerRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync((Customer)null!);
 
             var dto = new UpdateCustomerDTO
@@ -240,7 +241,7 @@ namespace AppointMe.Tests.Unit.Services
             var customerId = Guid.NewGuid();
 
             var customer = BuildCustomer(customerId, tenantId, email: "old@test.com");
-            _customerRepo.Setup(r => r.GetByIdAsync(customerId))
+            _customerRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(customer);
 
             var dto = new UpdateCustomerDTO
@@ -272,7 +273,7 @@ namespace AppointMe.Tests.Unit.Services
             var customerId = Guid.NewGuid();
 
             var customer = BuildCustomer(customerId, tenantId, email: "old@test.com", first: "Old");
-            _customerRepo.Setup(r => r.GetByIdAsync(customerId))
+            _customerRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(customer);
 
             _customerRepo.Setup(r => r.GetByEmailAsync(It.IsAny<string>(), tenantId))
@@ -324,7 +325,7 @@ namespace AppointMe.Tests.Unit.Services
 
             var customer = BuildCustomer(customerId, tenantId);
 
-            _customerRepo.Setup(r => r.GetByIdAsync(customerId))
+            _customerRepo.Setup(r => r.GetByIdAsync(customerId, tenantId))
                 .ReturnsAsync(customer);
 
             _customerRepo.Setup(r => r.DeleteAsync(customer))
@@ -349,7 +350,8 @@ namespace AppointMe.Tests.Unit.Services
             var customerId = Guid.NewGuid();
 
             var customer = BuildCustomer(customerId, tenantId: Guid.NewGuid()); // mismatch
-            _customerRepo.Setup(r => r.GetByIdAsync(customerId))
+            // The repository filters by tenant: it finds the customer only for its owner.
+            _customerRepo.Setup(r => r.GetByIdAsync(customerId, customer.TenantId))
                 .ReturnsAsync(customer);
 
             // act
@@ -358,6 +360,7 @@ namespace AppointMe.Tests.Unit.Services
             // assert
             await act.Should().ThrowAsync<KeyNotFoundException>()
                 .WithMessage($"Customer with ID {customerId} not found");
+            _customerRepo.Verify(r => r.DeleteAsync(It.IsAny<Customer>()), Times.Never);
         }
 
         private static Customer BuildCustomer(

@@ -17,6 +17,11 @@ namespace AppointMe.Repository.Implementation
         public void Detach(Customer customer) =>
             _context.Entry(customer).State = EntityState.Detached;
 
+        public async Task<Customer?> GetByIdAsync(Guid id, Guid tenantId)
+        {
+            return await _dbSet.FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantId);
+        }
+
         public async Task<Customer> GetByEmailAsync(string email, Guid tenantId)
         {
             return await _dbSet.FirstOrDefaultAsync(c => c.Email == email && c.TenantId == tenantId);

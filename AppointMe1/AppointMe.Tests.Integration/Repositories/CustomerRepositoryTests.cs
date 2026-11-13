@@ -77,6 +77,59 @@ namespace AppointMe.Tests.Integration.Repositories
             return (cat, svc);
         }
 
+        // ----------------- GetByIdAsync -----------------
+
+        [Fact]
+        public async Task GetByIdAsync_WhenCustomerBelongsToTenant_ReturnsCustomer()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new CustomerRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+            var customer = SeedCustomer(db, tenantId);
+            await db.SaveChangesAsync();
+
+            var found = await repo.GetByIdAsync(customer.Id, tenantId);
+
+            found.Should().NotBeNull();
+            found!.Id.Should().Be(customer.Id);
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WhenCustomerBelongsToAnotherTenant_ReturnsNull_AndLoadsNothing()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new CustomerRepository(db);
+
+            var tenantA = Guid.NewGuid();
+            var tenantB = Guid.NewGuid();
+            SeedBusiness(db, tenantA);
+            SeedBusiness(db, tenantB);
+            var customerOfA = SeedCustomer(db, tenantA);
+            await db.SaveChangesAsync();
+            db.ChangeTracker.Clear();
+
+            var found = await repo.GetByIdAsync(customerOfA.Id, tenantB);
+
+            found.Should().BeNull();
+            // Filtered in the query, so the other tenant's row never reaches the change tracker.
+            db.ChangeTracker.Entries<Customer>().Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WhenCustomerMissing_ReturnsNull()
+        {
+            var db = DbContextFactory.Create();
+            var repo = new CustomerRepository(db);
+
+            var tenantId = Guid.NewGuid();
+            SeedBusiness(db, tenantId);
+            await db.SaveChangesAsync();
+
+            (await repo.GetByIdAsync(Guid.NewGuid(), tenantId)).Should().BeNull();
+        }
+
         // ----------------- GetByEmailAsync -----------------
 
         [Fact]
