@@ -91,7 +91,8 @@ namespace AppointMe.Tests.Unit.Services
         }
 
         private static InvoiceService BuildService(ApplicationDbContext db)
-            => new(new InvoiceRepository(db), new AppointmentRepository(db), new BusinessRepository(db), TimeProvider.System);
+            => new(new InvoiceRepository(db), new AppointmentRepository(db), new BusinessRepository(db), TimeProvider.System,
+                Moq.Mock.Of<AppointMe.Service.Interface.ILogoStorage>(), Moq.Mock.Of<AppointMe.Service.Pdf.IInvoicePdfGenerator>());
 
         [Fact]
         public async Task CreateOrGetForAppointmentAsync_AfterOneFailedSave_StoresExactlyOneInvoice()

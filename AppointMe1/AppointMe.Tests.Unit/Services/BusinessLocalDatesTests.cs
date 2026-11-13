@@ -49,9 +49,20 @@ public class BusinessLocalDatesTests
             Id = Guid.NewGuid(), TenantId = _tenantId, CustomerId = _customer.Id, OrderNumber = "ORD-1", Description = "desc",
             AppointmentDate = AppointmentClockTime, CreatedAt = StoredUtc, UpdatedAt = StoredUtc
         };
-        _db.AddRange(_customer, _appointment);
+        _service = new ServiceOffering { Id = Guid.NewGuid(), BusinessId = _tenantId, Name = "Haircut", Price = 100, IsActive = true };
+        WithAServiceLine(_appointment);
+        _db.AddRange(_customer, _service, _appointment);
         _db.SaveChanges();
     }
+
+    private readonly ServiceOffering _service;
+
+    /// <summary>An invoice needs at least one service line.</summary>
+    private void WithAServiceLine(Appointment appointment) =>
+        appointment.AppointmentServices.Add(new AppointmentServiceModel
+        {
+            AppointmentId = appointment.Id, ServiceOfferingId = _service.Id, PriceAtBooking = 100
+        });
 
     private CustomerService Customers() => new(new CustomerRepository(_db), new BusinessRepository(_db));
 
@@ -61,7 +72,8 @@ public class BusinessLocalDatesTests
         NullLogger<AppointmentService>.Instance, TimeProvider.System);
 
     private InvoiceService Invoices(DateTime utcNow) => new(
-        new InvoiceRepository(_db), new AppointmentRepository(_db), new BusinessRepository(_db), new FixedClock(utcNow));
+        new InvoiceRepository(_db), new AppointmentRepository(_db), new BusinessRepository(_db), new FixedClock(utcNow),
+        Mock.Of<ILogoStorage>(), Mock.Of<AppointMe.Service.Pdf.IInvoicePdfGenerator>());
 
     private async Task SetZoneAsync(string zone)
     {
@@ -77,6 +89,7 @@ public class BusinessLocalDatesTests
             Id = Guid.NewGuid(), TenantId = _tenantId, CustomerId = _customer.Id, OrderNumber = orderNumber,
             Description = "desc", AppointmentDate = AppointmentClockTime
         };
+        WithAServiceLine(appointment);
         _db.Appointments.Add(appointment);
         await _db.SaveChangesAsync();
         return appointment;

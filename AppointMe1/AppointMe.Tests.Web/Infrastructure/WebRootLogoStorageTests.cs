@@ -57,6 +57,34 @@ public sealed class WebRootLogoStorageTests : IDisposable
         await act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task Read_ReturnsTheBytesOfAnUploadedLogo_FromTheUrlSaveReturned()
+    {
+        var bytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 1, 2, 3 };
+        var url = await _storage.SaveAsync(Guid.NewGuid(), ".png", new MemoryStream(bytes));
+
+        (await _storage.ReadAsync(url)).Should().Equal(bytes);
+    }
+
+    [Theory]
+    [InlineData("/uploads/logos/missing.png")]                   // no such file
+    [InlineData("https://example.com/uploads/logos/x.png")]      // never downloads
+    [InlineData("//example.com/uploads/logos/x.png")]
+    [InlineData("/uploads/logos/../secret.txt")]                 // outside the folder
+    [InlineData("/uploads/logos/..%2Fsecret.txt")]
+    [InlineData("/uploads/logos/sub/x.png")]
+    [InlineData("/uploads/logos/")]
+    [InlineData("/css/site.css")]
+    [InlineData("")]
+    public async Task Read_AnythingButAStoredLogo_IsNull(string url)
+    {
+        Directory.CreateDirectory(Path.Combine(Logos, "sub"));
+        File.WriteAllText(Path.Combine(_root, "uploads", "secret.txt"), "secret");
+        File.WriteAllText(Path.Combine(Logos, "sub", "x.png"), "x");
+
+        (await _storage.ReadAsync(url)).Should().BeNull();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))

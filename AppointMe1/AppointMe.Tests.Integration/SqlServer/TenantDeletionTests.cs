@@ -53,6 +53,8 @@ namespace AppointMe.Tests.Integration.SqlServer
                 Deleted.Add(businessId);
                 return Task.CompletedTask;
             }
+
+            public Task<byte[]?> ReadAsync(string logoUrl) => throw new NotSupportedException();
         }
 
         private readonly RecordingEmail _email = new();

@@ -31,7 +31,8 @@ namespace AppointMe.Tests.Integration.SqlServer
             new(new CustomerRepository(db), new BusinessRepository(db));
 
         private static InvoiceService InvoicesFor(ApplicationDbContext db) =>
-            new(new InvoiceRepository(db), new AppointmentRepository(db), new BusinessRepository(db), TimeProvider.System);
+            new(new InvoiceRepository(db), new AppointmentRepository(db), new BusinessRepository(db), TimeProvider.System,
+                logoStorage: null!, pdfGenerator: null!); // numbering never builds a PDF
 
         private static CreateCustomerDTO NewCustomerDto(string email) => new()
         {
@@ -102,7 +103,20 @@ namespace AppointMe.Tests.Integration.SqlServer
             var business = await SqlServerSeed.AddBusinessAsync(db);
             var customer = NewCustomer(business.Id);
             var appointments = Enumerable.Range(0, count).Select(_ => NewAppointment(business.Id, customer.Id)).ToArray();
+
+            // An invoice needs at least one service line.
+            var service = new AppointMe.Domain.DomainModels.ServiceOffering
+            {
+                Id = Guid.NewGuid(), BusinessId = business.Id, Name = "Haircut", Price = 100, IsActive = true
+            };
+            foreach (var appointment in appointments)
+                appointment.AppointmentServices.Add(new AppointMe.Domain.DomainModels.AppointmentServiceModel
+                {
+                    AppointmentId = appointment.Id, ServiceOfferingId = service.Id, PriceAtBooking = 100
+                });
+
             db.Add(customer);
+            db.Add(service);
             db.AddRange(appointments.Cast<object>());
             await db.SaveChangesAsync();
             return (business.Id, appointments.Select(a => a.Id).ToArray());

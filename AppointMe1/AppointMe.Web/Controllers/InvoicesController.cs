@@ -2,17 +2,18 @@
 using AppointMe.Domain.Exceptions;
 using AppointMe.Service.Email;
 using AppointMe.Service.Interface;
-using AppointMe.Service.Pdf;
+using AppointMe.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppointMe.Web.Controllers
 {
+    /// <summary>Every action is a 404 while invoicing is off (or services are off); invoices are kept.</summary>
+    [RequireFeature(BusinessFeature.Invoices)]
     public class InvoicesController : BaseTenantController
     {
         private readonly IInvoiceService _invoiceService;
         private readonly IEmailService _emailService;
         private readonly ILogger<InvoicesController> _logger;
-        private readonly IBusinessService _businessService;
 
         private const string SendFailedMessage = "The invoice could not be sent by email. Please try again later.";
 
@@ -20,10 +21,8 @@ namespace AppointMe.Web.Controllers
             IInvoiceService invoiceService,
             IEmailService emailService,
             ITenantContext tenantContext,
-            ILogger<InvoicesController> logger,
-            IBusinessService businessService) : base(tenantContext)
+            ILogger<InvoicesController> logger) : base(tenantContext)
         {
-            _businessService = businessService;
             _invoiceService = invoiceService;
             _emailService = emailService;
             _logger = logger;
@@ -155,9 +154,7 @@ Thank you,
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
-                // Generate PDF bytes
-                var businessNow = (await _businessService.GetCalendarConfigAsync(TenantId)).Now;
-                var pdfBytes = await InvoicePdfGenerator.GenerateAsync(invoice, businessNow);
+                var pdfBytes = await _invoiceService.GeneratePdfAsync(id, tenantId);
 
                 var subject = $"{invoice.BusinessName} Invoice {invoice.InvoiceNumber}";
                 var content =

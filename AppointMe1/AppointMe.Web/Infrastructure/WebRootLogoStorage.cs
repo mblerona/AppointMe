@@ -9,6 +9,8 @@ namespace AppointMe.Web.Infrastructure
     /// </summary>
     public sealed class WebRootLogoStorage : ILogoStorage
     {
+        private const string UrlPrefix = "/uploads/logos/";
+
         private readonly IWebHostEnvironment _env;
 
         public WebRootLogoStorage(IWebHostEnvironment env)
@@ -27,7 +29,25 @@ namespace AppointMe.Web.Infrastructure
                 await content.CopyToAsync(file);
             }
 
-            return $"/uploads/logos/{fileName}";
+            return UrlPrefix + fileName;
+        }
+
+        public async Task<byte[]?> ReadAsync(string logoUrl)
+        {
+            if (string.IsNullOrWhiteSpace(logoUrl) || !logoUrl.StartsWith(UrlPrefix, StringComparison.Ordinal))
+                return null;
+
+            // Only a plain file name directly in the logos folder: no sub-folders, no "..", no query string.
+            var fileName = logoUrl.Substring(UrlPrefix.Length);
+            if (fileName.Length == 0
+                || fileName != Path.GetFileName(fileName)
+                || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                || fileName.Contains("..")
+                || fileName.Contains('?') || fileName.Contains('#'))
+                return null;
+
+            var path = Path.Combine(_env.WebRootPath, "uploads", "logos", fileName);
+            return File.Exists(path) ? await File.ReadAllBytesAsync(path) : null;
         }
 
         public Task DeleteAllAsync(Guid businessId)

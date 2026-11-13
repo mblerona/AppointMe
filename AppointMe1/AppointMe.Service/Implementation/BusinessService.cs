@@ -7,6 +7,7 @@ using AppointMe.Domain.Validation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
 using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations;
 
 namespace AppointMe.Service.Implementation
 {
@@ -16,6 +17,7 @@ namespace AppointMe.Service.Implementation
         public const int MinSlotMinutes = 5;
         public const int MaxSlotMinutes = 240;
         public const long MaxLogoBytes = 2 * 1024 * 1024;
+        public const int MaxEmailLength = 256;
 
         private const int FallbackSlotMinutes = 30;
         private static readonly HashSet<string> AllowedLogoExtensions = new() { ".png", ".jpg", ".jpeg", ".webp" };
@@ -109,8 +111,9 @@ namespace AppointMe.Service.Implementation
                 SecondaryColor = b.SecondaryColor,
                 DefaultSlotMinutes = b.DefaultSlotMinutes,
                 EnableServices = b.EnableServices,
-                // Invoices are built from services, so they can't be on without them.
-                EnableInvoices = b.EnableServices && b.EnableInvoices,
+                // The stored choice, so the form can keep it while services are off;
+                // whether invoicing is in effect is BusinessFeatures.InvoicesEnabled.
+                EnableInvoices = b.EnableInvoices,
                 WorkDayStart = b.WorkDayStart,
                 WorkDayEnd = b.WorkDayEnd,
                 TimeZoneId = b.TimeZoneId,
@@ -143,18 +146,29 @@ namespace AppointMe.Service.Implementation
                     $"Time slot interval must be between {MinSlotMinutes} and {MaxSlotMinutes} minutes.",
                     nameof(BusinessSettingsDTO.DefaultSlotMinutes));
 
+            if (settings.DefaultSlotMinutes > (settings.WorkDayEnd - settings.WorkDayStart).TotalMinutes)
+                throw new BusinessRuleException(
+                    "Time slot interval can't be longer than the opening hours.",
+                    nameof(BusinessSettingsDTO.DefaultSlotMinutes));
+
+            if (!HasAnOpenDay(settings))
+                throw new BusinessRuleException("Choose at least one open day.");
+
             if (!string.IsNullOrWhiteSpace(settings.TimeZoneId) && !BusinessTimeZones.IsSupported(settings.TimeZoneId))
                 throw new BusinessRuleException("Please choose a time zone from the list.", nameof(BusinessSettingsDTO.TimeZoneId));
 
+            var email = ValidateEmail(settings.Email);
             var phone = PhoneNumberNormalizer.NormalizeOptional(settings.Phone, nameof(BusinessSettingsDTO.Phone));
+            var primaryColor = ValidateColor(settings.PrimaryColor, nameof(BusinessSettingsDTO.PrimaryColor));
+            var secondaryColor = ValidateColor(settings.SecondaryColor, nameof(BusinessSettingsDTO.SecondaryColor));
             var logoExtension = logo is { Length: > 0 } ? ValidateLogo(logo) : null;
 
             business.Name = name;
-            business.Email = settings.Email?.Trim();
+            business.Email = email;
             business.Phone = phone;
             business.Address = settings.Address?.Trim();
-            business.PrimaryColor = NormalizeHex(settings.PrimaryColor);
-            business.SecondaryColor = NormalizeHex(settings.SecondaryColor);
+            business.PrimaryColor = primaryColor;
+            business.SecondaryColor = secondaryColor;
             business.DefaultSlotMinutes = settings.DefaultSlotMinutes;
             business.WorkDayStart = settings.WorkDayStart;
             business.WorkDayEnd = settings.WorkDayEnd;
@@ -168,7 +182,9 @@ namespace AppointMe.Service.Implementation
             business.OpenSat = settings.OpenSat;
             business.OpenSun = settings.OpenSun;
             business.EnableServices = settings.EnableServices;
-            business.EnableInvoices = settings.EnableServices && settings.EnableInvoices;
+            // Stored as chosen, even with services off: "invoices require services" is applied when
+            // reading (BusinessFeatures), so turning services back on restores this choice.
+            business.EnableInvoices = settings.EnableInvoices;
             business.UpdatedAt = DateTime.UtcNow;
 
             if (logoExtension != null)
@@ -212,8 +228,8 @@ namespace AppointMe.Service.Implementation
                 LogoUrl = b.LogoUrl,
                 PrimaryColor = b.PrimaryColor,
                 SecondaryColor = b.SecondaryColor,
-                EnableServices = b.EnableServices,
-                EnableInvoices = b.EnableServices && b.EnableInvoices
+                EnableServices = b.ServicesEnabled(),
+                EnableInvoices = b.InvoicesEnabled()
             };
         }
 
@@ -258,20 +274,41 @@ namespace AppointMe.Service.Implementation
             return extension;
         }
 
-        /// <summary>"abc" / "#AABBCC" -> "#abc" / "#aabbcc"; anything else -> null.</summary>
-        private static string? NormalizeHex(string? input)
+        /// <summary>
+        /// "abc" / "#AABBCC" -> "#abc" / "#aabbcc". Empty means "use the default color" (null);
+        /// anything else is an error for the field, never silently dropped.
+        /// </summary>
+        private static string? ValidateColor(string? input, string propertyName)
         {
             if (string.IsNullOrWhiteSpace(input)) return null;
 
             var s = input.Trim();
             if (!s.StartsWith('#')) s = "#" + s;
 
-            if (s.Length != 4 && s.Length != 7) return null;
-
-            var hex = s.Substring(1);
-            if (!hex.All(Uri.IsHexDigit)) return null;
+            if ((s.Length != 4 && s.Length != 7) || !s.Skip(1).All(Uri.IsHexDigit))
+                throw new BusinessRuleException("Please choose a valid color, such as #3d4f5c.", propertyName);
 
             return s.ToLowerInvariant();
         }
+
+        /// <returns>The trimmed address, or null when empty.</returns>
+        private static string? ValidateEmail(string? input)
+        {
+            var email = input?.Trim();
+            if (string.IsNullOrEmpty(email))
+                return null;
+
+            if (email.Length > MaxEmailLength)
+                throw new BusinessRuleException(
+                    $"Email can be at most {MaxEmailLength} characters.", nameof(BusinessSettingsDTO.Email));
+            // The same check as the form ([EmailAddress]) and the admin's tenant edit.
+            if (!new EmailAddressAttribute().IsValid(email))
+                throw new BusinessRuleException("Please enter a valid email address.", nameof(BusinessSettingsDTO.Email));
+
+            return email;
+        }
+
+        private static bool HasAnOpenDay(BusinessSettingsDTO s) =>
+            s.OpenMon || s.OpenTue || s.OpenWed || s.OpenThu || s.OpenFri || s.OpenSat || s.OpenSun;
     }
 }

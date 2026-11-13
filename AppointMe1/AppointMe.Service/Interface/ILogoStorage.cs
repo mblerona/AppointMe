@@ -15,5 +15,11 @@ namespace AppointMe.Service.Interface
 
         /// <summary>Removes every stored logo of this business, whatever its extension. Doing nothing if there is none.</summary>
         Task DeleteAllAsync(Guid businessId);
+
+        /// <summary>
+        /// The bytes of a logo this storage saved, from the URL <see cref="SaveAsync"/> returned.
+        /// Never downloads anything: any other URL, or a file that no longer exists, gives null.
+        /// </summary>
+        Task<byte[]?> ReadAsync(string logoUrl);
     }
 }

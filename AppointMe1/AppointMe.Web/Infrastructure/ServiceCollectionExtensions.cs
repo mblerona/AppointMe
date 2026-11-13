@@ -7,6 +7,7 @@ using AppointMe.Service.Email;
 using AppointMe.Service.Email.Infrastructure;
 using AppointMe.Service.Implementation;
 using AppointMe.Service.Interface;
+using AppointMe.Service.Pdf;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -117,6 +118,7 @@ namespace AppointMe.Web.Infrastructure
             services.AddScoped<IAppointmentService, AppointmentService>();
             services.AddScoped<IServiceOfferingService, ServiceOfferingService>();
             services.AddScoped<IInvoiceService, InvoiceService>();
+            services.AddSingleton<IInvoicePdfGenerator, InvoicePdfGenerator>();
             services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<IPlatformAdminService, PlatformAdminService>();
             services.AddScoped<ITenantDeletionRequestService, TenantDeletionRequestService>();

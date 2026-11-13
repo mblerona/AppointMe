@@ -24,4 +24,6 @@ public sealed class RecordingLogoStorage : ILogoStorage
         _deleted.Enqueue(businessId);
         return Task.CompletedTask;
     }
+
+    public Task<byte[]?> ReadAsync(string logoUrl) => Task.FromResult<byte[]?>(null);
 }

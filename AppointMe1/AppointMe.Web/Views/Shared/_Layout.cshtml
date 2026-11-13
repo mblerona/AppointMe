@@ -256,6 +256,15 @@ span, small, .text-muted {
                                     </a>
                                 </li>
                             }
+                            @* EnableInvoices is already "services and invoices on" here (BusinessFeatures). *@
+                            @if (biz?.EnableInvoices == true)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link @ActiveClass("Invoices")" asp-controller="Invoices" asp-action="Index">
+                                        Invoices
+                                    </a>
+                                </li>
+                            }
                             <li class="nav-item">
                                 <a class="nav-link @ActiveClass("Appointments","Calendar")" asp-controller="Appointments" asp-action="Calendar">
                                     Calendar

@@ -45,6 +45,69 @@ public class SettingsControllerTests : IClassFixture<CustomWebAppFactory>
         ["OpenTue"] = "false"
     };
 
+    [Theory]
+    [InlineData(true, "true")]
+    [InlineData(false, "false")]
+    public async Task Get_WithServicesOff_KeepsTheStoredInvoiceChoiceInAHiddenField(bool storedChoice, string expected)
+    {
+        // The invoice switch is hidden while services are off; the saved choice must still be posted back,
+        // otherwise saving would turn invoicing off for good.
+        var tenant = Guid.NewGuid();
+        var email = $"settings-flags-{tenant:N}@test.com";
+        await TestData.EnsureTenantWithUserAsync(_factory, tenant, email);
+        await TestData.WithDbAsync(_factory, async db =>
+        {
+            var b = await db.Businesses.SingleAsync(x => x.Id == tenant);
+            b.EnableServices = false;
+            b.EnableInvoices = storedChoice;
+            return await db.SaveChangesAsync();
+        });
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await client.LoginAsync(email, TestData.Password);
+
+        var html = await (await client.GetAsync("/Settings/Business")).Content.ReadAsStringAsync();
+
+        html.Should().NotContain("id=\"EnableInvoicesSwitch\"");
+        html.Should().Contain($"<input type=\"hidden\" name=\"EnableInvoices\" value=\"{expected}\" />");
+    }
+
+    [Theory]
+    // Values the form's attributes let through, so the Service layer's rule is what refuses them.
+    [InlineData("PrimaryColor", "zzz", "Please choose a valid color")]
+    [InlineData("SecondaryColor", "#12345", "Please choose a valid color")]
+    [InlineData("DefaultSlotMinutes", "120", "longer than the opening hours")]
+    public async Task Post_WithAnInvalidValue_ShowsTheError_AndSavesNothing(string field, string value, string message)
+    {
+        var client = await LoginAsync();
+        var before = await TestData.WithDbAsync(_factory, db => db.Businesses.AsNoTracking().SingleAsync(x => x.Id == Tenant));
+
+        var form = Form(Tenant, "Should not be saved", start: "09:00", end: "10:00");
+        form[field] = value;
+        var res = await client.PostFormAsync("/Settings/Business", "/Settings/Business", form);
+
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadAsStringAsync()).Should().Contain(message);
+        var after = await TestData.WithDbAsync(_factory, db => db.Businesses.AsNoTracking().SingleAsync(x => x.Id == Tenant));
+        after.Name.Should().Be(before.Name);
+    }
+
+    [Fact]
+    public async Task Post_WithNoOpenDay_ShowsTheErrorInTheSummary_AndSavesNothing()
+    {
+        var client = await LoginAsync();
+        var before = await TestData.WithDbAsync(_factory, db => db.Businesses.AsNoTracking().SingleAsync(x => x.Id == Tenant));
+
+        var form = Form(Tenant, "Should not be saved");
+        foreach (var day in new[] { "OpenMon", "OpenTue", "OpenWed", "OpenThu", "OpenFri", "OpenSat", "OpenSun" })
+            form[day] = "false";
+        var res = await client.PostFormAsync("/Settings/Business", "/Settings/Business", form);
+
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadAsStringAsync()).Should().Contain("Choose at least one open day.");
+        var after = await TestData.WithDbAsync(_factory, db => db.Businesses.AsNoTracking().SingleAsync(x => x.Id == Tenant));
+        after.Name.Should().Be(before.Name);
+    }
+
     [Fact]
     public async Task Get_ShowsTheTenantsSettings()
     {

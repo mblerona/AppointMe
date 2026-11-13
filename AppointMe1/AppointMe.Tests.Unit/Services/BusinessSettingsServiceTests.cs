@@ -130,13 +130,17 @@ public class BusinessSettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetSettings_TurnsInvoicesOff_WhenServicesAreOff()
+    public async Task GetSettings_ReturnsTheStoredInvoiceChoice_EvenWithServicesOff()
     {
+        // The form keeps this choice while services are off; it isn't in effect (see GetBranding).
         var b = await _db.Businesses.SingleAsync();
         b.EnableServices = false;
         await _db.SaveChangesAsync();
 
-        (await _sut.GetSettingsAsync(Tenant)).EnableInvoices.Should().BeFalse();
+        var s = await _sut.GetSettingsAsync(Tenant);
+
+        s.EnableServices.Should().BeFalse();
+        s.EnableInvoices.Should().BeTrue();
     }
 
     [Fact]
@@ -165,10 +169,27 @@ public class BusinessSettingsServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData("zzz")]
-    [InlineData("#12345")]
+    [InlineData(nameof(BusinessSettingsDTO.PrimaryColor), "zzz")]
+    [InlineData(nameof(BusinessSettingsDTO.PrimaryColor), "#12345")]
+    [InlineData(nameof(BusinessSettingsDTO.PrimaryColor), "#ggg")]
+    [InlineData(nameof(BusinessSettingsDTO.SecondaryColor), "red")]
+    public async Task UpdateSettings_InvalidColor_ThrowsForTheField_AndSavesNothing(string field, string color)
+    {
+        var s = ValidSettings();
+        if (field == nameof(BusinessSettingsDTO.PrimaryColor)) s.PrimaryColor = color;
+        else s.SecondaryColor = color;
+
+        var act = () => _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>()).Which.PropertyName.Should().Be(field);
+        (await StoredAsync()).Name.Should().Be("Old name");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
     [InlineData("   ")]
-    public async Task UpdateSettings_InvalidColor_IsStoredAsNull(string color)
+    public async Task UpdateSettings_EmptyColor_IsStoredAsNull_SoTheDefaultIsUsed(string? color)
     {
         var s = ValidSettings();
         s.PrimaryColor = color;
@@ -179,7 +200,7 @@ public class BusinessSettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateSettings_InvoicesNeedServices()
+    public async Task UpdateSettings_WithServicesOff_StoresTheInvoiceChoice_ButInvoicesAreNotInEffect()
     {
         var s = ValidSettings();
         s.EnableServices = false;
@@ -187,7 +208,124 @@ public class BusinessSettingsServiceTests : IDisposable
 
         await _sut.UpdateSettingsAsync(Tenant, s, logo: null);
 
-        (await StoredAsync()).EnableInvoices.Should().BeFalse();
+        var stored = await StoredAsync();
+        stored.EnableInvoices.Should().BeTrue("the choice is kept for when services come back");
+        stored.InvoicesEnabled().Should().BeFalse("invoices require services");
+        (await _sut.GetBrandingAsync(Tenant))!.EnableInvoices.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateSettings_TurningServicesOffAndOnAgain_RestoresTheInvoiceChoice()
+    {
+        // As the form does it: with services off the invoice switch is hidden and the stored choice is posted back.
+        var off = ValidSettings();
+        off.EnableServices = false;
+        off.EnableInvoices = (await _sut.GetSettingsAsync(Tenant)).EnableInvoices;
+        await _sut.UpdateSettingsAsync(Tenant, off, logo: null);
+        (await _sut.GetBrandingAsync(Tenant))!.EnableInvoices.Should().BeFalse();
+
+        var on = ValidSettings();
+        on.EnableServices = true;
+        on.EnableInvoices = (await _sut.GetSettingsAsync(Tenant)).EnableInvoices;
+        await _sut.UpdateSettingsAsync(Tenant, on, logo: null);
+
+        (await _sut.GetBrandingAsync(Tenant))!.EnableInvoices.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("not-an-email")]
+    [InlineData("a@")]
+    [InlineData("@b.com")]
+    public async Task UpdateSettings_InvalidEmail_ThrowsForTheField_AndSavesNothing(string email)
+    {
+        var s = ValidSettings();
+        s.Email = email;
+
+        var act = () => _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.PropertyName.Should().Be(nameof(BusinessSettingsDTO.Email));
+        (await StoredAsync()).Name.Should().Be("Old name");
+    }
+
+    [Fact]
+    public async Task UpdateSettings_EmailTooLong_ThrowsForTheField()
+    {
+        var s = ValidSettings();
+        s.Email = new string('a', BusinessService.MaxEmailLength) + "@test.com";
+
+        var act = () => _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.PropertyName.Should().Be(nameof(BusinessSettingsDTO.Email));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task UpdateSettings_EmptyEmail_IsStoredAsNull(string? email)
+    {
+        var s = ValidSettings();
+        s.Email = email;
+
+        await _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await StoredAsync()).Email.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateSettings_NoOpenDay_Throws_AndSavesNothing()
+    {
+        var s = ValidSettings();
+        s.OpenMon = s.OpenTue = s.OpenWed = s.OpenThu = s.OpenFri = s.OpenSat = s.OpenSun = false;
+
+        var act = () => _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .WithMessage("Choose at least one open day.")
+            .Which.PropertyName.Should().BeNull("there is no single field, so it goes to the summary");
+        (await StoredAsync()).Name.Should().Be("Old name");
+    }
+
+    [Fact]
+    public async Task UpdateSettings_OnlySundayOpen_IsAllowed()
+    {
+        var s = ValidSettings();
+        s.OpenMon = s.OpenTue = s.OpenWed = s.OpenThu = s.OpenFri = s.OpenSat = false;
+        s.OpenSun = true;
+
+        await _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await StoredAsync()).OpenSun.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateSettings_SlotLongerThanTheOpeningHours_ThrowsForTheField()
+    {
+        var s = ValidSettings();
+        s.WorkDayStart = new TimeSpan(9, 0, 0);
+        s.WorkDayEnd = new TimeSpan(10, 0, 0);
+        s.DefaultSlotMinutes = 61;
+
+        var act = () => _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.PropertyName.Should().Be(nameof(BusinessSettingsDTO.DefaultSlotMinutes));
+        (await StoredAsync()).Name.Should().Be("Old name");
+    }
+
+    [Fact]
+    public async Task UpdateSettings_SlotExactlyAsLongAsTheOpeningHours_IsAllowed()
+    {
+        var s = ValidSettings();
+        s.WorkDayStart = new TimeSpan(9, 0, 0);
+        s.WorkDayEnd = new TimeSpan(10, 0, 0);
+        s.DefaultSlotMinutes = 60;
+
+        await _sut.UpdateSettingsAsync(Tenant, s, logo: null);
+
+        (await StoredAsync()).DefaultSlotMinutes.Should().Be(60);
     }
 
     [Theory]

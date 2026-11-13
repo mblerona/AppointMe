@@ -186,6 +186,8 @@
     }
     else
     {
+        @* The switch is hidden, but the saved choice is kept, so turning services back on restores it. *@
+        <input type="hidden" name="@Html.NameFor(m => m.EnableInvoices)" value="@(Model.EnableInvoices ? "true" : "false")" />
         <div class="alert alert-light border">
             <div class="small text-muted">
                 <i class="bi bi-info-circle"></i>

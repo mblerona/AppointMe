@@ -1,12 +1,15 @@
 using AppointMe.Domain.DTO;
 using AppointMe.Domain.Exceptions;
 using AppointMe.Service.Interface;
+using AppointMe.Web.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppointMe.Web.Controllers
 {
+    /// <summary>Every action is a 404 while services are off; the services themselves are kept.</summary>
     [Authorize]
+    [RequireFeature(BusinessFeature.Services)]
     public class ServicesController : BaseTenantController
     {
         private readonly IServiceOfferingService _serviceOfferingService;

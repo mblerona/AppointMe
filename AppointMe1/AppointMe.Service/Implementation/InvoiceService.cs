@@ -4,6 +4,7 @@ using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.TimeZones;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
+using AppointMe.Service.Pdf;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -19,17 +20,38 @@ namespace AppointMe.Service.Implementation
         private readonly IAppointmentRepository _appointmentRepository;
         private readonly IBusinessRepository _businessRepository;
         private readonly TimeProvider _timeProvider;
+        private readonly ILogoStorage _logoStorage;
+        private readonly IInvoicePdfGenerator _pdfGenerator;
+
+        public const string NoServicesMessage = "Add at least one service to the appointment before creating an invoice.";
 
         public InvoiceService(
             IInvoiceRepository invoiceRepository,
             IAppointmentRepository appointmentRepository,
             IBusinessRepository businessRepository,
-            TimeProvider timeProvider)
+            TimeProvider timeProvider,
+            ILogoStorage logoStorage,
+            IInvoicePdfGenerator pdfGenerator)
         {
             _invoiceRepository = invoiceRepository;
             _appointmentRepository = appointmentRepository;
             _businessRepository = businessRepository;
             _timeProvider = timeProvider;
+            _logoStorage = logoStorage;
+            _pdfGenerator = pdfGenerator;
+        }
+
+        public async Task<byte[]> GeneratePdfAsync(Guid invoiceId, Guid tenantId)
+        {
+            var invoice = await GetByIdAsync(invoiceId, tenantId);
+            var zone = await ZoneOfAsync(tenantId);
+
+            // The logo as it was when the invoice was issued (the snapshot URL), read from storage.
+            var logo = string.IsNullOrWhiteSpace(invoice.BusinessLogoUrl)
+                ? null
+                : await _logoStorage.ReadAsync(invoice.BusinessLogoUrl);
+
+            return _pdfGenerator.Generate(invoice, BusinessTimeZones.Now(_timeProvider, zone), logo);
         }
 
         public async Task<IEnumerable<InvoiceDTO>> GetAllAsync(Guid tenantId)
@@ -54,20 +76,17 @@ namespace AppointMe.Service.Implementation
            
             var biz = await _businessRepository.GetByIdReadOnlyAsync(tenantId);
             if (biz == null) throw new BusinessRuleException("Business not found.");
-            if (!biz.EnableInvoices) throw new BusinessRuleException("Invoices are disabled in settings.");
+            if (!biz.InvoicesEnabled()) throw new BusinessRuleException("Invoices are disabled in settings.");
 
-          
             var existing = await _invoiceRepository.GetByAppointmentIdAsync(appointmentId, tenantId);
             if (existing != null) return MapToDto(existing, biz.TimeZoneId);
 
-           
             var appt = await _appointmentRepository.GetByIdAsync(appointmentId, tenantId);
             if (appt == null) throw new KeyNotFoundException("Appointment not found.");
 
-        
-            var hasServices = appt.AppointmentServices != null && appt.AppointmentServices.Any();
-
-            
+            // An invoice is built from the appointment's service lines; without any it would be empty.
+            if (appt.AppointmentServices == null || !appt.AppointmentServices.Any())
+                throw new BusinessRuleException(NoServicesMessage);
 
             // The business's year: on New Year's Eve it can differ from the year in UTC.
             var year = BusinessTimeZones.Now(_timeProvider, biz.TimeZoneId).Year;
@@ -116,24 +135,20 @@ namespace AppointMe.Service.Implementation
                     Tax = 0m
                 };
 
-               
-                if (hasServices)
+                foreach (var j in appt.AppointmentServices)
                 {
-                    foreach (var j in appt.AppointmentServices)
+                    var svc = j.ServiceOffering;
+                    var unit = j.PriceAtBooking;
+                    invoice.Lines.Add(new InvoiceLine
                     {
-                        var svc = j.ServiceOffering;
-                        var unit = j.PriceAtBooking;
-                        invoice.Lines.Add(new InvoiceLine
-                        {
-                            Id = Guid.NewGuid(),
-                            InvoiceId = invoice.Id,
-                            NameSnapshot = svc?.Name ?? "Service",
-                            CategorySnapshot = svc?.Category?.Name,
-                            Qty = 1,
-                            UnitPrice = unit,
-                            LineTotal = unit
-                        });
-                    }
+                        Id = Guid.NewGuid(),
+                        InvoiceId = invoice.Id,
+                        NameSnapshot = svc?.Name ?? "Service",
+                        CategorySnapshot = svc?.Category?.Name,
+                        Qty = 1,
+                        UnitPrice = unit,
+                        LineTotal = unit
+                    });
                 }
 
                 invoice.Subtotal = invoice.Lines.Sum(x => x.LineTotal);
