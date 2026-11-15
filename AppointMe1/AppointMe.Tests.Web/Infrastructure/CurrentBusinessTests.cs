@@ -31,7 +31,7 @@ public class CurrentBusinessTests
             return Task.FromResult<BusinessBrandingDTO?>(new BusinessBrandingDTO { Name = "Bella", EnableServices = true });
         }
 
-        public Task<IdentityResult> RegisterOwnerAsync(AppointMeAppUser user, string password, string businessName) => throw new NotSupportedException();
+        public Task<OwnerRegistrationResult> RegisterOwnerAsync(AppointMeAppUser user, string password, string businessName) => throw new NotSupportedException();
         public Task<BusinessSettingsDTO> GetSettingsAsync(Guid tenantId) => throw new NotSupportedException();
         public Task UpdateSettingsAsync(Guid tenantId, BusinessSettingsDTO settings, LogoUpload? logo) => throw new NotSupportedException();
         public Task<BusinessCalendarConfigDTO> GetCalendarConfigAsync(Guid tenantId) => throw new NotSupportedException();

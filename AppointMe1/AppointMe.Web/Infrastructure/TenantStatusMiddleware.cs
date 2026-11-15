@@ -1,4 +1,5 @@
 using AppointMe.Service.Interface;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Net.Http.Headers;
 
 namespace AppointMe.Web.Infrastructure
@@ -11,6 +12,7 @@ namespace AppointMe.Web.Infrastructure
     public sealed class TenantStatusMiddleware
     {
         public const string SuspendedPath = "/Suspended";
+        public const string HomeStatusPath = "/Home/Status";
 
         private static readonly PathString[] AllowedWhileSuspended =
         {
@@ -18,6 +20,8 @@ namespace AppointMe.Web.Infrastructure
             "/Identity/Account/Logout",
             "/Identity/Account/Login",
             "/Home/Error",
+            // The status code pages re-execute here (404 on an allowed page, 429); they show no tenant data.
+            HomeStatusPath,
 
             // The links in the admin's emails must work for someone who is still logged in. They need a valid token anyway.
             "/Identity/Account/ResetPassword",
@@ -41,7 +45,12 @@ namespace AppointMe.Web.Infrastructure
                 {
                     // The calendar and form scripts fetch JSON; a redirect would hand them an HTML page.
                     if (WantsJson(context.Request))
+                    {
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        // A script gets the bare 403, not the HTML status page.
+                        if (context.Features.Get<IStatusCodePagesFeature>() is { } statusPages)
+                            statusPages.Enabled = false;
+                    }
                     else
                         context.Response.Redirect(SuspendedPath);
                     return;

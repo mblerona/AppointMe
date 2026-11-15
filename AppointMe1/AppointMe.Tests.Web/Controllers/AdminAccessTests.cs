@@ -81,8 +81,10 @@ public class AdminAccessTests : IClassFixture<PlatformAdminWebAppFactory>
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         response.Headers.Location!.ToString().Should().Contain("/Identity/Account/AccessDenied");
 
+        // The friendly "No access" page, with a real 403.
         var denied = await client.GetAsync(response.Headers.Location);
-        denied.StatusCode.Should().Be(HttpStatusCode.OK);
+        denied.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await denied.Content.ReadAsStringAsync()).Should().Contain("No access").And.Contain("Go to the start page");
     }
 
     [Fact]

@@ -90,17 +90,116 @@ public class RegistrationTests : IClassFixture<CapturingEmailWebAppFactory>
         business!.Name.Should().Be("Bella Salon", "the business name is trimmed");
     }
 
-    [Fact]
-    public async Task Register_WithDuplicateEmail_CreatesNoBusiness()
+    // ---------------- an email that already has an account (no account enumeration) ----------------
+
+    /// <summary>A confirmed account with its own Business, created for one test.</summary>
+    private async Task<string> ExistingAccountAsync(string name)
     {
-        var before = await CountBusinessesAsync();
-
-        var res = await RegisterAsync(NewClient(), CustomWebAppFactory.DefaultUserEmail);
-
-        res.StatusCode.Should().Be(HttpStatusCode.OK, "the form is shown again with the error");
-        (await res.Content.ReadAsStringAsync()).Should().Contain("is already taken");
-        (await CountBusinessesAsync()).Should().Be(before);
+        var email = $"reg-existing-{name}-{Guid.NewGuid():N}@test.com";
+        await TestData.EnsureTenantWithUserAsync(_factory, Guid.NewGuid(), email);
+        return email;
     }
+
+    /// <summary>The page a registration leads to, with the email replaced, to compare both paths.</summary>
+    private static string WithoutEmail(string text, string email) =>
+        text.Replace(Uri.EscapeDataString(email), "{email}").Replace(email, "{email}");
+
+    [Fact]
+    public async Task Register_WithAnExistingEmail_LooksExactlyLikeANewRegistration()
+    {
+        var existing = await ExistingAccountAsync("same");
+        var fresh = $"reg-fresh-{Guid.NewGuid():N}@test.com";
+
+        var forExisting = await RegisterAsync(NewClient(), existing);
+        var forNew = await RegisterAsync(NewClient(), fresh);
+
+        forExisting.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        forNew.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        WithoutEmail(forExisting.Headers.Location!.OriginalString, existing)
+            .Should().Be(WithoutEmail(forNew.Headers.Location!.OriginalString, fresh));
+
+        var pageForExisting = await NewClient().GetStringAsync(forExisting.Headers.Location);
+        var pageForNew = await NewClient().GetStringAsync(forNew.Headers.Location);
+        WithoutEmail(pageForExisting, existing).Should().Be(WithoutEmail(pageForNew, fresh), "the confirmation page must not differ either");
+    }
+
+    [Fact]
+    public async Task Register_WithAnExistingEmail_CreatesNothing_AndKeepsTheAccountAsItWas()
+    {
+        var existing = await ExistingAccountAsync("nothing");
+        var businesses = await CountBusinessesAsync();
+        var before = await FindUserAsync(existing);
+
+        await RegisterAsync(NewClient(), existing, businessName: "Someone else's salon", password: "Different123");
+
+        (await CountBusinessesAsync()).Should().Be(businesses);
+        var after = await FindUserAsync(existing);
+        after!.TenantId.Should().Be(before!.TenantId);
+        after.PasswordHash.Should().Be(before.PasswordHash);
+        await NewClient().LoginAsync(existing, TestData.Password); // the old password still works
+    }
+
+    [Fact]
+    public async Task Register_WithAnExistingEmail_TellsTheOwner_WithLinksButNoToken()
+    {
+        var existing = await ExistingAccountAsync("notice");
+
+        await RegisterAsync(NewClient(), existing);
+
+        var mail = _factory.Emails.SentTo(existing).Should().ContainSingle().Subject;
+        mail.Subject.Should().Be(RegistrationAttemptEmail.Subject);
+        mail.IsHtml.Should().BeTrue();
+        mail.Content.Should().Contain("/Identity/Account/Login").And.Contain("/Identity/Account/ForgotPassword");
+        mail.Content.Should().NotContain("code=", "the owner didn't ask for anything, so the email carries no token");
+        mail.Content.Should().NotContain("Someone else", "nothing the visitor typed is repeated in the email");
+    }
+
+    [Fact]
+    public async Task Register_WithAnUnconfirmedExistingEmail_PointsTheOwnerToANewConfirmationLink()
+    {
+        var email = $"reg-unconfirmed-{Guid.NewGuid():N}@test.com";
+        await RegisterAsync(NewClient(), email);                    // an account that isn't confirmed yet
+        _factory.Emails.SentTo(email).Should().ContainSingle();     // its confirmation email
+
+        await RegisterAsync(NewClient(), email);
+
+        var notice = _factory.Emails.SentTo(email).Should().HaveCount(2).And.Subject.Last();
+        notice.Subject.Should().Be(RegistrationAttemptEmail.Subject);
+        notice.Content.Should().Contain("/Identity/Account/ResendEmailConfirmation");
+        (await FindUserAsync(email))!.EmailConfirmed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Register_WithAnExistingEmail_AndAWeakPassword_ShowsTheSamePasswordError_AndSendsNothing()
+    {
+        var existing = await ExistingAccountAsync("weak");
+        var fresh = $"reg-weak-{Guid.NewGuid():N}@test.com";
+
+        var forExisting = await RegisterAsync(NewClient(), existing, password: "weakpassword");
+        var forNew = await RegisterAsync(NewClient(), fresh, password: "weakpassword");
+
+        forExisting.StatusCode.Should().Be(HttpStatusCode.OK, "the password error is shown, as for anyone");
+        var htmlExisting = await forExisting.Content.ReadAsStringAsync();
+        htmlExisting.Should().Contain("Passwords must have at least one");
+        htmlExisting.Should().NotContain("already taken");
+        ValidationSummaryOf(htmlExisting).Should().Be(ValidationSummaryOf(await forNew.Content.ReadAsStringAsync()));
+        _factory.Emails.SentTo(existing).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Register_WithAnExistingEmail_StillShowsTheBusinessNameError()
+    {
+        var existing = await ExistingAccountAsync("name");
+
+        var res = await RegisterAsync(NewClient(), existing, businessName: "   ");
+
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadAsStringAsync()).Should().NotContain("already taken");
+        _factory.Emails.SentTo(existing).Should().BeEmpty();
+    }
+
+    private static string ValidationSummaryOf(string html) =>
+        Regex.Match(html, "validation-summary-errors.*?</ul>", RegexOptions.Singleline).Value;
 
     [Fact]
     public async Task Register_WithoutBusinessName_IsRejected_AndCreatesNothing()

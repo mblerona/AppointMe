@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using AppointMe.Domain.Identity;
 using AppointMe.Web.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -13,6 +14,7 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
     /// belongs to an unconfirmed account, so it can't be used to find out which emails are registered.
     /// </summary>
     [AllowAnonymous]
+    [EnableRateLimiting(AccountRateLimiting.PolicyName)]
     public class ResendEmailConfirmationModel : PageModel
     {
         public const string SentMessage =

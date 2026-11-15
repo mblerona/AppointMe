@@ -8,11 +8,12 @@ namespace AppointMe.Service.Interface
     {
         /// <summary>
         /// Registers a new business owner: creates the Business and the user in one transaction and links
-        /// them (<c>user.TenantId = Business.Id</c>). If the user can't be created (for example a duplicate
-        /// email or a weak password), nothing is saved and the Identity errors are returned.
+        /// them (<c>user.TenantId = Business.Id</c>). The business name and the password are checked first,
+        /// for every email alike. An email that already has an account creates nothing and returns
+        /// <see cref="OwnerRegistrationResult.AlreadyRegistered"/>, never an error, so the page can't reveal it.
         /// </summary>
         /// <exception cref="Domain.Exceptions.BusinessRuleException">The business name is empty or too long.</exception>
-        Task<IdentityResult> RegisterOwnerAsync(AppointMeAppUser user, string password, string businessName);
+        Task<OwnerRegistrationResult> RegisterOwnerAsync(AppointMeAppUser user, string password, string businessName);
 
         /// <exception cref="KeyNotFoundException">The tenant has no Business.</exception>
         Task<BusinessSettingsDTO> GetSettingsAsync(Guid tenantId);

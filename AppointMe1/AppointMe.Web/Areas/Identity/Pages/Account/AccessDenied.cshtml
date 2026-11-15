@@ -1,0 +1,7 @@
+@page
+@model AccessDeniedModel
+@{
+    ViewData["Title"] = Model.Status.Title;
+}
+
+<partial name="/Views/Shared/_StatusCard.cshtml" model="Model.Status" />

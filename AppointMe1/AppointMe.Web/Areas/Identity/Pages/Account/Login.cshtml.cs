@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using AppointMe.Domain.Identity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
+using AppointMe.Web.Infrastructure;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -17,6 +19,7 @@ using Microsoft.Extensions.Logging;
 namespace AppointMe.Web.Areas.Identity.Pages.Account
 {
     [AllowAnonymous]
+    [EnableRateLimiting(AccountRateLimiting.PolicyName)]
     public class LoginModel : PageModel
     {
         public const string ConfirmEmailMessage =

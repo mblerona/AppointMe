@@ -45,11 +45,31 @@ namespace AppointMe.Service.Implementation
 
         // ---------------- registration ----------------
 
-        public async Task<IdentityResult> RegisterOwnerAsync(AppointMeAppUser user, string password, string businessName)
+        public async Task<OwnerRegistrationResult> RegisterOwnerAsync(AppointMeAppUser user, string password, string businessName)
         {
             var name = ValidateName(businessName);
             if (user.TenantId != null)
                 throw new InvalidOperationException("A new owner must not belong to a tenant yet.");
+
+            // The password rules first, the same for every email, so a weak password can't tell anyone
+            // whether the email is taken.
+            var passwordErrors = new List<IdentityError>();
+            foreach (var validator in _userManager.PasswordValidators)
+            {
+                var check = await validator.ValidateAsync(_userManager, user, password);
+                if (!check.Succeeded)
+                    passwordErrors.AddRange(check.Errors);
+            }
+            if (passwordErrors.Count > 0)
+                return OwnerRegistrationResult.Invalid(IdentityResult.Failed(passwordErrors.ToArray()));
+
+            var existing = await FindExistingAccountAsync(user);
+            if (existing != null)
+            {
+                // Costs what creating an account costs, so the response time doesn't give it away either.
+                _userManager.PasswordHasher.HashPassword(user, password);
+                return OwnerRegistrationResult.AlreadyRegistered(existing);
+            }
 
             var now = DateTime.UtcNow;
             var business = new Business
@@ -79,11 +99,19 @@ namespace AppointMe.Service.Implementation
 
                 var result = await _userManager.CreateAsync(user, password);
                 if (!result.Succeeded)
-                    return result;
+                {
+                    // Another registration with this email won the race since the check above.
+                    if (result.Errors.Any(e => e.Code is nameof(IdentityErrorDescriber.DuplicateUserName)
+                                                    or nameof(IdentityErrorDescriber.DuplicateEmail))
+                        && await FindExistingAccountAsync(user) is { } winner)
+                        return OwnerRegistrationResult.AlreadyRegistered(winner);
+
+                    return OwnerRegistrationResult.Invalid(result);
+                }
 
                 await transaction.CommitAsync();
                 committed = true;
-                return result;
+                return OwnerRegistrationResult.NewAccount();
             }
             finally
             {
@@ -96,6 +124,11 @@ namespace AppointMe.Service.Implementation
                 }
             }
         }
+
+        /// <summary>The user name is the email here, but check both, as Identity's uniqueness rules do.</summary>
+        private async Task<AppointMeAppUser?> FindExistingAccountAsync(AppointMeAppUser user) =>
+            (user.Email is { Length: > 0 } email ? await _userManager.FindByEmailAsync(email) : null)
+            ?? (user.UserName is { Length: > 0 } userName ? await _userManager.FindByNameAsync(userName) : null);
 
         // ---------------- settings ----------------
 

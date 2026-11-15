@@ -8,6 +8,7 @@ using AppointMe.Service.Email.Infrastructure;
 using AppointMe.Service.Implementation;
 using AppointMe.Service.Interface;
 using AppointMe.Service.Pdf;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -81,6 +82,7 @@ namespace AppointMe.Web.Infrastructure
             services.AddTransient<IEmailSender, IdentityEmailSender>();
             services.AddScoped<AccountConfirmationEmail>();
             services.AddScoped<PasswordResetEmail>();
+            services.AddScoped<RegistrationAttemptEmail>();
             services.AddScoped<IAccountEmails, WebAccountEmails>();
 
             return services;
@@ -137,6 +139,14 @@ namespace AppointMe.Web.Infrastructure
             services.AddControllersWithViews(options =>
                 options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
             services.AddRazorPages();
+
+            // Every endpoint requires a logged-in user unless it is marked [AllowAnonymous]; a new controller
+            // that forgets [Authorize] is therefore closed, not open. AnonymousAccessTests holds the allow-list.
+            services.AddAuthorization(options =>
+                options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+
+            // SecurityHeadersMiddleware sends X-Frame-Options: DENY; antiforgery would otherwise add SAMEORIGIN.
+            services.AddAntiforgery(options => options.SuppressXFrameOptionsHeader = true);
 
             // Tenant of the current request, resolved once from the database (see TenantContext).
             services.AddHttpContextAccessor();

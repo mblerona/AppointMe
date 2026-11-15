@@ -82,7 +82,8 @@ public class BusinessServiceTests : IDisposable
 
         var result = await _sut.RegisterOwnerAsync(user, ValidPassword, "  Bella Salon  ");
 
-        result.Succeeded.Should().BeTrue();
+        result.Created.Should().BeTrue();
+        result.ExistingAccount.Should().BeNull();
         user.TenantId.Should().NotBeNull();
         user.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
 
@@ -126,22 +127,79 @@ public class BusinessServiceTests : IDisposable
 
         var result = await _sut.RegisterOwnerAsync(user, "short", "Biz");
 
-        result.Succeeded.Should().BeFalse();
+        result.Failed.Should().BeTrue();
+        result.Identity.Errors.Should().NotBeEmpty();
         user.TenantId.Should().BeNull("a failed registration doesn't keep the tenant link");
         _db.ChangeTracker.Entries<Business>().Should().BeEmpty("the Business must not be saved by a later SaveChanges");
         (await SavedBusinessCountAsync()).Should().Be(0);
     }
 
     [Fact]
-    public async Task RegisterOwner_WithDuplicateEmail_ReturnsErrors_AndCreatesNoSecondBusiness()
+    public async Task RegisterOwner_WithAnExistingEmail_ReportsTheExistingAccount_NotAnError_AndCreatesNothing()
     {
-        (await _sut.RegisterOwnerAsync(NewUser("dup@test.com"), ValidPassword, "First")).Succeeded.Should().BeTrue();
+        var first = NewUser("dup@test.com");
+        (await _sut.RegisterOwnerAsync(first, ValidPassword, "First")).Created.Should().BeTrue();
 
-        var result = await _sut.RegisterOwnerAsync(NewUser("dup@test.com"), ValidPassword, "Second");
+        var second = NewUser("dup@test.com");
+        var result = await _sut.RegisterOwnerAsync(second, "Other123!Aa", "Second");
 
-        result.Succeeded.Should().BeFalse();
+        result.Failed.Should().BeFalse("the visitor must see the same result as for a new account");
+        result.Created.Should().BeFalse();
+        result.EmailAlreadyRegistered.Should().BeTrue();
+        result.ExistingAccount!.Id.Should().Be(first.Id);
+        second.TenantId.Should().BeNull();
         (await SavedBusinessCountAsync()).Should().Be(1);
         (await _db.Businesses.SingleAsync()).Name.Should().Be("First");
+        (await _db.Users.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RegisterOwner_WithAnExistingEmail_LeavesTheExistingAccountUnchanged()
+    {
+        var first = NewUser("keep@test.com");
+        await _sut.RegisterOwnerAsync(first, ValidPassword, "First");
+
+        await _sut.RegisterOwnerAsync(NewUser("keep@test.com"), "Other123!Aa", "Second");
+
+        _db.ChangeTracker.Clear();
+        var stored = await _userManager.FindByEmailAsync("keep@test.com");
+        (await _userManager.CheckPasswordAsync(stored!, ValidPassword)).Should().BeTrue("the old password still works");
+        (await _userManager.CheckPasswordAsync(stored!, "Other123!Aa")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RegisterOwner_ExistingEmail_IsFoundRegardlessOfCase()
+    {
+        await _sut.RegisterOwnerAsync(NewUser("case@test.com"), ValidPassword, "First");
+
+        var result = await _sut.RegisterOwnerAsync(NewUser("CASE@Test.com"), ValidPassword, "Second");
+
+        result.EmailAlreadyRegistered.Should().BeTrue();
+        (await SavedBusinessCountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RegisterOwner_WeakPassword_GivesTheSameErrors_WhetherOrNotTheEmailExists()
+    {
+        // Otherwise a weak password would tell a visitor which emails have accounts.
+        await _sut.RegisterOwnerAsync(NewUser("taken@test.com"), ValidPassword, "First");
+
+        var forExisting = await _sut.RegisterOwnerAsync(NewUser("taken@test.com"), "short", "Biz");
+        var forNew = await _sut.RegisterOwnerAsync(NewUser("free@test.com"), "short", "Biz");
+
+        forExisting.Failed.Should().BeTrue();
+        forExisting.EmailAlreadyRegistered.Should().BeFalse();
+        forExisting.Identity.Errors.Select(e => e.Code).Should().Equal(forNew.Identity.Errors.Select(e => e.Code));
+    }
+
+    [Fact]
+    public async Task RegisterOwner_BusinessNameError_ComesFirst_EvenForAnExistingEmail()
+    {
+        await _sut.RegisterOwnerAsync(NewUser("named@test.com"), ValidPassword, "First");
+
+        var act = () => _sut.RegisterOwnerAsync(NewUser("named@test.com"), ValidPassword, "   ");
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("Business name is required.");
     }
 
     [Fact]

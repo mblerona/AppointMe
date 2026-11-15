@@ -469,6 +469,8 @@ public class SuspensionTests : IClassFixture<PlatformAdminWebAppFactory>
 
     private static bool AllowedWhileSuspended(string url) =>
         url.StartsWith("/Suspended/") || url.StartsWith("/Home/Error/")
+        // The friendly status page shows only fixed text (no tenant data); it is a 404 when opened directly.
+        || url.StartsWith("/Home/Status/")
         || url == "/Identity/Account/Login" || url == "/Identity/Account/Logout"
         || url == "/Identity/Account/ResetPassword" || url == "/Identity/Account/ResetPasswordConfirmation"
         || url == "/Identity/Account/ConfirmEmail";
@@ -546,7 +548,9 @@ public class SuspensionTests : IClassFixture<PlatformAdminWebAppFactory>
         var request = new HttpRequestMessage(HttpMethod.Get, "/Appointments/Calendar");
         request.Headers.Accept.ParseAdd("application/json");
 
-        (await client.SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var response = await client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await response.Content.ReadAsStringAsync()).Should().BeEmpty("a script gets the bare 403, not the HTML status page");
     }
 
     [Fact]

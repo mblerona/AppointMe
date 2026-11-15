@@ -14,13 +14,17 @@ using AppointMe.Service.Implementation;
 using AppointMe.Service.Interface;
 using AppointMe.Web.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Logging;
 
 namespace AppointMe.Web.Areas.Identity.Pages.Account
 {
+    [AllowAnonymous]
+    [EnableRateLimiting(AccountRateLimiting.PolicyName)]
     public class RegisterModel : PageModel
     {
         private readonly SignInManager<AppointMeAppUser> _signInManager;
@@ -29,6 +33,7 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
         private readonly IUserEmailStore<AppointMeAppUser> _emailStore;
         private readonly IBusinessService _businessService;
         private readonly AccountConfirmationEmail _confirmationEmail;
+        private readonly RegistrationAttemptEmail _attemptEmail;
         private readonly ILogger<RegisterModel> _logger;
 
         public RegisterModel(
@@ -37,6 +42,7 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
             SignInManager<AppointMeAppUser> signInManager,
             IBusinessService businessService,
             AccountConfirmationEmail confirmationEmail,
+            RegistrationAttemptEmail attemptEmail,
             ILogger<RegisterModel> logger)
         {
             _userManager = userManager;
@@ -45,6 +51,7 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
             _signInManager = signInManager;
             _businessService = businessService;
             _confirmationEmail = confirmationEmail;
+            _attemptEmail = attemptEmail;
             _logger = logger;
         }
 
@@ -109,7 +116,7 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
             user.FirstName = Input.FirstName.Trim();
             user.LastName = Input.LastName.Trim();
 
-            IdentityResult result;
+            OwnerRegistrationResult result;
             try
             {
                 // Creates the Business and the user together and sets user.TenantId.
@@ -121,20 +128,30 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
                 return Page();
             }
 
-            if (!result.Succeeded)
+            if (result.Failed)
             {
-                foreach (var error in result.Errors)
+                foreach (var error in result.Identity.Errors)
                     ModelState.AddModelError(string.Empty, error.Description);
 
                 return Page();
             }
 
-            _logger.LogInformation("User {UserId} registered with business {TenantId}.", user.Id, user.TenantId);
+            // From here on both paths look the same to the visitor, so the page never reveals who has an account.
+            bool emailSent;
+            if (result.ExistingAccount is { } existing)
+            {
+                _logger.LogInformation("Registration attempt with the email of existing user {UserId}; nothing was created.", existing.Id);
+                emailSent = await _attemptEmail.TrySendAsync(existing, Url, Request.Scheme);
+            }
+            else
+            {
+                _logger.LogInformation("User {UserId} registered with business {TenantId}.", user.Id, user.TenantId);
 
-            // A failed email must not undo the registration; the confirmation page offers a resend.
-            var emailSent = await _confirmationEmail.TrySendAsync(user, Url, Request.Scheme);
+                // A failed email must not undo the registration; the confirmation page offers a resend.
+                emailSent = await _confirmationEmail.TrySendAsync(user, Url, Request.Scheme);
+            }
 
-            if (_userManager.Options.SignIn.RequireConfirmedAccount)
+            if (_userManager.Options.SignIn.RequireConfirmedAccount || result.EmailAlreadyRegistered)
             {
                 return RedirectToPage("RegisterConfirmation", new
                 {

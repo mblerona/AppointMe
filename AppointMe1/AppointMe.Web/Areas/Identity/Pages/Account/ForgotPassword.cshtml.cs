@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using AppointMe.Domain.Identity;
 using AppointMe.Web.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -14,6 +15,7 @@ namespace AppointMe.Web.Areas.Identity.Pages.Account
     /// out which emails are registered.
     /// </summary>
     [AllowAnonymous]
+    [EnableRateLimiting(AccountRateLimiting.PolicyName)]
     public class ForgotPasswordModel : PageModel
     {
         private readonly UserManager<AppointMeAppUser> _userManager;
