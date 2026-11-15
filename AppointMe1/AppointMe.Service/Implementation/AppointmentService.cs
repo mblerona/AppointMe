@@ -82,6 +82,11 @@ namespace AppointMe.Service.Implementation
 
             var business = await GetBusinessOrThrow(tenantId);
 
+            // First, like on edit: the user doesn't fix the time only to learn the order number is taken.
+            dto.OrderNumber = dto.OrderNumber?.Trim();
+            if (await _appointmentRepository.OrderNumberExistsAsync(dto.OrderNumber, tenantId))
+                throw new BusinessRuleException("Order number already exists. Please use a different order number.");
+
             // With services disabled the booking has none, whatever was posted.
             var selectedServices = business.EnableServices
                 ? await LoadSelectedServicesAsync(dto.ServiceOfferingIds, tenantId)
@@ -99,10 +104,6 @@ namespace AppointMe.Service.Implementation
             var isAvailable = await _appointmentRepository.IsTimeSlotAvailableAsync(dto.AppointmentDate, durationMinutes, tenantId);
             if (!isAvailable)
                 throw new BusinessRuleException("The selected time overlaps with another appointment.");
-
-            dto.OrderNumber = dto.OrderNumber?.Trim();
-            if (await _appointmentRepository.OrderNumberExistsAsync(dto.OrderNumber, tenantId))
-                throw new BusinessRuleException("Order number already exists. Please use a different order number.");
 
             var appointment = new Appointment
             {

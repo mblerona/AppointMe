@@ -201,6 +201,8 @@ namespace AppointMe.Tests.Unit.Services
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
                 .ReturnsAsync(new List<HolidayDTO>());
 
+            // The order number is checked first, before the time rules.
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null)).ReturnsAsync(false);
             var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
 
             var dto = new CreateAppointmentDTO
@@ -239,6 +241,8 @@ namespace AppointMe.Tests.Unit.Services
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
                 .ReturnsAsync(new List<HolidayDTO>());
 
+            // The order number is checked first, before the time rules.
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null)).ReturnsAsync(false);
             var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
 
             // next Sunday in the future
@@ -280,6 +284,8 @@ namespace AppointMe.Tests.Unit.Services
             holiday.Setup(h => h.GetHolidaysAsync(It.IsAny<int>(), "MK"))
                 .ReturnsAsync(new List<HolidayDTO>());
 
+            // The order number is checked first, before the time rules.
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null)).ReturnsAsync(false);
             var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
 
             var dateAt8 = NextWorkingDayAt(8, 0); // before 09:00
@@ -322,6 +328,8 @@ namespace AppointMe.Tests.Unit.Services
                     new HolidayDTO { Date = holidayDate.Date, LocalName = "HolidayName", Name = "HolidayNameEN" }
                 });
 
+            // The order number is checked first, before the time rules.
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null)).ReturnsAsync(false);
             var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
 
             var dto = new CreateAppointmentDTO
@@ -361,6 +369,8 @@ namespace AppointMe.Tests.Unit.Services
             apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(It.IsAny<DateTime>(), It.IsAny<int>(), tenantId, null))
                 .ReturnsAsync(false);
 
+            // The order number is checked first, before the time rules.
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null)).ReturnsAsync(false);
             var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
 
             var dto = new CreateAppointmentDTO
@@ -416,6 +426,42 @@ namespace AppointMe.Tests.Unit.Services
             Func<Task> act = async () => await service.CreateAppointmentAsync(dto, tenantId);
 
             await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("Order number already exists. Please use a different order number.");
+        }
+
+        [Fact]
+        public async Task CreateAppointmentAsync_ChecksTheOrderNumber_BeforeServicesAndTimeRules()
+        {
+            // Like edit: a taken order number is reported even when the time is also wrong. The strict mocks
+            // have no holiday, overlap or service setup, so any of those checks running first would throw.
+            var db = CreateDb();
+            var tenantId = Guid.NewGuid();
+            SeedDefaultBusiness(db, tenantId);
+
+            var apptRepo = new Mock<IAppointmentRepository>(MockBehavior.Strict);
+            var custRepo = new Mock<ICustomerRepository>(MockBehavior.Strict);
+            var svcRepo = new Mock<IServiceOfferingRepository>(MockBehavior.Strict);
+            var holiday = new Mock<IHolidayService>(MockBehavior.Strict);
+            var email = new Mock<IEmailService>(MockBehavior.Strict);
+
+            var customerId = Guid.NewGuid();
+            custRepo.Setup(r => r.GetByIdAsync(customerId, tenantId)).ReturnsAsync(MakeCustomer(customerId, tenantId));
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null)).ReturnsAsync(true);
+
+            var service = BuildService(db, apptRepo, custRepo, svcRepo, holiday, email);
+
+            var dto = new CreateAppointmentDTO
+            {
+                CustomerId = customerId,
+                OrderNumber = "ORD-1",
+                AppointmentDate = DateTime.Now.AddDays(-2), // also in the past
+                ServiceOfferingIds = new List<Guid> { Guid.NewGuid() },
+                Description = "desc"
+            };
+
+            Func<Task> act = async () => await service.CreateAppointmentAsync(dto, tenantId);
+
+            await act.Should().ThrowExactlyAsync<BusinessRuleException>()
                 .WithMessage("Order number already exists. Please use a different order number.");
         }
 
@@ -1131,6 +1177,8 @@ namespace AppointMe.Tests.Unit.Services
             apptRepo.Setup(r => r.IsTimeSlotAvailableAsync(It.IsAny<DateTime>(), It.IsAny<int>(), tenantId, null))
                 .ReturnsAsync(false);
 
+            // The order number is checked first, before the time rules.
+            apptRepo.Setup(r => r.OrderNumberExistsAsync("ORD-1", tenantId, null)).ReturnsAsync(false);
             var service = BuildService(db, apptRepo, custRepo, holidaySvc: holiday);
 
             Func<Task> act = () => service.CreateAppointmentAsync(new CreateAppointmentDTO

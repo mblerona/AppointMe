@@ -1,10 +1,8 @@
-using AppointMe.Domain;
 using AppointMe.Service.Interface;
 using AppointMe.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
 
 namespace AppointMe.Web.Controllers
 {
@@ -38,11 +36,15 @@ namespace AppointMe.Web.Controllers
             return View();
         }
 
+        /// <summary>
+        /// The exception handler's page (outside Development). It shows only a friendly message; the
+        /// exception itself is logged by the exception handler, never shown.
+        /// </summary>
         [AllowAnonymous]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            return View(StatusPageVm.For(StatusCodes.Status500InternalServerError));
         }
 
         /// <summary>
