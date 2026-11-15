@@ -738,7 +738,7 @@ public class PlatformAdminServiceTests
         await _db.SaveChangesAsync();
         var active = await AddBusinessAsync("Active");
         var service = new BusinessService(
-            new BusinessRepository(_db), null!, Mock.Of<AppointMe.Service.Interface.ILogoStorage>(), new FixedClock(Now));
+            new BusinessRepository(_db), null!, Mock.Of<AppointMe.Service.Interface.ILogoStorage>(), new FixedClock(Now), Microsoft.Extensions.Logging.Abstractions.NullLogger<BusinessService>.Instance);
 
         var info = await service.GetSuspensionInfoAsync(business.Id);
 

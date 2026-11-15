@@ -21,6 +21,9 @@ namespace AppointMe.Repository.Implementation
         public Task<Business?> GetByIdReadOnlyAsync(Guid tenantId) =>
             _context.Businesses.AsNoTracking().FirstOrDefaultAsync(b => b.Id == tenantId);
 
+        public Task<bool> IsLogoUsedByInvoicesAsync(Guid tenantId, string logoUrl) =>
+            _context.Invoices.AnyAsync(i => i.TenantId == tenantId && i.BusinessLogoSnapshot == logoUrl);
+
         public void Add(Business business) => _context.Businesses.Add(business);
 
         public void Detach(Business business) => _context.Entry(business).State = EntityState.Detached;

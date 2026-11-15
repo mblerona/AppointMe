@@ -196,7 +196,7 @@ public class TenantDeletionServicesTests
         business.TimeZoneId = "Asia/Tokyo";
         business.DeletionRequestedAt = Now;
         await _db.SaveChangesAsync();
-        var service = new BusinessService(new BusinessRepository(_db), null!, _logos.Object, new FixedClock(Now));
+        var service = new BusinessService(new BusinessRepository(_db), null!, _logos.Object, new FixedClock(Now), Microsoft.Extensions.Logging.Abstractions.NullLogger<BusinessService>.Instance);
 
         var settings = await service.GetSettingsAsync(business.Id);
 

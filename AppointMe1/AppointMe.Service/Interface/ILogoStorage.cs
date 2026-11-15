@@ -9,12 +9,19 @@ namespace AppointMe.Service.Interface
     /// </summary>
     public interface ILogoStorage
     {
+        /// <summary>Always stores a new file under a new name; never overwrites an existing logo.</summary>
         /// <param name="extension">Lower-case extension including the dot, e.g. ".png".</param>
         /// <returns>The public URL of the stored logo.</returns>
         Task<string> SaveAsync(Guid businessId, string extension, Stream content);
 
-        /// <summary>Removes every stored logo of this business, whatever its extension. Doing nothing if there is none.</summary>
+        /// <summary>Removes every stored logo of this business (all uploads, old and new). Doing nothing if there is none.</summary>
         Task DeleteAllAsync(Guid businessId);
+
+        /// <summary>
+        /// Removes one stored logo, by the URL <see cref="SaveAsync"/> returned. Any other URL, or a file
+        /// that is already gone, is ignored. The caller decides whether the logo is still in use.
+        /// </summary>
+        Task DeleteAsync(string logoUrl);
 
         /// <summary>
         /// The bytes of a logo this storage saved, from the URL <see cref="SaveAsync"/> returned.

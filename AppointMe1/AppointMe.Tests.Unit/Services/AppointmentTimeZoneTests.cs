@@ -205,7 +205,7 @@ public class AppointmentTimeZoneTests
     {
         var users = new Mock<UserManager<AppointMeAppUser>>(
             Mock.Of<IUserStore<AppointMeAppUser>>(), null!, null!, null!, null!, null!, null!, null!, null!);
-        return new BusinessService(new BusinessRepository(_db), users.Object, Mock.Of<ILogoStorage>(), new FixedClock(UtcNow));
+        return new BusinessService(new BusinessRepository(_db), users.Object, Mock.Of<ILogoStorage>(), new FixedClock(UtcNow), Microsoft.Extensions.Logging.Abstractions.NullLogger<BusinessService>.Instance);
     }
 
     [Theory]

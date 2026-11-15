@@ -51,7 +51,7 @@ public class BusinessServiceTests : IDisposable
             null!,
             NullLogger<UserManager<AppointMeAppUser>>.Instance);
 
-        _sut = new BusinessService(new BusinessRepository(_db), _userManager, _logoStorage.Object, TimeProvider.System);
+        _sut = new BusinessService(new BusinessRepository(_db), _userManager, _logoStorage.Object, TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<BusinessService>.Instance);
     }
 
     public void Dispose()

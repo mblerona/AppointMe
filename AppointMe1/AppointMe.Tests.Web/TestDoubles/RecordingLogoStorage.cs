@@ -26,4 +26,6 @@ public sealed class RecordingLogoStorage : ILogoStorage
     }
 
     public Task<byte[]?> ReadAsync(string logoUrl) => Task.FromResult<byte[]?>(null);
+
+    public Task DeleteAsync(string logoUrl) => Task.CompletedTask;
 }

@@ -16,6 +16,9 @@ namespace AppointMe.Repository.Interface
         /// <summary>Not tracked, for display.</summary>
         Task<Business?> GetByIdReadOnlyAsync(Guid tenantId);
 
+        /// <summary>Whether any of this tenant's invoices shows this logo (their logo snapshot).</summary>
+        Task<bool> IsLogoUsedByInvoicesAsync(Guid tenantId, string logoUrl);
+
         void Add(Business business);
 
         /// <summary>Stops tracking a Business that was added but must not be saved.</summary>

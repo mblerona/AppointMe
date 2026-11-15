@@ -55,6 +55,8 @@ namespace AppointMe.Tests.Integration.SqlServer
             }
 
             public Task<byte[]?> ReadAsync(string logoUrl) => throw new NotSupportedException();
+
+            public Task DeleteAsync(string logoUrl) => throw new NotSupportedException();
         }
 
         private readonly RecordingEmail _email = new();

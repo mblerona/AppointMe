@@ -4,6 +4,7 @@ using AppointMe.Domain.Exceptions;
 using AppointMe.Domain.Identity;
 using AppointMe.Repository.Data;
 using AppointMe.Repository.Implementation;
+using AppointMe.Repository.Interface;
 using AppointMe.Service.Implementation;
 using AppointMe.Service.Interface;
 using AwesomeAssertions;
@@ -32,7 +33,7 @@ public class BusinessSettingsServiceTests : IDisposable
         var userManager = new Mock<UserManager<AppointMeAppUser>>(
             Mock.Of<IUserStore<AppointMeAppUser>>(), null!, null!, null!, null!, null!, null!, null!, null!);
 
-        _sut = new BusinessService(new BusinessRepository(_db), userManager.Object, _logoStorage.Object, TimeProvider.System);
+        _sut = new BusinessService(new BusinessRepository(_db), userManager.Object, _logoStorage.Object, TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<BusinessService>.Instance);
 
         _db.Businesses.Add(new Business
         {
@@ -394,16 +395,194 @@ public class BusinessSettingsServiceTests : IDisposable
             .Which.PropertyName.Should().Be(nameof(BusinessSettingsDTO.Name));
     }
 
-    [Fact]
-    public async Task UpdateSettings_WithValidLogo_StoresItAndSavesTheUrl()
-    {
-        using var content = new MemoryStream(new byte[] { 1, 2, 3 });
-        _logoStorage.Setup(s => s.SaveAsync(Tenant, ".png", content)).ReturnsAsync("/uploads/logos/new.png");
+    // ---------------- logo uploads (S5) ----------------
 
-        await _sut.UpdateSettingsAsync(Tenant, ValidSettings(), new LogoUpload(content, "Logo.PNG", 3));
+    private const string OldLogo = "/uploads/logos/old.png";
+
+    // The first bytes of each supported format, followed by some data.
+    private static readonly byte[] PngBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 1, 2, 3];
+    private static readonly byte[] JpegBytes = [0xFF, 0xD8, 0xFF, 0xE0, 0, 16, 1, 2, 3];
+    private static readonly byte[] WebpBytes = [.. "RIFF"u8, 0x24, 0, 0, 0, .. "WEBPVP8 "u8, 1, 2, 3];
+
+    private static LogoUpload Upload(byte[] bytes, string fileName) => new(new MemoryStream(bytes), fileName, bytes.Length);
+
+    /// <summary>Records what SaveAsync received and answers with a new, distinct URL each time.</summary>
+    private List<(string Extension, byte[] Bytes)> CaptureSaves(string url = "/uploads/logos/new.png")
+    {
+        var saves = new List<(string, byte[])>();
+        _logoStorage.Setup(s => s.SaveAsync(Tenant, It.IsAny<string>(), It.IsAny<Stream>()))
+            .Callback<Guid, string, Stream>((_, ext, stream) =>
+            {
+                using var copy = new MemoryStream();
+                stream.CopyTo(copy);
+                saves.Add((ext, copy.ToArray()));
+            })
+            .ReturnsAsync(url);
+        return saves;
+    }
+
+    private async Task AddInvoiceShowingAsync(Guid tenantId, string logoUrl)
+    {
+        if (!await _db.Businesses.AnyAsync(b => b.Id == tenantId))
+            _db.Businesses.Add(new Business { Id = tenantId, Name = "Other business" });
+
+        _db.Invoices.Add(new Invoice
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, AppointmentId = Guid.NewGuid(), CustomerId = Guid.NewGuid(),
+            InvoiceNumber = $"INV-2026-{Guid.NewGuid():N}", InvoiceYear = 2026, InvoiceSequence = 1,
+            BusinessNameSnapshot = "Old name", CustomerNameSnapshot = "Ana Doe", BusinessLogoSnapshot = logoUrl
+        });
+        await _db.SaveChangesAsync();
+        _db.ChangeTracker.Clear();
+    }
+
+    [Theory]
+    [InlineData("png", "Logo.PNG", ".png")]
+    [InlineData("jpeg", "logo.jpg", ".jpg")]
+    [InlineData("jpeg", "logo.jpeg", ".jpg")]
+    [InlineData("webp", "logo.webp", ".webp")]
+    public async Task UpdateSettings_WithARealImage_StoresItsBytes_AndSavesTheUrl(string format, string fileName, string storedAs)
+    {
+        var bytes = format switch { "png" => PngBytes, "jpeg" => JpegBytes, _ => WebpBytes };
+        var saves = CaptureSaves();
+        _logoStorage.Setup(s => s.DeleteAsync(OldLogo)).Returns(Task.CompletedTask);
+
+        await _sut.UpdateSettingsAsync(Tenant, ValidSettings(), Upload(bytes, fileName));
+
+        saves.Should().ContainSingle();
+        saves[0].Extension.Should().Be(storedAs);
+        saves[0].Bytes.Should().Equal(bytes);
+        (await StoredAsync()).LogoUrl.Should().Be("/uploads/logos/new.png");
+    }
+
+    [Fact]
+    public async Task UpdateSettings_StoredExtension_ComesFromTheContent_NotTheName()
+    {
+        var saves = CaptureSaves();
+        _logoStorage.Setup(s => s.DeleteAsync(OldLogo)).Returns(Task.CompletedTask);
+
+        await _sut.UpdateSettingsAsync(Tenant, ValidSettings(), Upload(JpegBytes, "logo.png"));
+
+        saves.Single().Extension.Should().Be(".jpg");
+    }
+
+    public static TheoryData<string, byte[]> NotAnImage => new()
+    {
+        { "page.png", "<html><script>alert(1)</script></html>"u8.ToArray() },
+        { "logo.png", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>"u8.ToArray() },
+        { "logo.jpg", "GIF89a\x01\x00\x01\x00"u8.ToArray() },               // a GIF renamed
+        { "logo.webp", [.. "RIFF"u8, 0x24, 0, 0, 0, .. "WAVEfmt "u8] },      // RIFF, but audio
+        { "logo.png", "MZ\x90\x00"u8.ToArray() },                            // an executable
+        { "logo.png", [0x89, 0x50, 0x4E, 0x47] },                            // a truncated PNG signature
+    };
+
+    [Theory]
+    [MemberData(nameof(NotAnImage))]
+    public async Task UpdateSettings_FileWhoseContentIsNotAnImage_Throws_AndStoresNothing(string fileName, byte[] bytes)
+    {
+        var act = () => _sut.UpdateSettingsAsync(Tenant, ValidSettings(), Upload(bytes, fileName));
+
+        await act.Should().ThrowExactlyAsync<BusinessRuleException>().WithMessage(BusinessService.InvalidLogoContentMessage);
+        var stored = await StoredAsync();
+        stored.Name.Should().Be("Old name");
+        stored.LogoUrl.Should().Be(OldLogo);
+        _logoStorage.Verify(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateSettings_ContentLargerThanTheStatedLength_IsStillRefusedAsTooLarge()
+    {
+        // The stated length can't be trusted: the check counts what is actually read.
+        var bytes = new byte[BusinessService.MaxLogoBytes + 1];
+        PngBytes.CopyTo(bytes, 0);
+        var logo = new LogoUpload(new MemoryStream(bytes), "logo.png", Length: 100);
+
+        var act = () => _sut.UpdateSettingsAsync(Tenant, ValidSettings(), logo);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().WithMessage("*too large*");
+        _logoStorage.Verify(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Reupload_WhenAnInvoiceShowsThePreviousLogo_KeepsIt()
+    {
+        await AddInvoiceShowingAsync(Tenant, OldLogo);
+        CaptureSaves();
+
+        await _sut.UpdateSettingsAsync(Tenant, ValidSettings(), Upload(PngBytes, "logo.png"));
 
         (await StoredAsync()).LogoUrl.Should().Be("/uploads/logos/new.png");
-        _logoStorage.VerifyAll();
+        // Explicit: the service swallows delete failures, so a strict mock alone would not catch a call.
+        _logoStorage.Verify(s => s.DeleteAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Reupload_WhenNoInvoiceShowsThePreviousLogo_DeletesIt()
+    {
+        CaptureSaves();
+        _logoStorage.Setup(s => s.DeleteAsync(OldLogo)).Returns(Task.CompletedTask);
+
+        await _sut.UpdateSettingsAsync(Tenant, ValidSettings(), Upload(PngBytes, "logo.png"));
+
+        _logoStorage.Verify(s => s.DeleteAsync(OldLogo), Times.Once);
+        _logoStorage.Verify(s => s.DeleteAsync("/uploads/logos/new.png"), Times.Never);
+    }
+
+    [Fact]
+    public async Task Reupload_AnotherTenantsInvoiceWithTheSameUrl_DoesNotKeepThisTenantsLogo()
+    {
+        await AddInvoiceShowingAsync(Guid.NewGuid(), OldLogo);
+        CaptureSaves();
+        _logoStorage.Setup(s => s.DeleteAsync(OldLogo)).Returns(Task.CompletedTask);
+
+        await _sut.UpdateSettingsAsync(Tenant, ValidSettings(), Upload(PngBytes, "logo.png"));
+
+        _logoStorage.Verify(s => s.DeleteAsync(OldLogo), Times.Once);
+    }
+
+    [Fact]
+    public async Task Reupload_WhenDeletingThePreviousLogoFails_TheSettingsAreStillSaved()
+    {
+        CaptureSaves();
+        _logoStorage.Setup(s => s.DeleteAsync(OldLogo)).ThrowsAsync(new IOException("The file is in use."));
+
+        await _sut.UpdateSettingsAsync(Tenant, ValidSettings(), Upload(PngBytes, "logo.png"));
+
+        var stored = await StoredAsync();
+        stored.Name.Should().Be("New name");
+        stored.LogoUrl.Should().Be("/uploads/logos/new.png");
+    }
+
+    [Fact]
+    public async Task SavingWithoutANewLogo_DeletesNothing()
+    {
+        await _sut.UpdateSettingsAsync(Tenant, ValidSettings(), logo: null);
+
+        _logoStorage.Verify(s => s.DeleteAsync(It.IsAny<string>()), Times.Never);
+        (await StoredAsync()).LogoUrl.Should().Be(OldLogo);
+    }
+
+    [Fact]
+    public async Task WhenTheSettingsCantBeSaved_TheNewlyStoredLogoIsRemoved_AndTheOldOneKept()
+    {
+        var business = new Business
+        {
+            Id = Tenant, Name = "Old name", LogoUrl = OldLogo, DefaultSlotMinutes = 30,
+            WorkDayStart = new TimeSpan(9, 0, 0), WorkDayEnd = new TimeSpan(17, 0, 0), OpenMon = true
+        };
+        var repository = new Mock<IBusinessRepository>();
+        repository.Setup(r => r.GetByIdAsync(Tenant)).ReturnsAsync(business);
+        repository.Setup(r => r.SaveChangesAsync()).ThrowsAsync(new InvalidOperationException("database down"));
+        CaptureSaves("/uploads/logos/unsaved.png");
+        _logoStorage.Setup(s => s.DeleteAsync("/uploads/logos/unsaved.png")).Returns(Task.CompletedTask);
+
+        var sut = new BusinessService(repository.Object, null!, _logoStorage.Object, TimeProvider.System,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<BusinessService>.Instance);
+        var act = () => sut.UpdateSettingsAsync(Tenant, ValidSettings(), Upload(PngBytes, "logo.png"));
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("database down");
+        _logoStorage.Verify(s => s.DeleteAsync("/uploads/logos/unsaved.png"), Times.Once);
+        _logoStorage.Verify(s => s.DeleteAsync(OldLogo), Times.Never);
     }
 
     [Fact]

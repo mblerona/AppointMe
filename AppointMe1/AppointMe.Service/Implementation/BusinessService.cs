@@ -7,6 +7,7 @@ using AppointMe.Domain.Validation;
 using AppointMe.Repository.Interface;
 using AppointMe.Service.Interface;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 
 namespace AppointMe.Service.Implementation
@@ -26,17 +27,20 @@ namespace AppointMe.Service.Implementation
         private readonly UserManager<AppointMeAppUser> _userManager;
         private readonly ILogoStorage _logoStorage;
         private readonly TimeProvider _timeProvider;
+        private readonly ILogger<BusinessService> _logger;
 
         public BusinessService(
             IBusinessRepository businessRepository,
             UserManager<AppointMeAppUser> userManager,
             ILogoStorage logoStorage,
-            TimeProvider timeProvider)
+            TimeProvider timeProvider,
+            ILogger<BusinessService> logger)
         {
             _businessRepository = businessRepository;
             _userManager = userManager;
             _logoStorage = logoStorage;
             _timeProvider = timeProvider;
+            _logger = logger;
         }
 
         // ---------------- registration ----------------
@@ -161,7 +165,7 @@ namespace AppointMe.Service.Implementation
             var phone = PhoneNumberNormalizer.NormalizeOptional(settings.Phone, nameof(BusinessSettingsDTO.Phone));
             var primaryColor = ValidateColor(settings.PrimaryColor, nameof(BusinessSettingsDTO.PrimaryColor));
             var secondaryColor = ValidateColor(settings.SecondaryColor, nameof(BusinessSettingsDTO.SecondaryColor));
-            var logoExtension = logo is { Length: > 0 } ? ValidateLogo(logo) : null;
+            await using var newLogo = logo is { Length: > 0 } ? await ReadLogoAsync(logo) : null;
 
             business.Name = name;
             business.Email = email;
@@ -187,10 +191,60 @@ namespace AppointMe.Service.Implementation
             business.EnableInvoices = settings.EnableInvoices;
             business.UpdatedAt = DateTime.UtcNow;
 
-            if (logoExtension != null)
-                business.LogoUrl = await _logoStorage.SaveAsync(business.Id, logoExtension, logo!.Content);
+            // A new upload always gets a new file name, so a file that existing invoices show is never overwritten.
+            string? previousLogo = null;
+            string? savedLogo = null;
+            if (newLogo != null)
+            {
+                savedLogo = await _logoStorage.SaveAsync(business.Id, newLogo.Extension, newLogo.Content);
+                previousLogo = business.LogoUrl;
+                business.LogoUrl = savedLogo;
+            }
 
-            await _businessRepository.SaveChangesAsync();
+            try
+            {
+                await _businessRepository.SaveChangesAsync();
+            }
+            catch
+            {
+                // Nothing points at the new file yet; don't leave it behind.
+                if (savedLogo != null)
+                    await TryDeleteLogoAsync(savedLogo, business.Id);
+                throw;
+            }
+
+            // After the save, and only a clean-up: a failure here never undoes the new settings.
+            if (previousLogo != null && previousLogo != savedLogo)
+                await DeletePreviousLogoIfUnusedAsync(business.Id, previousLogo);
+        }
+
+        /// <summary>Invoices keep showing the logo they were issued with, so a logo one of them uses stays.</summary>
+        private async Task DeletePreviousLogoIfUnusedAsync(Guid tenantId, string logoUrl)
+        {
+            try
+            {
+                if (await _businessRepository.IsLogoUsedByInvoicesAsync(tenantId, logoUrl))
+                    return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Checking whether business {BusinessId}'s previous logo is still used failed; it is kept.", tenantId);
+                return;
+            }
+
+            await TryDeleteLogoAsync(logoUrl, tenantId);
+        }
+
+        private async Task TryDeleteLogoAsync(string logoUrl, Guid tenantId)
+        {
+            try
+            {
+                await _logoStorage.DeleteAsync(logoUrl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Deleting a logo file of business {BusinessId} failed.", tenantId);
+            }
         }
 
         public async Task<BusinessCalendarConfigDTO> GetCalendarConfigAsync(Guid tenantId)
@@ -261,17 +315,53 @@ namespace AppointMe.Service.Implementation
             return name;
         }
 
-        /// <returns>The lower-case extension. Only the extension is checked (audit item S5 is still open).</returns>
-        private static string ValidateLogo(LogoUpload logo)
+        public const string InvalidLogoContentMessage = "The file isn't a PNG, JPEG or WebP image.";
+
+        /// <summary>A checked logo, read into memory, with the extension its content calls for.</summary>
+        private sealed class CheckedLogo(MemoryStream content, string extension) : IAsyncDisposable
+        {
+            public MemoryStream Content { get; } = content;
+            public string Extension { get; } = extension;
+            public ValueTask DisposeAsync() => Content.DisposeAsync();
+        }
+
+        /// <summary>
+        /// Checks the name and the actual content (magic bytes). Reads at most one byte more than the limit,
+        /// so a client that understates the length can't make this read a huge file.
+        /// </summary>
+        private static async Task<CheckedLogo> ReadLogoAsync(LogoUpload logo)
         {
             if (logo.Length > MaxLogoBytes)
                 throw new BusinessRuleException("Logo file is too large (max 2MB).");
 
-            var extension = Path.GetExtension(logo.FileName).ToLowerInvariant();
-            if (!AllowedLogoExtensions.Contains(extension))
+            var nameExtension = Path.GetExtension(logo.FileName).ToLowerInvariant();
+            if (!AllowedLogoExtensions.Contains(nameExtension))
                 throw new BusinessRuleException("Only PNG, JPG, JPEG, or WEBP files are allowed.");
 
-            return extension;
+            var content = new MemoryStream();
+            try
+            {
+                var buffer = new byte[81920];
+                int read;
+                while ((read = await logo.Content.ReadAsync(buffer)) > 0)
+                {
+                    if (content.Length + read > MaxLogoBytes)
+                        throw new BusinessRuleException("Logo file is too large (max 2MB).");
+                    content.Write(buffer, 0, read);
+                }
+
+                // The stored extension comes from the content, so the file is served with its real type.
+                var extension = LogoImageFormat.DetectExtension(content.GetBuffer().AsSpan(0, (int)content.Length))
+                    ?? throw new BusinessRuleException(InvalidLogoContentMessage);
+
+                content.Position = 0;
+                return new CheckedLogo(content, extension);
+            }
+            catch
+            {
+                await content.DisposeAsync();
+                throw;
+            }
         }
 
         /// <summary>
