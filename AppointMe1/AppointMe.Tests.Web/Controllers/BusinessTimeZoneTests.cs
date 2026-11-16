@@ -140,7 +140,7 @@ public class BusinessTimeZoneTests : IClassFixture<HolidaysWebAppFactory>
             var customer = new Domain.DomainModels.Customer
             {
                 Id = Guid.NewGuid(), TenantId = tenant, CustomerNumber = 1, FirstName = "Zone", LastName = "Test",
-                Email = "zone-customer@test.com", PhoneNumber = "+38970123456", City = "Skopje", State = "North Macedonia"
+                Email = "zone-customer@test.com", PhoneNumber = "+38970123456", City = "Skopje"
             };
             var appointment = new Domain.DomainModels.Appointment
             {

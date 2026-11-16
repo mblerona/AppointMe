@@ -29,10 +29,8 @@ namespace AppointMe.Domain.DTO
         [ValidPhoneNumber]
         public string? SecondPhoneNumber { get; set; }
 
-        [Required]
-        public string State { get; set; }
-        [Required]
-        public string City { get; set; }
+        [StringLength(100)]
+        public string? City { get; set; }
         public string? Notes { get; set; }
     }
 }

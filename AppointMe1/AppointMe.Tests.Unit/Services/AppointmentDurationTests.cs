@@ -46,7 +46,7 @@ public class AppointmentDurationTests
         _db.Customers.Add(new Customer
         {
             Id = _customerId, TenantId = _tenantId, FirstName = "Ana", LastName = "Test", Email = "ana@test.com",
-            PhoneNumber = "+38970123456", State = "MK", City = "Skopje"
+            PhoneNumber = "+38970123456", City = "Skopje"
         });
         _db.SaveChanges();
 

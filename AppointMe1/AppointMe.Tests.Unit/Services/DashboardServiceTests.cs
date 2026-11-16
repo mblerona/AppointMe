@@ -149,7 +149,7 @@ public class DashboardServiceTests
             Customer = new Customer
             {
                 FirstName = "Ana", LastName = "Doe", Email = "ana@test.com",
-                PhoneNumber = "070111222", SecondPhoneNumber = "02123456", State = "MK"
+                PhoneNumber = "070111222", SecondPhoneNumber = "02123456", City = "Skopje"
             }
         };
         var withoutCustomer = new Appointment { Id = Guid.NewGuid(), OrderNumber = "ORD-2", Status = AppointmentStatus.Completed };
@@ -163,7 +163,7 @@ public class DashboardServiceTests
         rows[0].Email.Should().Be("ana@test.com");
         rows[0].Phone1.Should().Be("070111222");
         rows[0].Phone2.Should().Be("02123456");
-        rows[0].Location.Should().Be("MK");
+        rows[0].Location.Should().Be("Skopje", "the dashboard shows the customer's city");
         rows[0].Status.Should().Be("Scheduled");
         rows[1].CustomerName.Should().Be("—");
         rows[1].Email.Should().BeEmpty();

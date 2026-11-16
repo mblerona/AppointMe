@@ -40,8 +40,7 @@ namespace AppointMe.Repository.Data
                 entity.Property(c => c.PhoneNumber).IsRequired().HasMaxLength(20);
                 entity.Property(c => c.SecondPhoneNumber).HasMaxLength(20);
 
-                entity.Property(c => c.State).IsRequired().HasMaxLength(50);
-                entity.Property(c => c.City).IsRequired().HasMaxLength(100);
+                entity.Property(c => c.City).HasMaxLength(100);
 
                 entity.Property(c => c.CustomerNumber).IsRequired();
                 entity.Property(c => c.Notes).HasMaxLength(1000);

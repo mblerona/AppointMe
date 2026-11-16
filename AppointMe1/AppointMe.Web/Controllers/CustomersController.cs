@@ -31,13 +31,13 @@ namespace AppointMe.Web.Controllers
             return View(customers);
         }
 
-        public async Task<IActionResult> Details(Guid id)
+        public async Task<IActionResult> Details(Guid id, int page = 1)
         {
             var tenantId = TenantId;
 
             try
             {
-                var customer = await _customerService.GetCustomerProfileAsync(id, tenantId);
+                var customer = await _customerService.GetCustomerProfileAsync(id, tenantId, page);
                 return View(customer);
             }
             catch (KeyNotFoundException)
@@ -90,7 +90,6 @@ namespace AppointMe.Web.Controllers
                     // Readable form in the input; the service normalizes to E.164 again on save.
                     PhoneNumber = customer.PhoneNumber.ToDisplayPhone(),
                     SecondPhoneNumber = string.IsNullOrEmpty(customer.SecondPhoneNumber) ? null : customer.SecondPhoneNumber.ToDisplayPhone(),
-                    State = customer.State,
                     Notes = customer.Notes,
                     City = customer.City,
 

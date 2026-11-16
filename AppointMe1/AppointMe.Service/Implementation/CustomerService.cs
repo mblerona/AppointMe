@@ -18,6 +18,9 @@ namespace AppointMe.Service.Implementation
         /// <summary>Each attempt that loses a race means another customer was saved, so this covers bursts of requests.</summary>
         public const int MaxCreateAttempts = 5;
 
+        /// <summary>Rows per page in the appointment list on the customer's page.</summary>
+        public const int AppointmentsPageSize = 15;
+
         private readonly ICustomerRepository _customerRepository;
         private readonly IBusinessRepository _businessRepository;
 
@@ -39,14 +42,17 @@ namespace AppointMe.Service.Implementation
             return MapToCustomerDto(customer, await ZoneOfAsync(tenantId));
         }
 
-        public async Task<CustomerProfileDTO> GetCustomerProfileAsync(Guid customerId, Guid tenantId)
+        public async Task<CustomerProfileDTO> GetCustomerProfileAsync(Guid customerId, Guid tenantId, int page = 1)
         {
-           
             var customer = await _customerRepository.GetWithAppointmentsAsync(customerId, tenantId);
             if (customer == null)
                 throw new KeyNotFoundException($"Customer with ID {customerId} not found");
 
             var zone = await ZoneOfAsync(tenantId);
+
+            var all = customer.Appointments ?? new List<Appointment>();
+            var totalPages = Math.Max(1, (int)Math.Ceiling(all.Count / (double)AppointmentsPageSize));
+            var currentPage = Math.Clamp(page, 1, totalPages);
 
             var profileDto = new CustomerProfileDTO
             {
@@ -58,19 +64,24 @@ namespace AppointMe.Service.Implementation
                 Email = customer.Email,
                 PhoneNumber = customer.PhoneNumber,
                 SecondPhoneNumber = customer.SecondPhoneNumber,
-                State = customer.State,
                 City = customer.City,
                 Notes = customer.Notes,
 
-                TotalAppointments = customer.Appointments.Count,
-                CompletedAppointments = customer.Appointments.Count(a => a.Status == AppointmentStatus.Completed),
-                ScheduledAppointments = customer.Appointments.Count(a => a.Status == AppointmentStatus.Scheduled),
-                CancelledAppointments = customer.Appointments.Count(a => a.Status == AppointmentStatus.Cancelled),
+                TotalAppointments = all.Count,
+                CompletedAppointments = all.Count(a => a.Status == AppointmentStatus.Completed),
+                ScheduledAppointments = all.Count(a => a.Status == AppointmentStatus.Scheduled),
+                CancelledAppointments = all.Count(a => a.Status == AppointmentStatus.Cancelled),
 
-                Appointments = (customer.Appointments ?? new List<Appointment>())
+                Appointments = all
                     .OrderByDescending(a => a.AppointmentDate)
+                    .ThenBy(a => a.OrderNumber)
+                    .Skip((currentPage - 1) * AppointmentsPageSize)
+                    .Take(AppointmentsPageSize)
                     .Select(a => MapToAppointmentDtoWithServices(a, zone))
                     .ToList(),
+                AppointmentsPage = currentPage,
+                AppointmentsTotalPages = totalPages,
+                AppointmentsPageSize = AppointmentsPageSize,
 
                 CreatedAt = BusinessTimeZones.FromUtc(customer.CreatedAt, zone),
                 UpdatedAt = BusinessTimeZones.FromUtc(customer.UpdatedAt, zone)
@@ -122,8 +133,7 @@ namespace AppointMe.Service.Implementation
                     Email = createCustomerDto.Email,
                     PhoneNumber = phone,
                     SecondPhoneNumber = secondPhone,
-                    State = createCustomerDto.State,
-                    City = createCustomerDto.City,
+                    City = CleanCity(createCustomerDto.City),
                     Notes = createCustomerDto.Notes,
 
                     CreatedAt = DateTime.UtcNow,
@@ -174,8 +184,8 @@ namespace AppointMe.Service.Implementation
             customer.Email = updateCustomerDto.Email ?? customer.Email;
             customer.PhoneNumber = phone;
             customer.SecondPhoneNumber = secondPhone;
-            customer.State = updateCustomerDto.State ?? customer.State;
-            customer.City = updateCustomerDto.City ?? customer.City;
+            // Optional, so an empty field clears it (unlike the other fields, null doesn't mean "keep").
+            customer.City = CleanCity(updateCustomerDto.City);
             customer.Notes = updateCustomerDto.Notes ?? customer.Notes;
             customer.UpdatedAt = DateTime.UtcNow;
 
@@ -195,6 +205,10 @@ namespace AppointMe.Service.Implementation
             await _customerRepository.SaveChangesAsync();
         }
 
+        /// <summary>City is optional: blank becomes null, otherwise trimmed.</summary>
+        private static string? CleanCity(string? city) =>
+            string.IsNullOrWhiteSpace(city) ? null : city.Trim();
+
         private static CustomerDTO MapToCustomerDto(Customer customer, string? zone)
         {
             return new CustomerDTO
@@ -206,7 +220,6 @@ namespace AppointMe.Service.Implementation
                 Email = customer.Email,
                 PhoneNumber = customer.PhoneNumber,
                 SecondPhoneNumber = customer.SecondPhoneNumber,
-                State = customer.State,
                 City = customer.City,
                 Notes = customer.Notes,
                 CreatedAt = BusinessTimeZones.FromUtc(customer.CreatedAt, zone),

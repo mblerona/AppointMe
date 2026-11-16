@@ -81,7 +81,7 @@ public sealed class LogoReuploadTests : IDisposable
         _db.Customers.Add(new Customer
         {
             Id = _customerId, TenantId = _tenant, CustomerNumber = 1, FirstName = "Ana", LastName = "Doe",
-            Email = "ana@test.com", PhoneNumber = "+38970123456", State = "MK", City = "Skopje"
+            Email = "ana@test.com", PhoneNumber = "+38970123456", City = "Skopje"
         });
         _db.ServiceOfferings.Add(new ServiceOffering { Id = _serviceId, BusinessId = _tenant, Name = "Haircut", Price = 100, IsActive = true });
         _db.SaveChanges();

@@ -42,7 +42,7 @@ public class BusinessLocalDatesTests
         _customer = new Customer
         {
             Id = Guid.NewGuid(), TenantId = _tenantId, CustomerNumber = 1, FirstName = "Ana", LastName = "Doe", Email = "ana@test.com",
-            PhoneNumber = "+38970123456", State = "MK", City = "Skopje", CreatedAt = StoredUtc, UpdatedAt = StoredUtc
+            PhoneNumber = "+38970123456", City = "Skopje", CreatedAt = StoredUtc, UpdatedAt = StoredUtc
         };
         _appointment = new Appointment
         {

@@ -334,6 +334,88 @@ Best regards,
         // =========================
         // BUSINESS RULES + HOLIDAYS
         // =========================
+
+        public async Task<DayAvailabilityDTO> GetDayAvailabilityAsync(DateOnly date, Guid tenantId)
+        {
+            var biz = await GetBusinessOrThrow(tenantId);
+            var slot = AppointmentDurationCalculator.SlotLength(biz.DefaultSlotMinutes);
+            var opening = (int)biz.WorkDayStart.TotalMinutes;
+            var closing = (int)biz.WorkDayEnd.TotalMinutes;
+
+            var result = new DayAvailabilityDTO
+            {
+                Date = date,
+                OpeningMinute = opening,
+                ClosingMinute = closing,
+                SlotMinutes = slot
+            };
+
+            var holiday = await FindHolidayAsync(date);
+            result.HolidayName = holiday == null ? null : holiday.Name ?? "Public holiday";
+            result.IsOpen = IsOpenDay(date.DayOfWeek, biz) && holiday == null;
+
+            var dayStart = date.ToDateTime(TimeOnly.MinValue);
+            var dayEnd = dayStart.AddDays(1);
+
+            // Same rule as IsTimeSlotAvailableAsync: everything except a cancelled appointment holds its time.
+            // A booking that started the day before can still reach into this one.
+            var bookings = (await _appointmentRepository.GetByDateRangeAsync(dayStart.AddDays(-1), dayEnd.AddTicks(-1), tenantId))
+                .Where(a => a.Status != AppointmentStatus.Cancelled)
+                .Select(a => new
+                {
+                    Appointment = a,
+                    Start = a.AppointmentDate,
+                    End = a.AppointmentDate.AddMinutes(a.DurationMinutes > 0 ? a.DurationMinutes : slot)
+                })
+                .Where(b => b.Start < dayEnd && b.End > dayStart)
+                .OrderBy(b => b.Start)
+                .ToList();
+
+            result.Bookings = bookings.Select(b => new DayBookingDTO
+            {
+                Id = b.Appointment.Id,
+                OrderNumber = b.Appointment.OrderNumber,
+                CustomerName = b.Appointment.Customer != null ? $"{b.Appointment.Customer.FirstName} {b.Appointment.Customer.LastName}" : "",
+                StartMinute = (int)Math.Max(0, (b.Start - dayStart).TotalMinutes),
+                EndMinute = (int)Math.Min(24 * 60, (b.End - dayStart).TotalMinutes),
+                Status = b.Appointment.Status.ToString()
+            }).ToList();
+
+            if (!result.IsOpen)
+                return result;
+
+            // Booking needs a time after "now" (ValidateAgainstBusinessRulesAsync), so a slot at "now" is already past.
+            var now = BusinessTimeZones.Now(_timeProvider, biz.TimeZoneId);
+
+            for (var minute = opening; minute < closing; minute += slot)
+            {
+                var start = dayStart.AddMinutes(minute);
+                var end = start.AddMinutes(slot);
+
+                var state = bookings.Any(b => b.Start < end && b.End > start) ? DaySlotState.Booked
+                    : start <= now ? DaySlotState.Past
+                    : DaySlotState.Free;
+
+                result.Slots.Add(new DaySlotDTO { StartMinute = minute, State = state });
+            }
+
+            return result;
+        }
+
+        /// <summary>The public holiday (MK) on this date, with its local name when there is one, or null.</summary>
+        private sealed record FoundHoliday(string? Name);
+
+        private async Task<FoundHoliday?> FindHolidayAsync(DateOnly date)
+        {
+            var holidays = await _holidayService.GetHolidaysAsync(date.Year, "MK");
+            var holiday = holidays.FirstOrDefault(h => DateOnly.FromDateTime(h.Date) == date);
+            if (holiday == null)
+                return null;
+
+            var name = !string.IsNullOrWhiteSpace(holiday.LocalName) ? holiday.LocalName : holiday.Name;
+            return new FoundHoliday(string.IsNullOrWhiteSpace(name) ? null : name);
+        }
+
         private async Task<Business> GetBusinessOrThrow(Guid tenantId)
         {
             var biz = await _businessRepository.GetByIdReadOnlyAsync(tenantId);
@@ -376,17 +458,10 @@ Best regards,
             EnsureEndsByClosingTime(appointmentDate, durationMinutes, biz);
 
             // 4) must NOT be a public holiday (MK)
-            var y = appointmentDate.Year;
-            var holidays = await _holidayService.GetHolidaysAsync(y, "MK");
-
-            var dateOnly = DateOnly.FromDateTime(appointmentDate);
-            var holiday = holidays.FirstOrDefault(h => DateOnly.FromDateTime(h.Date) == dateOnly);
-
-            if (holiday != null)
+            if (await FindHolidayAsync(DateOnly.FromDateTime(appointmentDate)) is { } holiday)
             {
-                var name = !string.IsNullOrWhiteSpace(holiday.LocalName) ? holiday.LocalName : holiday.Name;
-                if (!string.IsNullOrWhiteSpace(name))
-                    throw new BusinessRuleException($"Cannot create an appointment on a public holiday: {name}.");
+                if (holiday.Name != null)
+                    throw new BusinessRuleException($"Cannot create an appointment on a public holiday: {holiday.Name}.");
                 throw new BusinessRuleException("Cannot create an appointment on a public holiday.");
             }
         }

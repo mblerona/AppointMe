@@ -33,7 +33,6 @@ public class CustomerPhoneTests
         Email = $"{Guid.NewGuid():N}@test.com",
         PhoneNumber = phone,
         SecondPhoneNumber = second,
-        State = "MK",
         City = "Skopje"
     };
 
@@ -42,7 +41,7 @@ public class CustomerPhoneTests
         var c = new Customer
         {
             Id = Guid.NewGuid(), TenantId = Tenant, FirstName = "Ana", LastName = "Doe", Email = "ana@test.com",
-            PhoneNumber = phone, SecondPhoneNumber = second, State = "MK", City = "Skopje"
+            PhoneNumber = phone, SecondPhoneNumber = second, City = "Skopje"
         };
         _repo.Setup(r => r.GetByIdAsync(c.Id, Tenant)).ReturnsAsync(c);
         return c;

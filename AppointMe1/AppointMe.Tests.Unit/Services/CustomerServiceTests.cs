@@ -142,7 +142,6 @@ namespace AppointMe.Tests.Unit.Services
                 LastName = "B",
                 Email = "dup@test.com",
                 PhoneNumber = "070 111 111",
-                State = "MK",
                 City = "Skopje"
             };
 
@@ -169,7 +168,6 @@ namespace AppointMe.Tests.Unit.Services
                 Email = "new@test.com",
                 PhoneNumber = "070 222 222",
                 SecondPhoneNumber = "+49 30 1234567",
-                State = "MK",
                 City = "Skopje",
                 Notes = "note"
             };
@@ -221,7 +219,6 @@ namespace AppointMe.Tests.Unit.Services
                 LastName = "Y",
                 Email = "x@test.com",
                 PhoneNumber = "070 111 111",
-                State = "MK",
                 City = "Sk"
             };
 
@@ -250,7 +247,6 @@ namespace AppointMe.Tests.Unit.Services
                 LastName = customer.LastName,
                 Email = "taken@test.com", // change
                 PhoneNumber = customer.PhoneNumber,
-                State = customer.State,
                 City = customer.City
             };
 
@@ -292,7 +288,6 @@ namespace AppointMe.Tests.Unit.Services
                 Email = "new@test.com",
                 PhoneNumber = "071 999 999",
                 SecondPhoneNumber = "02 3123 456",
-                State = "MK",
                 City = "Skopje",
                 Notes = "updated"
             };
@@ -381,7 +376,6 @@ namespace AppointMe.Tests.Unit.Services
                 Email = email,
                 PhoneNumber = "+38970123123",
                 SecondPhoneNumber = "+38970456456",
-                State = "MK",
                 City = "Skopje",
                 Notes = "n",
                 CreatedAt = DateTime.UtcNow.AddDays(-1),

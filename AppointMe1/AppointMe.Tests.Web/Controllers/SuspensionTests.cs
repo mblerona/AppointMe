@@ -508,7 +508,7 @@ public class SuspensionTests : IClassFixture<PlatformAdminWebAppFactory>
         var customer = await client.PostFormAsync(SuspendedPath, "/Customers/Create", new Dictionary<string, string>
         {
             ["FirstName"] = "New", ["LastName"] = "Customer", ["Email"] = "new@test.com",
-            ["PhoneNumber"] = "070123456", ["State"] = "MK", ["City"] = "Skopje"
+            ["PhoneNumber"] = "070123456", ["City"] = "Skopje"
         });
         ShouldRedirectTo(customer, SuspendedPath);
 

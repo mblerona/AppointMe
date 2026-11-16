@@ -84,7 +84,7 @@ public class PlatformAdminServiceTests
             _db.Customers.Add(new Customer
             {
                 Id = customerIds[i], TenantId = tenantId, CustomerNumber = i + 1, FirstName = "Ana", LastName = "Doe",
-                Email = $"{Guid.NewGuid():N}@test.com", PhoneNumber = "+38970123456", State = "MK", City = "Skopje"
+                Email = $"{Guid.NewGuid():N}@test.com", PhoneNumber = "+38970123456", City = "Skopje"
             });
         }
         for (var i = 0; i < appointments; i++)

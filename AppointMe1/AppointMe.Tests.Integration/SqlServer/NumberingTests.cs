@@ -36,7 +36,7 @@ namespace AppointMe.Tests.Integration.SqlServer
 
         private static CreateCustomerDTO NewCustomerDto(string email) => new()
         {
-            FirstName = "Ana", LastName = "Doe", Email = email, PhoneNumber = "070123456", State = "North Macedonia", City = "Skopje"
+            FirstName = "Ana", LastName = "Doe", Email = email, PhoneNumber = "070123456", City = "Skopje"
         };
 
         private async Task<Guid> AddBusinessAsync()

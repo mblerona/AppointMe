@@ -45,7 +45,7 @@ public class BusinessLocalDatesPageTests : IClassFixture<HolidaysWebAppFactory>
             var customer = new Customer
             {
                 Id = Guid.NewGuid(), TenantId = Tenant, CustomerNumber = 1, FirstName = "Date", LastName = "Test",
-                Email = "date-customer@test.com", PhoneNumber = "+38970123456", City = "Skopje", State = "North Macedonia",
+                Email = "date-customer@test.com", PhoneNumber = "+38970123456", City = "Skopje",
                 CreatedAt = StoredUtc, UpdatedAt = StoredUtc
             };
             var appointment = new Appointment

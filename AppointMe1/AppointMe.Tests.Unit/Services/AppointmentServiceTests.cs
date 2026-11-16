@@ -67,7 +67,6 @@ namespace AppointMe.Tests.Unit.Services
                 LastName = "Test",
                 Email = email,
                 PhoneNumber = "070000000",
-                State = "MK",
                 City = "Skopje",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow

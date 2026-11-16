@@ -56,7 +56,6 @@ namespace AppointMe.Tests.Unit.Services
                 Email = "ana@test.com",
                 PhoneNumber = "123",
                 SecondPhoneNumber = "456",
-                State = "MK",
                 City = "Skopje",
                 Notes = "n",
                 CreatedAt = DateTime.UtcNow.AddDays(-10),
@@ -77,6 +76,95 @@ namespace AppointMe.Tests.Unit.Services
             // ordered by AppointmentDate desc in service
             profile.Appointments.Select(x => x.AppointmentDate)
                 .Should().BeInDescendingOrder();
+        }
+
+        private Customer SetUpCustomerWithAppointments(Guid tenantId, Guid customerId, int count)
+        {
+            var start = new DateTime(2026, 1, 1, 9, 0, 0);
+            var customer = new Customer
+            {
+                Id = customerId,
+                TenantId = tenantId,
+                FirstName = "Ana",
+                LastName = "Doe",
+                Email = "ana@test.com",
+                PhoneNumber = "123",
+                // Appointment i is i days after the start, so the newest is the last one built.
+                Appointments = Enumerable.Range(0, count)
+                    .Select(i => BuildAppointment(start.AddDays(i), i % 2 == 0 ? AppointmentStatus.Scheduled : AppointmentStatus.Completed))
+                    .ToList()
+            };
+
+            _customerRepo.Setup(r => r.GetWithAppointmentsAsync(customerId, tenantId)).ReturnsAsync(customer);
+            return customer;
+        }
+
+        [Fact]
+        public async Task GetCustomerProfileAsync_ShowsOnePageOf15_NewestFirst_ButCountsEverything()
+        {
+            var tenantId = Guid.NewGuid();
+            var customerId = Guid.NewGuid();
+            SetUpCustomerWithAppointments(tenantId, customerId, 40);
+
+            var first = await _sut.GetCustomerProfileAsync(customerId, tenantId);
+
+            CustomerService.AppointmentsPageSize.Should().Be(15);
+            first.Appointments.Should().HaveCount(15);
+            first.AppointmentsPage.Should().Be(1);
+            first.AppointmentsTotalPages.Should().Be(3);
+            first.Appointments[0].AppointmentDate.Should().Be(new DateTime(2026, 1, 1, 9, 0, 0).AddDays(39));
+            first.TotalAppointments.Should().Be(40);
+            first.ScheduledAppointments.Should().Be(20);
+            first.CompletedAppointments.Should().Be(20);
+
+            var last = await _sut.GetCustomerProfileAsync(customerId, tenantId, page: 3);
+
+            last.Appointments.Should().HaveCount(10);
+            last.Appointments[^1].AppointmentDate.Should().Be(new DateTime(2026, 1, 1, 9, 0, 0), "the oldest is last");
+        }
+
+        [Fact]
+        public async Task GetCustomerProfileAsync_PagesDontOverlap_AndTogetherHoldEveryAppointment()
+        {
+            var tenantId = Guid.NewGuid();
+            var customerId = Guid.NewGuid();
+            var customer = SetUpCustomerWithAppointments(tenantId, customerId, 31);
+
+            var ids = new List<Guid>();
+            for (var page = 1; page <= 3; page++)
+                ids.AddRange((await _sut.GetCustomerProfileAsync(customerId, tenantId, page)).Appointments.Select(a => a.Id));
+
+            ids.Should().OnlyHaveUniqueItems().And.BeEquivalentTo(customer.Appointments.Select(a => a.Id));
+        }
+
+        [Theory]
+        [InlineData(0, 1)]
+        [InlineData(-5, 1)]
+        [InlineData(99, 2)]
+        public async Task GetCustomerProfileAsync_OutOfRangePage_MovesToTheNearestPage(int requested, int expected)
+        {
+            var tenantId = Guid.NewGuid();
+            var customerId = Guid.NewGuid();
+            SetUpCustomerWithAppointments(tenantId, customerId, 20);
+
+            var profile = await _sut.GetCustomerProfileAsync(customerId, tenantId, requested);
+
+            profile.AppointmentsPage.Should().Be(expected);
+            profile.Appointments.Should().NotBeEmpty();
+        }
+
+        [Fact]
+        public async Task GetCustomerProfileAsync_WithoutAppointments_IsOneEmptyPage()
+        {
+            var tenantId = Guid.NewGuid();
+            var customerId = Guid.NewGuid();
+            SetUpCustomerWithAppointments(tenantId, customerId, 0);
+
+            var profile = await _sut.GetCustomerProfileAsync(customerId, tenantId, page: 3);
+
+            profile.AppointmentsPage.Should().Be(1);
+            profile.AppointmentsTotalPages.Should().Be(1);
+            profile.Appointments.Should().BeEmpty();
         }
 
         private static Appointment BuildAppointment(DateTime when, AppointmentStatus status)

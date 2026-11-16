@@ -124,7 +124,7 @@
             <th>Name</th>
             <th>Email</th>
             <th>Phone</th>
-            <th>State</th>
+            <th>City</th>
             <th style="width: 220px;">Actions</th>
         </tr>
     </thead>
@@ -150,7 +150,7 @@
                 </td>
 
                 <td>
-                    <div>@c.State</div>
+                    <div>@(string.IsNullOrWhiteSpace(c.City) ? "—" : c.City)</div>
                 </td>
 
                 <td class="text-end">

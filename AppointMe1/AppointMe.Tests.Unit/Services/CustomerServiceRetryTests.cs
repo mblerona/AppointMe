@@ -53,7 +53,7 @@ public class CustomerServiceRetryTests
 
     private static CreateCustomerDTO Dto(string email) => new()
     {
-        FirstName = "Ana", LastName = "Doe", Email = email, PhoneNumber = "070123456", State = "MK", City = "Skopje"
+        FirstName = "Ana", LastName = "Doe", Email = email, PhoneNumber = "070123456", City = "Skopje"
     };
 
     private void AddOtherCustomer(string email, int number)
@@ -62,7 +62,7 @@ public class CustomerServiceRetryTests
         other.Customers.Add(new Customer
         {
             Id = Guid.NewGuid(), TenantId = _tenantId, CustomerNumber = number, FirstName = "Other", LastName = "Request",
-            Email = email, PhoneNumber = "+38970123456", State = "MK", City = "Skopje"
+            Email = email, PhoneNumber = "+38970123456", City = "Skopje"
         });
         other.SaveChanges();
     }

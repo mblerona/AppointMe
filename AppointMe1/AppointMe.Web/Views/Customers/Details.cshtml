@@ -203,14 +203,9 @@
                         <div class="info-ic"><i class="bi bi-geo-alt"></i></div>
                         <div class="info-label">Location</div>
                         <div class="info-val">
-                            @if (!string.IsNullOrWhiteSpace(Model.City) || !string.IsNullOrWhiteSpace(Model.State))
+                            @if (!string.IsNullOrWhiteSpace(Model.City))
                             {
                                 <span>@Model.City</span>
-                                @if (!string.IsNullOrWhiteSpace(Model.City) && !string.IsNullOrWhiteSpace(Model.State))
-                                {
-                                    <span>, </span>
-                                }
-                                <span>@Model.State</span>
                             }
                             else
                             {
@@ -250,7 +245,7 @@
                     <div class="d-flex align-items-center mb-3">
                         <i class="bi bi-bar-chart-line fs-4 me-2 text-primary"></i>
                         <div>
-                            <div class="section-title">Appointment statidtics</div>
+                            <div class="section-title">Appointment statistics</div>
                           
                         </div>
                     </div>
@@ -276,40 +271,34 @@
                 </div>
             </div>
 
-            <div class="mt-3">
-                <a class="btn btn-primary w-100"
-                   asp-controller="Appointments"
-                   asp-action="Create"
-                   asp-route-customerId="@Model.Id">
-                    <i class="bi bi-plus-circle"></i> New Appointment
-                </a>
-            </div>
-
         </div>
 
         <!-- RIGHT -->
         <div class="col-lg-7">
-            <div class="card card-soft">
+            <div class="card card-soft" id="appointments">
                 <div class="card-body">
 
-                    <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                         <div>
-                            <div class="section-title">Customer Appointmnets</div>
-                           
+                            <div class="section-title">Customer Appointments</div>
+                            @if (Model.TotalAppointments > 0)
+                            {
+                                <div class="small text-muted">@Model.TotalAppointments in total</div>
+                            }
                         </div>
+                        <a class="btn btn-primary" id="new-appointment"
+                           asp-controller="Appointments"
+                           asp-action="Create"
+                           asp-route-customerId="@Model.Id">
+                            <i class="bi bi-plus-circle"></i> New Appointment
+                        </a>
                     </div>
 
                     @if (Model.Appointments == null || !Model.Appointments.Any())
                     {
                         <div class="empty-state text-center">
                             <div class="fw-bold mb-1">No appointments yet</div>
-                            <div class="text-muted small mb-3">Create the first appointment for this customer.</div>
-                            <a class="btn btn-primary"
-                               asp-controller="Appointments"
-                               asp-action="Create"
-                               asp-route-customerId="@Model.Id">
-                                <i class="bi bi-plus-circle"></i> New Appointment
-                            </a>
+                            <div class="text-muted small">Use <span class="fw-semibold">New Appointment</span> above to book the first one.</div>
                         </div>
                     }
                     else
@@ -371,6 +360,68 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        @if (Model.AppointmentsTotalPages > 1)
+                        {
+                            var current = Model.AppointmentsPage;
+                            var last = Model.AppointmentsTotalPages;
+                            var first = (current - 1) * Model.AppointmentsPageSize + 1;
+                            var shownTo = Math.Min(current * Model.AppointmentsPageSize, Model.TotalAppointments);
+
+                            // At most five numbered pages around the current one; the first and last stay reachable.
+                            var from = Math.Max(1, Math.Min(current - 2, last - 4));
+                            var to = Math.Min(last, from + 4);
+
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+                                <div class="small text-muted" id="appointments-range">Showing @first–@shownTo of @Model.TotalAppointments</div>
+
+                                <nav aria-label="Appointment pages">
+                                    <ul class="pagination pagination-sm mb-0">
+                                        <li class="page-item @(current == 1 ? "disabled" : "")">
+                                            <a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="@(current - 1)" asp-fragment="appointments" aria-label="Previous">
+                                                <i class="bi bi-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        @if (from > 1)
+                                        {
+                                            <li class="page-item"><a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="1" asp-fragment="appointments">1</a></li>
+                                            @if (from > 2)
+                                            {
+                                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                                            }
+                                        }
+
+                                        @for (var p = from; p <= to; p++)
+                                        {
+                                            if (p == current)
+                                            {
+                                                <li class="page-item active" aria-current="page"><span class="page-link">@p</span></li>
+                                            }
+                                            else
+                                            {
+                                                <li class="page-item"><a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="@p" asp-fragment="appointments">@p</a></li>
+                                            }
+                                        }
+
+                                        @if (to < last)
+                                        {
+                                            @if (to < last - 1)
+                                            {
+                                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                                            }
+                                            <li class="page-item"><a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="@last" asp-fragment="appointments">@last</a></li>
+                                        }
+
+                                        <li class="page-item @(current == last ? "disabled" : "")">
+                                            <a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="@(current + 1)" asp-fragment="appointments" aria-label="Next">
+                                                <i class="bi bi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+                        }
                     }
 
                 </div>

@@ -62,7 +62,7 @@ namespace AppointMe.Repository.Implementation
                     a.Customer!.LastName.Contains(s) ||
                     a.Customer!.PhoneNumber.Contains(s) ||
                     (a.Customer!.SecondPhoneNumber != null && a.Customer.SecondPhoneNumber.Contains(s)) ||
-                    a.Customer!.State.Contains(s) ||
+                    (a.Customer!.City != null && a.Customer.City.Contains(s)) ||
                     (normalizedPhone != null &&
                         (a.Customer!.PhoneNumber == normalizedPhone || a.Customer.SecondPhoneNumber == normalizedPhone)));
             }

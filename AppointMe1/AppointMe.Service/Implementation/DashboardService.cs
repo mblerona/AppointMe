@@ -89,7 +89,7 @@ namespace AppointMe.Service.Implementation
             Email = a.Customer?.Email ?? "",
             Phone1 = a.Customer?.PhoneNumber ?? "",
             Phone2 = a.Customer?.SecondPhoneNumber,
-            Location = a.Customer?.State ?? "",
+            Location = a.Customer?.City ?? "",
             Status = a.Status.ToString()
         };
     }

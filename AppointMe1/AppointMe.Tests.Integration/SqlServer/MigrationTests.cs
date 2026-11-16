@@ -22,6 +22,7 @@ namespace AppointMe.Tests.Integration.SqlServer
         public const string AddBusinessSuspensionAndActionLog = "20261105153755_AddBusinessSuspensionAndActionLog";
         public const string AddBusinessDeletionRequest = "20261105162458_AddBusinessDeletionRequest";
         public const string AddUserLastLogin = "20261105165944_AddUserLastLogin";
+        public const string RemoveCustomerStateOptionalCity = "20261116171903_RemoveCustomerStateOptionalCity";
 
         public static string Invoice(string tenant, string number, string issuedAt) => $@"
 INSERT INTO Invoices (Id, TenantId, AppointmentId, CustomerId, InvoiceNumber, IssuedAt, CustomerNameSnapshot,
@@ -52,6 +53,44 @@ VALUES ('{id}', '{tenant}', {number}, 'Ana', 'Doe', '{id}@x.com', '070123456', '
         public static string Appointment(string id, string tenant, string customer, string order) => $@"
 INSERT INTO Appointments (Id, TenantId, CustomerId, OrderNumber, AppointmentDate, Description)
 VALUES ('{id}', '{tenant}', '{customer}', '{order}', '2026-12-01T10:00:00', 'Test');";
+    }
+
+    [Trait("Category", SqlServerCollection.Category)]
+    public class RemoveCustomerStateOptionalCityMigrationTests
+    {
+        private static string Column(string name) =>
+            $"SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Customers' AND COLUMN_NAME = '{name}'";
+
+        [Fact]
+        public async Task DropsState_KeepsCities_AllowsNoCity_AndRollsBack()
+        {
+            await using var database = new SqlServerTestDatabase();
+            await database.MigrateToAsync(MigrationSql.AddUserLastLogin);
+
+            var tenant = Guid.NewGuid().ToString();
+            var existing = Guid.NewGuid().ToString();
+            await database.ExecuteSqlAsync(MigrationSql.Business(tenant, "Biz"));
+            await database.ExecuteSqlAsync(MigrationSql.CustomerWithoutShadowColumn(existing, tenant, 1));
+
+            await database.MigrateToAsync(MigrationSql.RemoveCustomerStateOptionalCity);
+
+            (await database.ScalarAsync(Column("State"))).Should().Be(0);
+            (await database.ScalarAsync($"SELECT COUNT(*) AS Value FROM Customers WHERE Id = '{existing}' AND City = 'Skopje'"))
+                .Should().Be(1, "existing cities are kept");
+
+            var noCity = Guid.NewGuid().ToString();
+            await database.ExecuteSqlAsync($@"
+INSERT INTO Customers (Id, TenantId, CustomerNumber, FirstName, LastName, Email, PhoneNumber, City)
+VALUES ('{noCity}', '{tenant}', 2, 'Marko', 'M', '{noCity}@x.com', '070123456', NULL);");
+
+            // Down makes City required again, so a customer without one must not stop the rollback.
+            await database.MigrateToAsync(MigrationSql.AddUserLastLogin);
+
+            (await database.ScalarAsync(Column("State"))).Should().Be(1);
+            (await database.ScalarAsync($"SELECT COUNT(*) AS Value FROM Customers WHERE Id = '{noCity}' AND City = '' AND State = ''"))
+                .Should().Be(1);
+            (await database.ScalarAsync("SELECT COUNT(*) AS Value FROM Customers")).Should().Be(2, "rolling back keeps the customers");
+        }
     }
 
     [Trait("Category", SqlServerCollection.Category)]

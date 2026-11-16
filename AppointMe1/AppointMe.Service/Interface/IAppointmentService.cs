@@ -19,5 +19,12 @@ namespace AppointMe.Service.Interface
         Task<AppointmentDTO> UpdateAppointmentAsync(Guid appointmentId, UpdateAppointmentDTO updateAppointmentDto, Guid tenantId);
         Task DeleteAppointmentAsync(Guid appointmentId, Guid tenantId);
         Task SetStatusAsync(Guid appointmentId, AppointmentStatus status, Guid tenantId);
+
+        /// <summary>
+        /// The day's slots (on the time slot interval, from opening to closing) and the bookings that block
+        /// them, for the booking form. Uses the same rules as booking: closed days, public holidays, the
+        /// business's "now" and the overlap rule (cancelled appointments don't block).
+        /// </summary>
+        Task<DayAvailabilityDTO> GetDayAvailabilityAsync(DateOnly date, Guid tenantId);
     }
 }

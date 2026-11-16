@@ -33,7 +33,6 @@ namespace AppointMe.Tests.Integration.SqlServer
             LastName = "Doe",
             Email = email ?? $"{Guid.NewGuid():N}@test.com",
             PhoneNumber = "+38970123456",
-            State = "North Macedonia",
             City = "Skopje"
         };
 

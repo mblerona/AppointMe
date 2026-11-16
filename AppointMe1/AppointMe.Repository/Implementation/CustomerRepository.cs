@@ -36,7 +36,7 @@ namespace AppointMe.Repository.Implementation
                             c.Email.Contains(searchTerm) ||
                             c.PhoneNumber.Contains(searchTerm) ||
                             (normalizedPhone != null && (c.PhoneNumber == normalizedPhone || c.SecondPhoneNumber == normalizedPhone)) ||
-                            c.State.Contains(searchTerm)))
+                            (c.City != null && c.City.Contains(searchTerm))))
                 .ToListAsync();
         }
 

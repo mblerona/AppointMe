@@ -50,7 +50,6 @@ namespace AppointMe.Tests.Integration.Repositories
                 Email = email,
                 PhoneNumber = "070123456",
                 City = "Skopje",
-                State = "North Macedonia",
                 CustomerNumber = customerNumber
             };
 

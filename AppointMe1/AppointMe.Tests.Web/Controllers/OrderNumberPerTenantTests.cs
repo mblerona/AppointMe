@@ -39,7 +39,7 @@ public class OrderNumberPerTenantTests : IClassFixture<HolidaysWebAppFactory>
             {
                 Id = Guid.NewGuid(), TenantId = tenantId, CustomerNumber = Random.Shared.Next(1, int.MaxValue),
                 FirstName = "Order", LastName = "Test", Email = $"{Guid.NewGuid():N}@test.com",
-                PhoneNumber = "+38970123456", City = "Skopje", State = "North Macedonia"
+                PhoneNumber = "+38970123456", City = "Skopje"
             };
             db.Customers.Add(c);
             await db.SaveChangesAsync();

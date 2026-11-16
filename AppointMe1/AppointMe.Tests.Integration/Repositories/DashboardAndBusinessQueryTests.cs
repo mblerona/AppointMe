@@ -26,7 +26,6 @@ namespace AppointMe.Tests.Integration.Repositories
                 Email = $"{Guid.NewGuid():N}@test.com",
                 PhoneNumber = phone,
                 City = "Skopje",
-                State = "North Macedonia",
                 CustomerNumber = Random.Shared.Next(1, int.MaxValue)
             };
             db.Customers.Add(c);

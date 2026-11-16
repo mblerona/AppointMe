@@ -69,7 +69,7 @@ namespace AppointMe.Tests.Unit.Services
             {
                 Id = Guid.NewGuid(), TenantId = _tenantId, CustomerNumber = 1,
                 FirstName = "Ana", LastName = "Doe", Email = "ana@test.com",
-                PhoneNumber = "070123456", City = "Skopje", State = "MK"
+                PhoneNumber = "070123456", City = "Skopje"
             };
             db.Customers.Add(customer);
 

@@ -33,7 +33,6 @@ public class CustomerPhoneTests : IClassFixture<CustomWebAppFactory>
         ["PhoneNumber"] = phone,
         ["SecondPhoneNumber"] = second,
         ["City"] = "Skopje",
-        ["State"] = "North Macedonia"
     };
 
     private static string Html(string text) => System.Text.Encodings.Web.HtmlEncoder.Default.Encode(text);

@@ -33,7 +33,6 @@ namespace AppointMe.Tests.Integration.Repositories
             string first = "Ana",
             string last = "Doe",
             string phone = "070123456",
-            string state = "North Macedonia",
             int customerNumber = 1)
         {
             var customer = new Customer
@@ -44,7 +43,6 @@ namespace AppointMe.Tests.Integration.Repositories
                 LastName = last,
                 Email = email,
                 PhoneNumber = phone,
-                State = state,
                 City = "Skopje",
                 CustomerNumber = customerNumber
             };
@@ -218,11 +216,11 @@ namespace AppointMe.Tests.Integration.Repositories
             SeedBusiness(db, tenantB);
 
             // tenant A customers
-            SeedCustomer(db, tenantA, first: "John", last: "Smith", email: "john@test.com", phone: "071000000", state: "MK", customerNumber: 1);
-            SeedCustomer(db, tenantA, first: "Ana", last: "Doe", email: "ana@test.com", phone: "070123456", state: "North Macedonia", customerNumber: 2);
+            SeedCustomer(db, tenantA, first: "John", last: "Smith", email: "john@test.com", phone: "071000000", customerNumber: 1);
+            SeedCustomer(db, tenantA, first: "Ana", last: "Doe", email: "ana@test.com", phone: "070123456", customerNumber: 2);
 
             // tenant B customer (should not appear)
-            SeedCustomer(db, tenantB, first: "John", last: "Other", email: "john@tenantb.com", phone: "071999999", state: "MK", customerNumber: 1);
+            SeedCustomer(db, tenantB, first: "John", last: "Other", email: "john@tenantb.com", phone: "071999999", customerNumber: 1);
 
             await db.SaveChangesAsync();
 

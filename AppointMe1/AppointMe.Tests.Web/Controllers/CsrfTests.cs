@@ -31,7 +31,6 @@ public class CsrfTests : IClassFixture<CustomWebAppFactory>
             new KeyValuePair<string,string>("Email", "ana@test.com"),
             new KeyValuePair<string,string>("PhoneNumber", "070123456"),
             new KeyValuePair<string,string>("City", "Skopje"),
-            new KeyValuePair<string,string>("State", "North Macedonia"),
         });
 
         var res = await client.PostAsync("/Customers/Create", content);

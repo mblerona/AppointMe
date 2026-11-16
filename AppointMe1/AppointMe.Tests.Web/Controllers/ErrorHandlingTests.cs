@@ -33,7 +33,6 @@ public class ErrorHandlingTests : IClassFixture<HolidaysWebAppFactory>
         ["Email"] = email,
         ["PhoneNumber"] = "070999999",
         ["City"] = "Skopje",
-        ["State"] = "North Macedonia"
     };
 
     // ---------- B1: duplicate customer email ----------
@@ -69,7 +68,6 @@ public class ErrorHandlingTests : IClassFixture<HolidaysWebAppFactory>
                 Email = "other-b1@test.com",
                 PhoneNumber = "070111111",
                 City = "Skopje",
-                State = "North Macedonia",
                 CustomerNumber = 900
             };
             db.Customers.Add(other);

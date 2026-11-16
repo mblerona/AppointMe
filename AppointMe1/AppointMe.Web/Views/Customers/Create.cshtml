@@ -111,16 +111,9 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label asp-for="State" class="form-label fw-semibold">
-                            <i class="bi bi-geo me-1"></i> State
-                        </label>
-                        <input asp-for="State" class="form-control" />
-                        <span asp-validation-for="State" class="text-danger"></span>
-                    </div>
-
-                    <div class="col-md-6">
                         <label asp-for="City" class="form-label fw-semibold">
                             <i class="bi bi-geo-alt me-1"></i> City
+                            <span class="text-muted fw-normal">(optional)</span>
                         </label>
                         <input asp-for="City" class="form-control" />
                         <span asp-validation-for="City" class="text-danger"></span>

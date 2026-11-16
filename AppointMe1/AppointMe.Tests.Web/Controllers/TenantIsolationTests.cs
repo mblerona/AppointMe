@@ -46,7 +46,6 @@ public class TenantIsolationTests : IClassFixture<CustomWebAppFactory>
                 Email = $"a-{Guid.NewGuid():N}@test.com",
                 PhoneNumber = "070000000",
                 City = "Skopje",
-                State = "North Macedonia",
                 CustomerNumber = Random.Shared.Next(1000, int.MaxValue)
             };
             db.Customers.Add(customer);

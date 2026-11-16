@@ -150,7 +150,6 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 Email = "ana@test.com",
                 PhoneNumber = "070123456",
                 City = "Skopje",
-                State = "North Macedonia",
                 CustomerNumber = 1
             };
             db.Customers.Add(customer);

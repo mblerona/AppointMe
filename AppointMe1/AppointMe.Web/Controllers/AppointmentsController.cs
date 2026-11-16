@@ -397,6 +397,41 @@ namespace AppointMe.Web.Controllers
             ViewBag.BusinessNow = config.Now.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
         }
 
+        /// <summary>The booking form's day planner: one day's slots and bookings (date as yyyy-MM-dd, the business's calendar).</summary>
+        [HttpGet]
+        public async Task<IActionResult> DayAvailability(string? date)
+        {
+            if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var day))
+                return BadRequest();
+
+            var availability = await _appointmentService.GetDayAvailabilityAsync(day, TenantId);
+
+            return Json(new
+            {
+                date = availability.Date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                isOpen = availability.IsOpen,
+                holidayName = availability.HolidayName,
+                openingMinute = availability.OpeningMinute,
+                closingMinute = availability.ClosingMinute,
+                slotMinutes = availability.SlotMinutes,
+                slots = availability.Slots.Select(s => new
+                {
+                    startMinute = s.StartMinute,
+                    state = s.State.ToString().ToLowerInvariant()
+                }),
+                bookings = availability.Bookings.Select(b => new
+                {
+                    orderNumber = b.OrderNumber,
+                    customerName = b.CustomerName,
+                    startMinute = b.StartMinute,
+                    endMinute = b.EndMinute,
+                    status = b.Status,
+                    url = Url.Action("Details", "Appointments", new { id = b.Id })
+                })
+            });
+        }
+
         [HttpGet]
         public async Task<IActionResult> CalendarHolidays(int? year)
         {

@@ -52,7 +52,7 @@ public class FeatureFlagTests : IClassFixture<HolidaysWebAppFactory>
             {
                 Id = Guid.NewGuid(), TenantId = tenantId, FirstName = "Ana", LastName = "Doe",
                 Email = $"customer-{tenantId:N}@test.com", PhoneNumber = "+38970123456",
-                City = "Skopje", State = "North Macedonia", CustomerNumber = 1
+                City = "Skopje", CustomerNumber = 1
             };
             var service = new ServiceOffering
             {
