@@ -1,0 +1,20 @@
+@* Logout confirmation, rendered once by _Layout and _AdminLayout for signed-in users.
+   Logout buttons are links to /Identity/Account/Logout with data-bs-toggle="modal" data-bs-target="#logout-confirm":
+   with JavaScript they open this dialog; without it they open the confirmation page. Only the POST logs out. *@
+<div class="modal fade" id="logout-confirm" tabindex="-1" aria-labelledby="logout-confirm-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow" style="border-radius: 16px;">
+            <div class="modal-body p-4 text-center">
+                <div class="mx-auto mb-3 d-grid rounded-circle bg-primary-subtle text-primary" style="width:52px;height:52px;place-items:center;font-size:1.4rem;">
+                    <i class="bi bi-box-arrow-right"></i>
+                </div>
+                <h2 class="h5 fw-bold mb-1" id="logout-confirm-title">Log out?</h2>
+                <p class="text-muted mb-4">Do you want to log out of AppointMe?</p>
+                <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary flex-fill">Log out</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

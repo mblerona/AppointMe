@@ -286,12 +286,11 @@ span, small, .text-muted {
 
                     @if (SignInManager.IsSignedIn(User))
                     {
-                        <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="d-inline">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="icon-btn" title="Logout">
-                                <i class="bi bi-box-arrow-right"></i>
-                            </button>
-                        </form>
+                        @* Opens the confirmation dialog (_LogoutConfirm); only its POST logs out. *@
+                        <a class="icon-btn" asp-area="Identity" asp-page="/Account/Logout" title="Logout"
+                           data-bs-toggle="modal" data-bs-target="#logout-confirm">
+                            <i class="bi bi-box-arrow-right"></i>
+                        </a>
                     }
                 </div>
 
@@ -303,6 +302,11 @@ span, small, .text-muted {
         <partial name="_Toast" />
         @RenderBody()
     </div>
+
+    @if (SignInManager.IsSignedIn(User))
+    {
+        <partial name="_LogoutConfirm" />
+    }
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     @RenderSection("Scripts", required: false)

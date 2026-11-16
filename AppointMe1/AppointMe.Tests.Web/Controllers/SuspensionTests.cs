@@ -560,7 +560,10 @@ public class SuspensionTests : IClassFixture<PlatformAdminWebAppFactory>
         var client = await LoggedInAsync(tenant.Email);
         await SetSuspendedAsync(tenant.Id);
 
-        var logout = await client.PostFormAsync(SuspendedPath, "/Identity/Account/Logout", new Dictionary<string, string>());
+        var suspendedPage = await (await client.GetAsync(SuspendedPath)).Content.ReadAsStringAsync();
+        LogoutPageTests.LogoutButtonOpensTheConfirmation(suspendedPage);
+
+        var logout = await client.PostFormAsync("/Identity/Account/Logout", "/Identity/Account/Logout", new Dictionary<string, string>());
 
         ShouldRedirectTo(logout, "/Identity/Account/Logout");
         (await client.GetAsync("/Identity/Account/Logout")).StatusCode.Should().Be(HttpStatusCode.OK);

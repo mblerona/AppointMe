@@ -13,8 +13,10 @@
         <div class="text-muted">Do you want to log out of AppointMe?</div>
     </div>
 
-    <form asp-page="./Logout" method="post">
+    <form asp-page="./Logout" method="post" class="d-flex gap-2">
         <button type="submit" class="btn btn-primary"><i class="bi bi-box-arrow-right me-1"></i> Log out</button>
+        @* The start page sends admins to /Admin and suspended tenants to /Suspended. *@
+        <a id="logout-cancel" href="~/" class="btn btn-outline-secondary">Cancel</a>
     </form>
 }
 else

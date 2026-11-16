@@ -37,6 +37,8 @@ else
     <p>For help with your account, contact <a href="mailto:@Model.SupportEmail" class="fw-semibold">@Model.SupportEmail</a>.</p>
 }
 
-<form asp-area="Identity" asp-page="/Account/Logout" method="post" class="mt-4">
-    <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-box-arrow-right me-1"></i> Log out</button>
-</form>
+<a asp-area="Identity" asp-page="/Account/Logout" class="btn btn-outline-secondary mt-4"
+   data-bs-toggle="modal" data-bs-target="#logout-confirm"><i class="bi bi-box-arrow-right me-1"></i> Log out</a>
+
+@* The account layout has no logout dialog of its own. *@
+<partial name="_LogoutConfirm" />
