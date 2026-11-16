@@ -3,15 +3,24 @@
     ViewData["Title"] = "Reactivate business";
 }
 
-<h1 class="h3 mb-3">Reactivate @Model.BusinessName?</h1>
+<a class="admin-back" asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@Model.Id"><i class="bi bi-arrow-left"></i> Back to details</a>
 
-<form method="post" asp-area="Admin" asp-controller="Tenants" asp-action="Reactivate" asp-route-id="@Model.Id" class="card">
-    <div class="card-body">
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title">Reactivate @Model.BusinessName?</h1>
+    </div>
+</div>
+
+<form method="post" asp-area="Admin" asp-controller="Tenants" asp-action="Reactivate" asp-route-id="@Model.Id" class="admin-card admin-form-card">
+    <div class="admin-card-body">
         <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
 
-        <p>Everyone at this business can use the app again straight away, and they get an email.</p>
+        <div class="admin-callout admin-callout-info">
+            <i class="bi bi-play-circle"></i>
+            <div>Everyone at this business can use the app again straight away, and they get an email.</div>
+        </div>
 
-        <div class="mb-3">
+        <div class="mb-4">
             <label asp-for="Note" class="form-label">Note (optional)</label>
             <textarea asp-for="Note" class="form-control" rows="3" maxlength="@AdminActionLog.MaxNoteLength"></textarea>
             <span asp-validation-for="Note" class="text-danger"></span>
@@ -19,8 +28,8 @@
         </div>
 
         <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">Reactivate this business</button>
-            <a class="btn btn-outline-secondary" asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@Model.Id">Cancel</a>
+            <button type="submit" class="btn btn-success"><i class="bi bi-play-circle me-1"></i> Reactivate this business</button>
+            <a class="btn btn-light" asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@Model.Id">Cancel</a>
         </div>
     </div>
 </form>

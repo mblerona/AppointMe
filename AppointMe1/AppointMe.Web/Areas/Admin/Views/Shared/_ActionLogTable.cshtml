@@ -1,6 +1,6 @@
 @model IReadOnlyList<AdminActionLogDTO>
 <div class="table-responsive">
-    <table class="table align-middle bg-white mb-0">
+    <table class="table admin-table align-middle">
         <thead>
             <tr>
                 <th>When</th>
@@ -14,7 +14,7 @@
             @foreach (var entry in Model)
             {
                 <tr>
-                    <td class="text-nowrap">@entry.At.ToString("d MMM yyyy, HH:mm")</td>
+                    <td class="text-nowrap text-muted small">@entry.At.ToString("d MMM yyyy, HH:mm")</td>
                     <td>
                         @if (entry.BusinessExists)
                         {
@@ -22,11 +22,11 @@
                         }
                         else
                         {
-                            @entry.BusinessName
+                            <span class="text-muted">@entry.BusinessName</span>
                         }
                     </td>
                     <td>
-                        @entry.Action.DisplayText()
+                        <span class="fw-semibold">@entry.Action.DisplayText()</span>
                         @if (!string.IsNullOrEmpty(entry.ChangedFields))
                         {
                             <div class="small text-muted">@entry.ChangedFields</div>
@@ -36,10 +36,10 @@
                         @(entry.Reason ?? (string.IsNullOrEmpty(entry.Note) ? "—" : ""))
                         @if (!string.IsNullOrEmpty(entry.Note))
                         {
-                            <div class="small text-muted" style="white-space: pre-line;">@entry.Note</div>
+                            <div class="small text-muted pre-line">@entry.Note</div>
                         }
                     </td>
-                    <td>@(entry.AdminEmail ?? "—")</td>
+                    <td class="text-muted small">@(entry.AdminEmail ?? "—")</td>
                 </tr>
             }
         </tbody>

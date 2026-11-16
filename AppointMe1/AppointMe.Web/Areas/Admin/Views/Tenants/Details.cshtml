@@ -3,14 +3,18 @@
     ViewData["Title"] = Model.Name;
 }
 
-<div class="mb-3">
-    <a asp-area="Admin" asp-controller="Tenants" asp-action="Index"><i class="bi bi-arrow-left"></i> All tenants</a>
-</div>
+<a class="admin-back" asp-area="Admin" asp-controller="Tenants" asp-action="Index"><i class="bi bi-arrow-left"></i> All tenants</a>
 
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h1 class="h3 mb-0">@Model.Name <partial name="_StatusBadge" model="Model.Status" /></h1>
-    <div class="d-flex gap-2">
-        <a class="btn btn-outline-primary" asp-area="Admin" asp-controller="Tenants" asp-action="Edit" asp-route-id="@Model.Id">
+<div class="admin-page-header">
+    <div class="d-flex align-items-center gap-3">
+        <span class="admin-avatar admin-avatar-lg">@Model.Name[..Math.Min(1, Model.Name.Length)]</span>
+        <div>
+            <h1 class="admin-page-title">@Model.Name <partial name="_StatusBadge" model="Model.Status" /></h1>
+            <p class="admin-page-subtitle"><i class="bi bi-envelope me-1"></i>@(Model.OwnerEmail ?? "No owner account")</p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-light" asp-area="Admin" asp-controller="Tenants" asp-action="Edit" asp-route-id="@Model.Id">
             <i class="bi bi-pencil me-1"></i> Edit
         </a>
         @if (Model.Status == BusinessStatus.Suspended)
@@ -33,77 +37,119 @@
 
 @if (Model.DeletionRequestedAt is { } deletionRequestedAt)
 {
-    <div class="alert alert-warning" id="deletion-request" role="alert">
-        <div class="fw-semibold">The tenant asked for this account to be deleted on @deletionRequestedAt.ToString("d MMM yyyy, HH:mm")</div>
-        @if (!string.IsNullOrEmpty(Model.DeletionRequestReason))
-        {
-            <div style="white-space: pre-line;">Reason: @Model.DeletionRequestReason</div>
-        }
-        <div class="mt-2 d-flex gap-2">
-            <a class="btn btn-sm btn-danger" asp-area="Admin" asp-controller="Tenants" asp-action="Approve" asp-route-id="@Model.Id">Approve</a>
-            <a class="btn btn-sm btn-outline-secondary" asp-area="Admin" asp-controller="Tenants" asp-action="Dismiss" asp-route-id="@Model.Id">Dismiss</a>
+    <div class="admin-callout admin-callout-warning" id="deletion-request" role="alert">
+        <i class="bi bi-exclamation-triangle"></i>
+        <div class="flex-grow-1">
+            <div class="admin-callout-title">The tenant asked for this account to be deleted on @deletionRequestedAt.ToString("d MMM yyyy, HH:mm")</div>
+            @if (!string.IsNullOrEmpty(Model.DeletionRequestReason))
+            {
+                <div class="pre-line">Reason: @Model.DeletionRequestReason</div>
+            }
+            <div class="mt-2 d-flex gap-2">
+                <a class="btn btn-sm btn-danger" asp-area="Admin" asp-controller="Tenants" asp-action="Approve" asp-route-id="@Model.Id">Approve</a>
+                <a class="btn btn-sm btn-light" asp-area="Admin" asp-controller="Tenants" asp-action="Dismiss" asp-route-id="@Model.Id">Dismiss</a>
+            </div>
         </div>
     </div>
 }
 
 @if (Model.Status == BusinessStatus.Suspended)
 {
-    <div class="alert alert-danger" role="alert">
-        <div class="fw-semibold">
-            Suspended
-            @if (Model.SuspendedAt is { } suspendedAt)
+    <div class="admin-callout admin-callout-danger" role="alert">
+        <i class="bi bi-slash-circle"></i>
+        <div>
+            <div class="admin-callout-title">
+                Suspended
+                @if (Model.SuspendedAt is { } suspendedAt)
+                {
+                    <text>on @suspendedAt.ToString("d MMM yyyy, HH:mm")</text>
+                }
+            </div>
+            <div>Reason: @Model.SuspensionReason?.DisplayText()</div>
+            @if (!string.IsNullOrEmpty(Model.SuspensionNote))
             {
-                <text>on @suspendedAt.ToString("d MMM yyyy, HH:mm")</text>
+                <div class="pre-line">Note: @Model.SuspensionNote</div>
             }
         </div>
-        <div>Reason: @Model.SuspensionReason?.DisplayText()</div>
-        @if (!string.IsNullOrEmpty(Model.SuspensionNote))
-        {
-            <div style="white-space: pre-line;">Note: @Model.SuspensionNote</div>
-        }
     </div>
 }
 
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="admin-card admin-stat">
+            <div class="admin-stat-icon"><i class="bi bi-people"></i></div>
+            <div>
+                <div class="admin-stat-label">Customers</div>
+                <div class="admin-stat-value" id="customer-count">@Model.CustomerCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="admin-card admin-stat">
+            <div class="admin-stat-icon is-success"><i class="bi bi-calendar-check"></i></div>
+            <div>
+                <div class="admin-stat-label">Appointments</div>
+                <div class="admin-stat-value" id="appointment-count">@Model.AppointmentCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="admin-card admin-stat">
+            <div class="admin-stat-icon is-warning"><i class="bi bi-receipt"></i></div>
+            <div>
+                <div class="admin-stat-label">Invoices</div>
+                <div class="admin-stat-value" id="invoice-count">@Model.InvoiceCount</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-3">
     <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header">Account</div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Owner email</dt>
-                    <dd class="col-sm-8">@(Model.OwnerEmail ?? "—")</dd>
-                    <dt class="col-sm-4">Created</dt>
-                    <dd class="col-sm-8">@Model.CreatedAt.ToString("d MMM yyyy, HH:mm") <span class="text-muted small">Europe/Skopje</span></dd>
+        <div class="admin-card h-100">
+            <div class="admin-card-header"><i class="bi bi-person-badge"></i> Account</div>
+            <div class="admin-card-body">
+                <dl class="admin-dl">
+                    <dt>Owner email</dt>
+                    <dd>@(Model.OwnerEmail ?? "—")</dd>
+                    <dt>Created</dt>
+                    <dd>@Model.CreatedAt.ToString("d MMM yyyy, HH:mm") <span class="text-muted small">Europe/Skopje</span></dd>
                 </dl>
             </div>
         </div>
     </div>
     <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header">Business contact details</div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Email</dt>
-                    <dd class="col-sm-8">@(Model.Email ?? "—")</dd>
-                    <dt class="col-sm-4">Phone</dt>
-                    <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.Phone) ? "—" : Model.Phone.ToDisplayPhone())</dd>
-                    <dt class="col-sm-4">Address</dt>
-                    <dd class="col-sm-8">@(Model.Address ?? "—")</dd>
+        <div class="admin-card h-100">
+            <div class="admin-card-header"><i class="bi bi-telephone"></i> Business contact details</div>
+            <div class="admin-card-body">
+                <dl class="admin-dl">
+                    <dt>Email</dt>
+                    <dd>@(Model.Email ?? "—")</dd>
+                    <dt>Phone</dt>
+                    <dd>@(string.IsNullOrEmpty(Model.Phone) ? "—" : Model.Phone.ToDisplayPhone())</dd>
+                    <dt>Address</dt>
+                    <dd>@(Model.Address ?? "—")</dd>
                 </dl>
             </div>
         </div>
     </div>
     <div class="col-12">
-        <div class="card" id="login-accounts">
-            <div class="card-header">Login accounts <span class="small text-muted">Times are in Europe/Skopje time</span></div>
+        <div class="admin-card" id="login-accounts">
+            <div class="admin-card-header">
+                <i class="bi bi-key"></i> Login accounts
+                <span class="admin-card-hint">Times are in Europe/Skopje time</span>
+            </div>
             @if (Model.Accounts.Count == 0)
             {
-                <div class="card-body text-muted">This business has no login accounts.</div>
+                <div class="admin-empty">
+                    <i class="bi bi-person-x"></i>
+                    This business has no login accounts.
+                </div>
             }
             else
             {
                 <div class="table-responsive">
-                    <table class="table align-middle mb-0">
+                    <table class="table admin-table align-middle">
                         <thead>
                             <tr>
                                 <th>Email</th>
@@ -117,21 +163,21 @@
                             @foreach (var account in Model.Accounts)
                             {
                                 <tr>
-                                    <td>@(account.Email ?? "—")</td>
+                                    <td class="fw-semibold">@(account.Email ?? "—")</td>
                                     <td>
                                         @if (account.EmailConfirmed)
                                         {
-                                            <span class="badge text-bg-success">Confirmed</span>
+                                            <span class="badge admin-pill text-bg-success">Confirmed</span>
                                         }
                                         else
                                         {
-                                            <span class="badge text-bg-warning">Not confirmed</span>
+                                            <span class="badge admin-pill text-bg-warning">Not confirmed</span>
                                         }
                                     </td>
                                     <td>
                                         @if (account.LockedOutUntil is { } lockedUntil)
                                         {
-                                            <span class="badge text-bg-danger">Locked out</span>
+                                            <span class="badge admin-pill text-bg-danger">Locked out</span>
                                             <span class="small text-muted">until @lockedUntil.ToString("d MMM yyyy, HH:mm")</span>
                                         }
                                         else
@@ -143,15 +189,15 @@
                                     <td class="text-end text-nowrap">
                                         @if (!account.EmailConfirmed)
                                         {
-                                            <a class="btn btn-sm btn-outline-primary" asp-area="Admin" asp-controller="TenantAccounts" asp-action="ResendConfirmation" asp-route-id="@Model.Id" asp-route-accountId="@account.Id">Resend confirmation email</a>
+                                            <a class="btn btn-sm btn-outline-primary" asp-area="Admin" asp-controller="TenantAccounts" asp-action="ResendConfirmation" asp-route-id="@Model.Id" asp-route-accountId="@account.Id"><i class="bi bi-envelope me-1"></i>Resend confirmation email</a>
                                         }
                                         @if (account.IsLockedOut)
                                         {
-                                            <a class="btn btn-sm btn-outline-primary" asp-area="Admin" asp-controller="TenantAccounts" asp-action="Unlock" asp-route-id="@Model.Id" asp-route-accountId="@account.Id">Unlock</a>
+                                            <a class="btn btn-sm btn-outline-primary" asp-area="Admin" asp-controller="TenantAccounts" asp-action="Unlock" asp-route-id="@Model.Id" asp-route-accountId="@account.Id"><i class="bi bi-unlock me-1"></i>Unlock</a>
                                         }
                                         @if (account.EmailConfirmed)
                                         {
-                                            <a class="btn btn-sm btn-outline-primary" asp-area="Admin" asp-controller="TenantAccounts" asp-action="SendPasswordReset" asp-route-id="@Model.Id" asp-route-accountId="@account.Id">Send password reset email</a>
+                                            <a class="btn btn-sm btn-outline-primary" asp-area="Admin" asp-controller="TenantAccounts" asp-action="SendPasswordReset" asp-route-id="@Model.Id" asp-route-accountId="@account.Id"><i class="bi bi-key me-1"></i>Send password reset email</a>
                                         }
                                     </td>
                                 </tr>
@@ -163,26 +209,14 @@
         </div>
     </div>
     <div class="col-12">
-        <div class="card">
-            <div class="card-header">Usage</div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-2">Customers</dt>
-                    <dd class="col-sm-2" id="customer-count">@Model.CustomerCount</dd>
-                    <dt class="col-sm-2">Appointments</dt>
-                    <dd class="col-sm-2" id="appointment-count">@Model.AppointmentCount</dd>
-                    <dt class="col-sm-2">Invoices</dt>
-                    <dd class="col-sm-2" id="invoice-count">@Model.InvoiceCount</dd>
-                </dl>
-            </div>
-        </div>
-    </div>
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">Action log</div>
+        <div class="admin-card">
+            <div class="admin-card-header"><i class="bi bi-journal-text"></i> Action log</div>
             @if (Model.ActionLog.Count == 0)
             {
-                <div class="card-body text-muted">No admin actions yet.</div>
+                <div class="admin-empty">
+                    <i class="bi bi-journal"></i>
+                    No admin actions yet.
+                </div>
             }
             else
             {

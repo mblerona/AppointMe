@@ -3,70 +3,86 @@
     ViewData["Title"] = "Tenants";
 }
 
-<h1 class="h3 mb-3">Tenants</h1>
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title">Tenants</h1>
+        <p class="admin-page-subtitle">Every business registered on AppointMe.</p>
+    </div>
+</div>
 
-<form method="get" asp-area="Admin" asp-controller="Tenants" asp-action="Index" class="row g-2 mb-3">
-    <div class="col-md-6">
-        <input type="search" name="search" value="@Model.Search" class="form-control"
-               placeholder="Search by business name or email" aria-label="Search by business name or email" />
-    </div>
-    <div class="col-md-3">
-        <select name="status" class="form-select" aria-label="Status">
-            <option value="" selected="@(Model.Status == null)">All statuses</option>
-            <option value="Active" selected="@(Model.Status == BusinessStatus.Active)">Active</option>
-            <option value="Suspended" selected="@(Model.Status == BusinessStatus.Suspended)">Suspended</option>
-        </select>
-    </div>
-    <div class="col-md-3 d-flex gap-2">
-        <button type="submit" class="btn btn-primary flex-grow-1">Search</button>
-        <a class="btn btn-outline-secondary" asp-area="Admin" asp-controller="Tenants" asp-action="Index">Clear</a>
-    </div>
-</form>
+<div class="admin-card">
+    <form method="get" asp-area="Admin" asp-controller="Tenants" asp-action="Index" class="admin-toolbar row g-2 m-0">
+        <div class="col-md-6 ps-0">
+            <div class="admin-search">
+                <i class="bi bi-search"></i>
+                <input type="search" name="search" value="@Model.Search" class="form-control"
+                       placeholder="Search by business name or email" aria-label="Search by business name or email" />
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select name="status" class="form-select" aria-label="Status">
+                <option value="" selected="@(Model.Status == null)">All statuses</option>
+                <option value="Active" selected="@(Model.Status == BusinessStatus.Active)">Active</option>
+                <option value="Suspended" selected="@(Model.Status == BusinessStatus.Suspended)">Suspended</option>
+            </select>
+        </div>
+        <div class="col-md-3 pe-0 d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-grow-1">Search</button>
+            <a class="btn btn-light" asp-area="Admin" asp-controller="Tenants" asp-action="Index">Clear</a>
+        </div>
+    </form>
 
-@if (Model.Tenants.Count == 0)
-{
-    <div class="alert alert-info">No tenants found.</div>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-hover align-middle bg-white">
-            <thead>
-                <tr>
-                    <th>Business</th>
-                    <th>Owner email</th>
-                    <th>Created</th>
-                    <th>Last login</th>
-                    <th>Status</th>
-                    <th class="text-end">Customers</th>
-                    <th class="text-end">Appointments</th>
-                    <th class="text-end">Invoices</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var tenant in Model.Tenants)
-                {
+    @if (Model.Tenants.Count == 0)
+    {
+        <div class="admin-empty">
+            <i class="bi bi-search"></i>
+            No tenants found.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover admin-table align-middle">
+                <thead>
                     <tr>
-                        <td>
-                            <a asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@tenant.Id">@tenant.Name</a>
-                        </td>
-                        <td>@(tenant.OwnerEmail ?? "—")</td>
-                        <td>@tenant.CreatedAt.ToString("d MMM yyyy")</td>
-                        <td class="last-login">@(tenant.LastLoginAt?.ToString("d MMM yyyy, HH:mm") ?? "Never")</td>
-                        <td>
-                            <partial name="_StatusBadge" model="tenant.Status" />
-                            @if (tenant.DeletionRequestedAt != null)
-                            {
-                                <span class="badge text-bg-warning">Deletion requested</span>
-                            }
-                        </td>
-                        <td class="text-end">@tenant.CustomerCount</td>
-                        <td class="text-end">@tenant.AppointmentCount</td>
-                        <td class="text-end">@tenant.InvoiceCount</td>
+                        <th>Business</th>
+                        <th>Owner email</th>
+                        <th>Created</th>
+                        <th>Last login</th>
+                        <th>Status</th>
+                        <th class="text-end">Customers</th>
+                        <th class="text-end">Appointments</th>
+                        <th class="text-end">Invoices</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-    <p class="text-muted small">Newest first. Dates are in Europe/Skopje time.</p>
-}
+                </thead>
+                <tbody>
+                    @foreach (var tenant in Model.Tenants)
+                    {
+                        <tr>
+                            <td>
+                                <div class="admin-tenant-cell">
+                                    <span class="admin-avatar">@tenant.Name[..Math.Min(1, tenant.Name.Length)]</span>
+                                    <a asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@tenant.Id">@tenant.Name</a>
+                                </div>
+                            </td>
+                            <td class="text-muted">@(tenant.OwnerEmail ?? "—")</td>
+                            <td class="text-nowrap">@tenant.CreatedAt.ToString("d MMM yyyy")</td>
+                            <td class="last-login text-nowrap">@(tenant.LastLoginAt?.ToString("d MMM yyyy, HH:mm") ?? "Never")</td>
+                            <td class="text-nowrap">
+                                <partial name="_StatusBadge" model="tenant.Status" />
+                                @if (tenant.DeletionRequestedAt != null)
+                                {
+                                    <span class="badge admin-pill text-bg-warning">Deletion requested</span>
+                                }
+                            </td>
+                            <td class="text-end">@tenant.CustomerCount</td>
+                            <td class="text-end">@tenant.AppointmentCount</td>
+                            <td class="text-end">@tenant.InvoiceCount</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="admin-footnote">Newest first. Dates are in Europe/Skopje time.</div>
+    }
+</div>

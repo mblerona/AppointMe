@@ -3,57 +3,72 @@
     ViewData["Title"] = "Platform administration";
 }
 
-<h1 class="h3 mb-2">Platform administration</h1>
-<p class="text-muted">Manage the businesses that use AppointMe.</p>
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title">Platform administration</h1>
+        <p class="admin-page-subtitle">Manage the businesses that use AppointMe.</p>
+    </div>
+    <a class="btn btn-primary" asp-area="Admin" asp-controller="Tenants" asp-action="Index">
+        <i class="bi bi-buildings me-1"></i> View all tenants
+    </a>
+</div>
 
 <div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="text-muted small">Total tenants</div>
-                <div class="h3 mb-0" id="total-tenants">@Model.Totals.TotalTenants</div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-card admin-stat">
+            <div class="admin-stat-icon"><i class="bi bi-buildings"></i></div>
+            <div>
+                <div class="admin-stat-label">Total tenants</div>
+                <div class="admin-stat-value" id="total-tenants">@Model.Totals.TotalTenants</div>
             </div>
         </div>
     </div>
-    <div class="col-6 col-lg-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="text-muted small">Active</div>
-                <div class="h3 mb-0" id="active-tenants">@Model.Totals.ActiveTenants</div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-card admin-stat">
+            <div class="admin-stat-icon is-success"><i class="bi bi-check2-circle"></i></div>
+            <div>
+                <div class="admin-stat-label">Active</div>
+                <div class="admin-stat-value" id="active-tenants">@Model.Totals.ActiveTenants</div>
             </div>
         </div>
     </div>
-    <div class="col-6 col-lg-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="text-muted small">Suspended</div>
-                <div class="h3 mb-0" id="suspended-tenants">@Model.Totals.SuspendedTenants</div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-card admin-stat">
+            <div class="admin-stat-icon is-danger"><i class="bi bi-pause-circle"></i></div>
+            <div>
+                <div class="admin-stat-label">Suspended</div>
+                <div class="admin-stat-value" id="suspended-tenants">@Model.Totals.SuspendedTenants</div>
             </div>
         </div>
     </div>
-    <div class="col-6 col-lg-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="text-muted small">New in the last 30 days</div>
-                <div class="h3 mb-0" id="new-tenants">@Model.Totals.NewTenantsLast30Days</div>
+    <div class="col-6 col-xl-3">
+        <div class="admin-card admin-stat">
+            <div class="admin-stat-icon is-warning"><i class="bi bi-stars"></i></div>
+            <div>
+                <div class="admin-stat-label">New in the last 30 days</div>
+                <div class="admin-stat-value" id="new-tenants">@Model.Totals.NewTenantsLast30Days</div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card mb-4">
-    <div class="card-header d-flex align-items-center gap-2">
+<div class="admin-card">
+    <div class="admin-card-header">
+        <i class="bi bi-trash3"></i>
         Pending deletion requests
-        <span class="badge @(Model.PendingDeletionRequests.Count > 0 ? "text-bg-danger" : "text-bg-secondary")" id="pending-deletions">@Model.PendingDeletionRequests.Count</span>
+        <span class="badge admin-pill @(Model.PendingDeletionRequests.Count > 0 ? "text-bg-danger" : "text-bg-secondary")" id="pending-deletions">@Model.PendingDeletionRequests.Count</span>
     </div>
     @if (Model.PendingDeletionRequests.Count == 0)
     {
-        <div class="card-body text-muted">No pending requests.</div>
+        <div class="admin-empty">
+            <i class="bi bi-inbox"></i>
+            No pending requests.
+        </div>
     }
     else
     {
         <div class="table-responsive">
-            <table class="table align-middle mb-0">
+            <table class="table admin-table align-middle">
                 <thead>
                     <tr>
                         <th>Business</th>
@@ -68,18 +83,23 @@
                     {
                         <tr>
                             <td>
-                                <a asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@request.TenantId">@request.BusinessName</a>
-                                @if (request.Status == BusinessStatus.Suspended)
-                                {
-                                    <partial name="/Areas/Admin/Views/Tenants/_StatusBadge.cshtml" model="request.Status" />
-                                }
+                                <div class="admin-tenant-cell">
+                                    <span class="admin-avatar">@request.BusinessName[..Math.Min(1, request.BusinessName.Length)]</span>
+                                    <div>
+                                        <a asp-area="Admin" asp-controller="Tenants" asp-action="Details" asp-route-id="@request.TenantId">@request.BusinessName</a>
+                                        @if (request.Status == BusinessStatus.Suspended)
+                                        {
+                                            <partial name="/Areas/Admin/Views/Tenants/_StatusBadge.cshtml" model="request.Status" />
+                                        }
+                                    </div>
+                                </div>
                             </td>
-                            <td>@(request.OwnerEmail ?? "—")</td>
+                            <td class="text-muted">@(request.OwnerEmail ?? "—")</td>
                             <td class="text-nowrap">@request.RequestedAt.ToString("d MMM yyyy")</td>
-                            <td style="white-space: pre-line;">@(request.Reason ?? "—")</td>
+                            <td class="pre-line small">@(request.Reason ?? "—")</td>
                             <td class="text-end text-nowrap">
                                 <a class="btn btn-sm btn-outline-danger" asp-area="Admin" asp-controller="Tenants" asp-action="Approve" asp-route-id="@request.TenantId">Approve</a>
-                                <a class="btn btn-sm btn-outline-secondary" asp-area="Admin" asp-controller="Tenants" asp-action="Dismiss" asp-route-id="@request.TenantId">Dismiss</a>
+                                <a class="btn btn-sm btn-light" asp-area="Admin" asp-controller="Tenants" asp-action="Dismiss" asp-route-id="@request.TenantId">Dismiss</a>
                             </td>
                         </tr>
                     }
@@ -88,7 +108,3 @@
         </div>
     }
 </div>
-
-<a class="btn btn-primary" asp-area="Admin" asp-controller="Tenants" asp-action="Index">
-    <i class="bi bi-building me-1"></i> View all tenants
-</a>

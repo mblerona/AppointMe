@@ -3,14 +3,24 @@
     ViewData["Title"] = "Action log";
 }
 
-<h1 class="h3 mb-3">Action log</h1>
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title">Action log</h1>
+        <p class="admin-page-subtitle">Everything platform admins have done to tenants.</p>
+    </div>
+</div>
 
-@if (Model.Count == 0)
-{
-    <div class="alert alert-info">No admin actions yet.</div>
-}
-else
-{
-    <partial name="_ActionLogTable" model="Model" />
-    <p class="text-muted small mt-2">Newest first, up to the latest @ViewData["Limit"]. Times are in Europe/Skopje time.</p>
-}
+<div class="admin-card">
+    @if (Model.Count == 0)
+    {
+        <div class="admin-empty">
+            <i class="bi bi-journal"></i>
+            No admin actions yet.
+        </div>
+    }
+    else
+    {
+        <partial name="_ActionLogTable" model="Model" />
+        <div class="admin-footnote">Newest first, up to the latest @ViewData["Limit"]. Times are in Europe/Skopje time.</div>
+    }
+</div>

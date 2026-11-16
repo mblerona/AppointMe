@@ -1,4 +1,15 @@
 @* The admin never has a Business, so this layout has no tenant navigation or branding. *@
+@functions {
+    string NavClass(string controller)
+    {
+        var current = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+        return current.Equals(controller, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+    }
+}
+@{
+    var adminEmail = User.Identity?.Name ?? "";
+    var initial = adminEmail.Length > 0 ? adminEmail[..1] : "A";
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,41 +19,80 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
 </head>
 
-<body class="bg-light">
-    <nav class="navbar navbar-expand navbar-dark bg-dark py-3">
-        <div class="container">
-            <a class="navbar-brand fw-bold" asp-area="Admin" asp-controller="Home" asp-action="Index">AppointMe Admin</a>
-
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link" asp-area="Admin" asp-controller="Tenants" asp-action="Index">Tenants</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" asp-area="Admin" asp-controller="ActionLog" asp-action="Index">Action log</a>
-                </li>
-            </ul>
-
-            <div class="ms-auto d-flex align-items-center gap-2">
-                <a class="btn btn-outline-light btn-sm" asp-area="Identity" asp-page="/Account/Manage/Index">
-                    <i class="bi bi-person"></i> Account
+<body class="admin">
+    <div class="admin-shell">
+        <aside class="admin-sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="admin-sidebar" aria-label="Admin navigation">
+            <div class="offcanvas-body">
+                <a class="admin-brand" asp-area="Admin" asp-controller="Home" asp-action="Index">
+                    <img src="/images/logo.png" alt="" />
+                    <span>
+                        <span class="admin-brand-name">AppointMe</span>
+                        <span class="admin-brand-tag">Platform admin</span>
+                    </span>
                 </a>
-                <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="d-inline">
-                    <button type="submit" class="btn btn-outline-light btn-sm">
-                        <i class="bi bi-box-arrow-right"></i> Logout
-                    </button>
-                </form>
-            </div>
-        </div>
-    </nav>
 
-    <main class="container mt-4">
-        <partial name="_Toast" />
-        @RenderBody()
-    </main>
+                <div class="admin-nav-label">Menu</div>
+                <ul class="admin-nav">
+                    <li>
+                        <a class="@NavClass("Home")" asp-area="Admin" asp-controller="Home" asp-action="Index">
+                            <i class="bi bi-grid-1x2"></i> Overview
+                        </a>
+                    </li>
+                    <li>
+                        <a class="@NavClass("Tenants")" asp-area="Admin" asp-controller="Tenants" asp-action="Index">
+                            <i class="bi bi-buildings"></i> Tenants
+                        </a>
+                    </li>
+                    <li>
+                        <a class="@NavClass("ActionLog")" asp-area="Admin" asp-controller="ActionLog" asp-action="Index">
+                            <i class="bi bi-journal-text"></i> Action log
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="admin-sidebar-footer">
+                    <div class="admin-user">
+                        <span class="admin-avatar">@initial</span>
+                        <div class="min-w-0" style="min-width:0">
+                            <div class="admin-user-email" title="@adminEmail">@adminEmail</div>
+                            <div class="admin-user-role">Administrator</div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-sm flex-fill" asp-area="Identity" asp-page="/Account/Manage/Index">
+                            <i class="bi bi-person"></i> Account
+                        </a>
+                        <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="flex-fill d-flex">
+                            <button type="submit" class="btn btn-sm flex-fill">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <div class="admin-main">
+            <header class="admin-topbar d-lg-none">
+                <button class="btn btn-sm text-white border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#admin-sidebar" aria-controls="admin-sidebar" aria-label="Open navigation">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <span class="fw-semibold">AppointMe Admin</span>
+            </header>
+
+            <main class="admin-content">
+                <partial name="_Toast" />
+                @RenderBody()
+            </main>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    @* The validation scripts some admin forms load need jQuery first. *@
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
     @RenderSection("Scripts", required: false)
 </body>
 </html>
